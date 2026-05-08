@@ -1,11 +1,37 @@
 from pathlib import Path
 import re
 
-FRONTEND_MAIN = Path(__file__).resolve().parents[1] / "frontend" / "src" / "main.js"
+REPO_ROOT = Path(__file__).resolve().parents[1]
+FRONTEND_DIR = REPO_ROOT / "frontend"
+FRONTEND_INDEX = FRONTEND_DIR / "index.html"
+FRONTEND_MAIN = FRONTEND_DIR / "src" / "main.js"
+
+EXPECTED_TITLE = "Женский клуб — федеральный клуб привилегий для девушек"
+FORBIDDEN_PUBLIC_COPY = (
+    "skeleton",
+    "ADMIN / PARTNER SHELL",
+    "Панель администратора и кабинет партнёра сохраняют",
+)
+REQUIRED_PUBLIC_BLOCKS = (
+    "Женский клуб",
+    "Категории партнёров",
+    "Выберите город",
+)
+
+
+def _frontend_index() -> str:
+    return FRONTEND_INDEX.read_text(encoding="utf-8")
 
 
 def _frontend_main() -> str:
     return FRONTEND_MAIN.read_text(encoding="utf-8")
+
+
+def _frontend_public_sources() -> str:
+    return "\n".join(
+        path.read_text(encoding="utf-8")
+        for path in (FRONTEND_INDEX, FRONTEND_MAIN)
+    )
 
 
 def _city_options() -> list[str]:
@@ -13,6 +39,24 @@ def _city_options() -> list[str]:
     match = re.search(r"const cities = \[(.*?)\];", source, re.S)
     assert match is not None
     return re.findall(r"'([^']+)'", match.group(1))
+
+
+def test_frontend_title_targets_girls() -> None:
+    assert f"<title>{EXPECTED_TITLE}</title>" in _frontend_index()
+
+
+def test_public_frontend_does_not_render_technical_shell_copy() -> None:
+    source = _frontend_public_sources()
+
+    for forbidden_copy in FORBIDDEN_PUBLIC_COPY:
+        assert forbidden_copy not in source
+
+
+def test_public_frontend_keeps_core_blocks() -> None:
+    source = _frontend_main()
+
+    for public_block in REQUIRED_PUBLIC_BLOCKS:
+        assert public_block in source
 
 
 def test_brand_copy_targets_girls() -> None:

@@ -55,7 +55,6 @@ root.innerHTML = `
         </a>
         <div class="topbar-actions" aria-label="Разделы кабинета">
           <a href="#login">Вход</a>
-          <a href="#admin-shell">Панель</a>
         </div>
       </nav>
 
@@ -141,24 +140,5 @@ root.innerHTML = `
       </ul>
     </section>
 
-    <section class="admin-shell" aria-labelledby="admin-shell-title" id="admin-shell">
-      <aside class="sidebar" aria-label="Навигация администратора">
-        <div class="brand sidebar-brand">
-          <span class="brand-mark" aria-hidden="true">ЖК</span>
-          <span>
-            <span class="brand-name">Женский клуб</span>
-            <span class="brand-caption">Панель администратора</span>
-          </span>
-        </div>
-        <a href="#city-selector-title">Города</a>
-        <a href="#categories-title">Категории</a>
-        <a href="#login">Кабинет партнёра</a>
-      </aside>
-      <section class="admin-content">
-        <p class="section-kicker">Admin / partner shell</p>
-        <h2 id="admin-shell-title">Женский клуб</h2>
-        <p>Панель администратора и кабинет партнёра сохраняют skeleton-навигацию, но используют мягкую светлую тему клуба.</p>
-      </section>
-    </section>
   </main>
 `;
