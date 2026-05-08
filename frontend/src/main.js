@@ -105,24 +105,23 @@ root.innerHTML = `
         <div class="city-select-card">
           <div class="city-select-shell">
             <span class="city-select-label" id="city-select-label">Город для каталога партнёров</span>
-            <details class="city-dropdown" data-city-dropdown>
-              <summary class="city-dropdown-trigger" aria-labelledby="city-select-label city-current-value">
-                <span class="city-dropdown-value" id="city-current-value" data-city-current>${cities[0]}</span>
-                <span class="city-dropdown-icon" aria-hidden="true"></span>
-              </summary>
-              <div class="city-dropdown-menu" role="listbox" aria-label="Город для каталога партнёров">
-                ${cities
-                  .map(
-                    (city, index) => `
-                      <label class="city-dropdown-option">
-                        <input type="radio" name="city" value="${city}" ${index === 0 ? 'checked' : ''} />
-                        <span>${city}</span>
-                      </label>
-                    `,
-                  )
-                  .join('')}
-              </div>
-            </details>
+            <div class="city-choice-grid" role="radiogroup" aria-labelledby="city-select-label">
+              ${cities
+                .map(
+                  (city, index) => `
+                    <button
+                      class="city-choice${index === 0 ? ' is-active' : ''}"
+                      type="button"
+                      role="radio"
+                      aria-checked="${index === 0 ? 'true' : 'false'}"
+                      data-city-choice
+                    >
+                      ${city}
+                    </button>
+                  `,
+                )
+                .join('')}
+            </div>
           </div>
           <p class="city-select-note">Чем больше мы растём, тем больше городов подключаем. Скоро появятся новые города.</p>
         </div>
@@ -157,14 +156,13 @@ root.innerHTML = `
 `;
 
 
-const cityDropdown = document.querySelector('[data-city-dropdown]');
-const cityCurrent = document.querySelector('[data-city-current]');
+document.querySelectorAll('[data-city-choice]').forEach((button) => {
+  button.addEventListener('click', () => {
+    document.querySelectorAll('[data-city-choice]').forEach((choice) => {
+      const isSelected = choice === button;
 
-if (cityDropdown && cityCurrent) {
-  cityDropdown.querySelectorAll('input[name="city"]').forEach((input) => {
-    input.addEventListener('change', () => {
-      cityCurrent.textContent = input.value;
-      cityDropdown.removeAttribute('open');
+      choice.classList.toggle('is-active', isSelected);
+      choice.setAttribute('aria-checked', String(isSelected));
     });
   });
-}
+});

@@ -79,14 +79,17 @@ def test_public_header_does_not_render_admin_panel_action() -> None:
     assert "Панель" not in _frontend_main()
 
 
-def test_city_dropdown_uses_custom_public_options() -> None:
+def test_city_selector_uses_static_choice_chips() -> None:
     source = _frontend_main()
 
-    assert '<select' not in source
-    assert '<option' not in source
-    assert 'class="city-dropdown-menu"' in source
-    assert 'class="city-dropdown-option"' in source
+    for forbidden_tag in ("<select", "<option", "<details", "<summary"):
+        assert forbidden_tag not in source
+
+    assert 'class="city-choice-grid"' in source
+    assert "city-choice${index === 0 ? ' is-active' : ''}" in source
     assert _city_options() == ["Новосибирск", "Череповец"]
+    assert "Новосибирск" in source
+    assert "Череповец" in source
 
 
 def test_frontend_city_selector_options_are_limited_to_active_cities() -> None:
@@ -94,12 +97,12 @@ def test_frontend_city_selector_options_are_limited_to_active_cities() -> None:
 
 
 def test_removed_cities_are_not_in_frontend_city_selector() -> None:
+    source = _frontend_main()
     cities = _city_options()
 
-    assert "Москва" not in cities
-    assert "Санкт-Петербург" not in cities
-    assert "Екатеринбург" not in cities
-    assert "Казань" not in cities
+    for removed_city in ("Москва", "Санкт-Петербург", "Екатеринбург", "Казань"):
+        assert removed_city not in cities
+        assert removed_city not in source
 
 
 def test_city_growth_note_is_present() -> None:
