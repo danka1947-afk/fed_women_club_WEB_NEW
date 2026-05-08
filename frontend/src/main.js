@@ -130,17 +130,23 @@ root.innerHTML = `
       <section class="panel" aria-labelledby="login-title" id="login">
         <p class="section-kicker">Личный доступ</p>
         <h2 id="login-title">Вход в кабинет клуба</h2>
-        <form class="login-form">
+        <form class="login-form" data-login-form>
           <label>
             Телефон или email
-            <input type="text" name="login" placeholder="name@example.com" />
+            <input type="email" name="email" autocomplete="email" placeholder="name@example.com" required />
           </label>
           <label>
             Пароль
-            <input type="password" name="password" placeholder="••••••••" />
+            <input type="password" name="password" autocomplete="current-password" placeholder="••••••••" required />
           </label>
-          <button type="button">Войти</button>
+          <button type="submit">Войти</button>
+          <p class="login-message" data-login-message role="status" aria-live="polite"></p>
         </form>
+        <div class="admin-dashboard" data-admin-dashboard hidden>
+          <h3>Админ-панель</h3>
+          <p>Вы вошли как: <strong data-admin-email></strong></p>
+          <button type="button" data-logout-button>Выйти</button>
+        </div>
       </section>
     </section>
 
@@ -166,3 +172,103 @@ document.querySelectorAll('[data-city-choice]').forEach((button) => {
     });
   });
 });
+
+
+const authTokenKey = 'womenClubAdminAccessToken';
+const loginForm = document.querySelector('[data-login-form]');
+const loginMessage = document.querySelector('[data-login-message]');
+const adminDashboard = document.querySelector('[data-admin-dashboard]');
+const adminEmail = document.querySelector('[data-admin-email]');
+const logoutButton = document.querySelector('[data-logout-button]');
+
+const setLoginMessage = (message = '') => {
+  loginMessage.textContent = message;
+};
+
+const showLoginForm = () => {
+  loginForm.hidden = false;
+  adminDashboard.hidden = true;
+  adminEmail.textContent = '';
+};
+
+const showAdminDashboard = (user) => {
+  loginForm.hidden = true;
+  adminDashboard.hidden = false;
+  adminEmail.textContent = user.email;
+  setLoginMessage();
+};
+
+const clearToken = () => {
+  localStorage.removeItem(authTokenKey);
+};
+
+const requestAdminMe = async (token) => {
+  const response = await fetch('/api/v1/admin/me', {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error('Invalid token');
+  }
+
+  return response.json();
+};
+
+loginForm.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  setLoginMessage();
+
+  const formData = new FormData(loginForm);
+  const payload = {
+    email: String(formData.get('email') || '').trim(),
+    password: String(formData.get('password') || ''),
+  };
+
+  try {
+    const response = await fetch('/api/v1/auth/login', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      throw new Error('Login failed');
+    }
+
+    const data = await response.json();
+    localStorage.setItem(authTokenKey, data.access_token);
+    showAdminDashboard(data.user);
+    loginForm.reset();
+  } catch (error) {
+    clearToken();
+    showLoginForm();
+    setLoginMessage('Неверный логин или пароль');
+  }
+});
+
+logoutButton.addEventListener('click', () => {
+  clearToken();
+  showLoginForm();
+});
+
+const restoreAdminSession = async () => {
+  const token = localStorage.getItem(authTokenKey);
+  if (!token) {
+    showLoginForm();
+    return;
+  }
+
+  try {
+    const user = await requestAdminMe(token);
+    showAdminDashboard(user);
+  } catch (error) {
+    clearToken();
+    showLoginForm();
+  }
+};
+
+restoreAdminSession();

@@ -4,12 +4,19 @@ import os
 from dataclasses import dataclass
 
 
+_ENV = os.getenv("ENV", "test")
+_DEFAULT_JWT_SECRET = "change-me-test-jwt-secret" if _ENV.lower() in {"test", "testing"} else ""
+
+
 @dataclass(frozen=True)
 class Settings:
     PROJECT_NAME: str = os.getenv("PROJECT_NAME", "Federal Women Club WEB")
-    ENV: str = os.getenv("ENV", "test")
+    ENV: str = _ENV
     DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./test.db")
     SECRET_KEY: str = os.getenv("SECRET_KEY", "change-me-test-secret")
+    JWT_SECRET_KEY: str = os.getenv("JWT_SECRET_KEY", _DEFAULT_JWT_SECRET)
+    JWT_ALGORITHM: str = os.getenv("JWT_ALGORITHM", "HS256")
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "1440"))
     BOT_SERVICE_TOKEN: str = os.getenv("BOT_SERVICE_TOKEN", "change-me-test-token")
     LEAD_HASH_SALT: str = os.getenv("LEAD_HASH_SALT", "change-me-test-salt")
     BACKEND_CORS_ORIGINS: str = os.getenv(
@@ -27,6 +34,10 @@ class Settings:
     @property
     def visitor_cookie_secure(self) -> bool:
         return self.ENV.lower() in {"production", "prod", "staging"}
+
+    @property
+    def is_production(self) -> bool:
+        return self.ENV.lower() in {"production", "prod"}
 
 
 settings = Settings()

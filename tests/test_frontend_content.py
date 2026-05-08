@@ -110,3 +110,17 @@ def test_city_growth_note_is_present() -> None:
         "Чем больше мы растём, тем больше городов подключаем. "
         "Скоро появятся новые города."
     ) in _frontend_main()
+
+
+def test_frontend_contains_real_login_form_and_dashboard_strings() -> None:
+    source = _frontend_main()
+
+    assert 'data-login-form' in source
+    assert 'name="email"' in source
+    assert 'name="password"' in source
+    assert '/api/v1/auth/login' in source
+    assert '/api/v1/admin/me' in source
+    assert 'Админ-панель' in source
+    assert 'Вы вошли как:' in source
+    assert 'Неверный логин или пароль' in source
+    assert 'localStorage.setItem(authTokenKey, data.access_token)' in source

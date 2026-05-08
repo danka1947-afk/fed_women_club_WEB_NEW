@@ -1,14 +1,9 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from fastapi import APIRouter
 
+from app.api.v1.endpoints import admin, auth
 
-@dataclass(slots=True)
-class SkeletonRouter:
-    prefixes: list[str] = field(default_factory=list)
-
-    def include_router(self, router: "SkeletonRouter", *, prefix: str = "") -> None:
-        self.prefixes.append(prefix)
-
-
-api_router = SkeletonRouter()
+api_router = APIRouter(prefix="/api/v1")
+api_router.include_router(auth.router)
+api_router.include_router(admin.router)
