@@ -9,6 +9,7 @@ class Partner:
     city_code: str
     name: str
     is_active: bool = True
+    city_id: int | None = None
 
 
 @dataclass(slots=True)

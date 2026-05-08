@@ -8,3 +8,4 @@ class ClientProfile:
     id: int | None
     user_id: int
     city_code: str
+    selected_city_id: int | None = None
