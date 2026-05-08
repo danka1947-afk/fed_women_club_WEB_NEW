@@ -46,13 +46,13 @@ root.innerHTML = `
   <main class="app-shell">
     <header class="hero" aria-labelledby="hero-title">
       <nav class="topbar" aria-label="Основная навигация">
-        <a class="brand" href="#hero-title" aria-label="Женский клуб">
+        <div class="brand" aria-label="Женский клуб">
           <span class="brand-mark" aria-hidden="true">ЖК</span>
           <span>
             <span class="brand-name">Женский клуб</span>
             <span class="brand-caption">Федеральный клуб привилегий для девушек</span>
           </span>
-        </a>
+        </div>
         <div class="topbar-actions" aria-label="Разделы кабинета">
           <a href="#login">Вход</a>
         </div>
@@ -103,14 +103,27 @@ root.innerHTML = `
         <h2 id="city-selector-title">Выберите город</h2>
         <p>Выберите город и откройте доступ к предложениям рядом.</p>
         <div class="city-select-card">
-          <label class="city-select-shell" for="city-select">
-            <span class="city-select-label">Город для каталога партнёров</span>
-            <span class="city-select-control">
-              <select id="city-select" name="city">
-                ${cities.map((city) => `<option>${city}</option>`).join('')}
-              </select>
-            </span>
-          </label>
+          <div class="city-select-shell">
+            <span class="city-select-label" id="city-select-label">Город для каталога партнёров</span>
+            <details class="city-dropdown" data-city-dropdown>
+              <summary class="city-dropdown-trigger" aria-labelledby="city-select-label city-current-value">
+                <span class="city-dropdown-value" id="city-current-value" data-city-current>${cities[0]}</span>
+                <span class="city-dropdown-icon" aria-hidden="true"></span>
+              </summary>
+              <div class="city-dropdown-menu" role="listbox" aria-label="Город для каталога партнёров">
+                ${cities
+                  .map(
+                    (city, index) => `
+                      <label class="city-dropdown-option">
+                        <input type="radio" name="city" value="${city}" ${index === 0 ? 'checked' : ''} />
+                        <span>${city}</span>
+                      </label>
+                    `,
+                  )
+                  .join('')}
+              </div>
+            </details>
+          </div>
           <p class="city-select-note">Чем больше мы растём, тем больше городов подключаем. Скоро появятся новые города.</p>
         </div>
       </section>
@@ -142,3 +155,16 @@ root.innerHTML = `
 
   </main>
 `;
+
+
+const cityDropdown = document.querySelector('[data-city-dropdown]');
+const cityCurrent = document.querySelector('[data-city-current]');
+
+if (cityDropdown && cityCurrent) {
+  cityDropdown.querySelectorAll('input[name="city"]').forEach((input) => {
+    input.addEventListener('change', () => {
+      cityCurrent.textContent = input.value;
+      cityDropdown.removeAttribute('open');
+    });
+  });
+}

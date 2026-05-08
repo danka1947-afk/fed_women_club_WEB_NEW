@@ -66,6 +66,29 @@ def test_brand_copy_targets_girls() -> None:
     assert "Федеральный клуб привилегий для женщин" not in source
 
 
+def test_public_brand_block_is_static_not_clickable() -> None:
+    source = _frontend_main()
+
+    assert '<div class="brand" aria-label="Женский клуб">' in source
+    assert not re.search(r'<a[^>]*class="brand"', source)
+    assert not re.search(r'<button[^>]*class="brand"', source)
+    assert not re.search(r'class="brand"[^>]*(href|type)=', source)
+
+
+def test_public_header_does_not_render_admin_panel_action() -> None:
+    assert "Панель" not in _frontend_main()
+
+
+def test_city_dropdown_uses_custom_public_options() -> None:
+    source = _frontend_main()
+
+    assert '<select' not in source
+    assert '<option' not in source
+    assert 'class="city-dropdown-menu"' in source
+    assert 'class="city-dropdown-option"' in source
+    assert _city_options() == ["Новосибирск", "Череповец"]
+
+
 def test_frontend_city_selector_options_are_limited_to_active_cities() -> None:
     assert _city_options() == ["Новосибирск", "Череповец"]
 
