@@ -2,10 +2,7 @@ const root = document.querySelector('#root');
 
 const cities = [
   'Новосибирск',
-  'Москва',
-  'Санкт-Петербург',
-  'Екатеринбург',
-  'Казань',
+  'Череповец',
 ];
 
 const categories = [
@@ -53,7 +50,7 @@ root.innerHTML = `
           <span class="brand-mark" aria-hidden="true">ЖК</span>
           <span>
             <span class="brand-name">Женский клуб</span>
-            <span class="brand-caption">Федеральный клуб привилегий для женщин</span>
+            <span class="brand-caption">Федеральный клуб привилегий для девушек</span>
           </span>
         </a>
         <div class="topbar-actions" aria-label="Разделы кабинета">
@@ -66,7 +63,7 @@ root.innerHTML = `
         <section class="hero-copy">
           <p class="eyebrow">Premium beauty / lifestyle</p>
           <h1 id="hero-title">Женский клуб</h1>
-          <p class="subtitle">Федеральный клуб привилегий для женщин</p>
+          <p class="subtitle">Федеральный клуб привилегий для девушек</p>
           <p class="hero-description">
             Красота, забота, отдых и вдохновение рядом с вами. Открывайте
             предложения партнёров клуба в своём городе и пользуйтесь
@@ -106,12 +103,17 @@ root.innerHTML = `
         <p class="section-kicker">География клуба</p>
         <h2 id="city-selector-title">Выберите город</h2>
         <p>Выберите город и откройте доступ к предложениям рядом.</p>
-        <label>
-          Город для каталога партнёров
-          <select name="city">
-            ${cities.map((city) => `<option>${city}</option>`).join('')}
-          </select>
-        </label>
+        <div class="city-select-card">
+          <label class="city-select-shell" for="city-select">
+            <span class="city-select-label">Город для каталога партнёров</span>
+            <span class="city-select-control">
+              <select id="city-select" name="city">
+                ${cities.map((city) => `<option>${city}</option>`).join('')}
+              </select>
+            </span>
+          </label>
+          <p class="city-select-note">Чем больше мы растём, тем больше городов подключаем. Скоро появятся новые города.</p>
+        </div>
       </section>
 
       <section class="panel" aria-labelledby="login-title" id="login">
