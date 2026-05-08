@@ -28,7 +28,7 @@ def create_admin(email: str, password: str) -> bool:
         admin = AdminUser(
             email=normalized_email,
             password_hash=hash_password(password),
-            role=UserRole.admin.value,
+            role=UserRole.ADMIN.value,
             is_active=True,
         )
         session.add(admin)

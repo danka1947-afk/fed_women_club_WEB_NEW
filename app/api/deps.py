@@ -43,7 +43,7 @@ def get_current_admin(
         raise unauthorized
     if not admin.is_active:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Inactive admin user")
-    if admin.role != UserRole.admin.value:
+    if admin.role != UserRole.ADMIN.value:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin role required")
     return admin
 

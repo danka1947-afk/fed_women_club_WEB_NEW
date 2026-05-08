@@ -31,13 +31,13 @@ def client_with_admin_db() -> Generator[TestClient, None, None]:
                 AdminUser(
                     email="admin@example.com",
                     password_hash=hash_password("StrongPassword123"),
-                    role=UserRole.admin.value,
+                    role=UserRole.ADMIN.value,
                     is_active=True,
                 ),
                 AdminUser(
                     email="inactive@example.com",
                     password_hash=hash_password("StrongPassword123"),
-                    role=UserRole.admin.value,
+                    role=UserRole.ADMIN.value,
                     is_active=False,
                 ),
             ]
@@ -63,6 +63,11 @@ def test_password_hash_verify_works() -> None:
     assert password_hash != "StrongPassword123"
     assert verify_password("StrongPassword123", password_hash) is True
     assert verify_password("WrongPassword", password_hash) is False
+
+
+def test_user_role_admin_serializes_to_string_value() -> None:
+    assert UserRole.ADMIN.value == "admin"
+    assert UserRole.ADMIN == "admin"
 
 
 def test_admin_login_succeeds_with_correct_password(client_with_admin_db: TestClient) -> None:
