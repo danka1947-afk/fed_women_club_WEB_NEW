@@ -155,6 +155,25 @@ def test_frontend_contains_dashboard_shell_classes() -> None:
     assert "min-width: 0;" in styles
 
 
+def test_frontend_contains_lotus_line_art_background() -> None:
+    source = _frontend_main()
+    styles = _frontend_styles()
+
+    assert "lotus-line-art" in styles or "lotus-bg" in styles or "lotus" in source
+    assert "dashboard-shell" in source
+
+    for expected in (
+        "Женский клуб",
+        "Федеральный клуб привилегий для девушек",
+        "Новосибирск",
+        "Череповец",
+        "womenClubAdminAccessToken",
+        "womenclub_partner_token",
+        "womenclub_client_token",
+    ):
+        assert expected in source
+
+
 def test_frontend_keeps_required_public_role_nav_and_token_copy() -> None:
     source = _frontend_main()
 

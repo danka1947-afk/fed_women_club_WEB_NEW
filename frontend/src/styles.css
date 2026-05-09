@@ -10,6 +10,7 @@
   --color-border: rgba(201, 130, 120, 0.25);
   --shadow-soft: 0 24px 70px rgba(143, 81, 75, 0.13);
   --shadow-card: 0 18px 48px rgba(201, 130, 120, 0.15);
+  --lotus-line-art: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20240%20240'%20fill='none'%20stroke='%23b98278'%20stroke-width='2.2'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Cpath%20d='M120%2028C101%2056%2094%2085%20120%20125C146%2085%20139%2056%20120%2028Z'/%3E%3Cpath%20d='M82%2055C68%2089%2072%20117%20120%20154C123%20107%20110%2078%2082%2055Z'/%3E%3Cpath%20d='M158%2055C172%2089%20168%20117%20120%20154C117%20107%20130%2078%20158%2055Z'/%3E%3Cpath%20d='M47%2095C65%20139%2092%20168%20120%20178C112%20136%2087%20108%2047%2095Z'/%3E%3Cpath%20d='M193%2095C175%20139%20148%20168%20120%20178C128%20136%20153%20108%20193%2095Z'/%3E%3Cpath%20d='M30%20142C62%20182%2091%20199%20120%20200C94%20168%2068%20149%2030%20142Z'/%3E%3Cpath%20d='M210%20142C178%20182%20149%20199%20120%20200C146%20168%20172%20149%20210%20142Z'/%3E%3Cpath%20d='M62%20202C93%20217%20147%20217%20178%20202'/%3E%3Cpath%20d='M88%20184C104%20194%20136%20194%20152%20184'/%3E%3C/svg%3E");
   --radius-lg: 32px;
   --radius-md: 22px;
   --radius-sm: 14px;
@@ -37,15 +38,58 @@ body {
     linear-gradient(135deg, var(--color-background), var(--color-background-soft));
 }
 
+body.is-dashboard::before,
+body.is-dashboard::after,
+.app-shell::before,
+.app-shell::after,
+.dashboard-shell::before {
+  position: fixed;
+  z-index: 0;
+  display: block;
+  background-image: var(--lotus-line-art);
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+  content: "";
+  pointer-events: none;
+}
+
 a {
   color: inherit;
   text-decoration: none;
 }
 
 .app-shell {
+  position: relative;
+  z-index: 1;
   width: min(100% - 32px, var(--max-width));
   margin: 0 auto;
   padding: 28px 0 56px;
+}
+
+.app-shell::before {
+  top: 78px;
+  right: max(10px, calc((100vw - var(--max-width)) / 2 - 132px));
+  width: min(42vw, 520px);
+  height: min(42vw, 520px);
+  opacity: 0.08;
+  transform: rotate(-8deg);
+}
+
+.app-shell::after {
+  bottom: 18px;
+  left: max(8px, calc((100vw - var(--max-width)) / 2 - 86px));
+  width: min(28vw, 300px);
+  height: min(28vw, 300px);
+  opacity: 0.055;
+  transform: rotate(12deg);
+}
+
+.hero,
+.panel,
+.feature-card {
+  position: relative;
+  z-index: 1;
 }
 
 .hero,
@@ -510,6 +554,18 @@ h2 {
   .app-shell {
     width: min(100% - 20px, var(--max-width));
     padding-top: 10px;
+  }
+
+  .app-shell::before {
+    top: 56px;
+    right: -92px;
+    width: 280px;
+    height: 280px;
+    opacity: 0.045;
+  }
+
+  .app-shell::after {
+    display: none;
   }
 
   .hero,
@@ -1354,9 +1410,44 @@ body.is-dashboard {
     linear-gradient(135deg, #fff8f5 0%, #f8ebe6 48%, #fffdfb 100%);
 }
 
+body.is-dashboard::before {
+  right: -160px;
+  bottom: -150px;
+  width: min(42vw, 520px);
+  height: min(42vw, 520px);
+  opacity: 0.045;
+  transform: rotate(16deg);
+}
+
+body.is-dashboard::after {
+  bottom: 4vh;
+  left: -92px;
+  width: min(34vw, 390px);
+  height: min(34vw, 390px);
+  opacity: 0.065;
+  transform: rotate(-13deg);
+}
+
 .dashboard-shell {
+  position: relative;
+  z-index: 1;
   min-height: 100vh;
   color: var(--color-text);
+}
+
+.dashboard-shell::before {
+  top: 92px;
+  right: max(-118px, calc((100vw - 1680px) / 2 - 84px));
+  width: min(38vw, 600px);
+  height: min(38vw, 600px);
+  opacity: 0.075;
+  transform: rotate(-7deg);
+}
+
+.dashboard-topbar,
+.dashboard-layout {
+  position: relative;
+  z-index: 1;
 }
 
 .dashboard-topbar {
@@ -1699,6 +1790,29 @@ body.is-dashboard {
 }
 
 @media (max-width: 640px) {
+  body.is-dashboard::before,
+  body.is-dashboard::after {
+    opacity: 0.04;
+  }
+
+  .dashboard-shell::before {
+    top: 76px;
+    right: -140px;
+    width: 330px;
+    height: 330px;
+    opacity: 0.045;
+  }
+
+  body.is-dashboard::before {
+    display: none;
+  }
+
+  body.is-dashboard::after {
+    left: -130px;
+    width: 280px;
+    height: 280px;
+  }
+
   .dashboard-layout {
     --dashboard-width: min(100% - 20px, 1680px);
     width: var(--dashboard-width);
