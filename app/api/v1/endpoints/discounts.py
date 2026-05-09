@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from app.api.v1.router import SkeletonRouter
+from fastapi import APIRouter
 
 
-router = SkeletonRouter()
+router = APIRouter(prefix="/discounts", tags=["discounts"])
