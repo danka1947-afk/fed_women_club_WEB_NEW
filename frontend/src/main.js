@@ -180,14 +180,14 @@ const partnerTokenKey = 'womenclub_partner_token';
 const clientTokenKey = 'womenclub_client_token';
 let activeLoginMode = 'admin';
 const adminTabs = [
-  { id: 'overview', label: 'Главная' },
-  { id: 'users', label: 'Пользователи' },
-  { id: 'cities', label: 'Города' },
-  { id: 'categories', label: 'Категории' },
-  { id: 'partners', label: 'Партнёры' },
-  { id: 'offers', label: 'Предложения' },
-  { id: 'qr', label: 'QR / лиды' },
-  { id: 'verifications', label: 'Подтверждения' },
+  { id: 'overview', label: 'Главная', icon: '⌂' },
+  { id: 'users', label: 'Пользователи', icon: '👥' },
+  { id: 'cities', label: 'Города', icon: '⌖' },
+  { id: 'categories', label: 'Категории', icon: '✦' },
+  { id: 'partners', label: 'Партнёры', icon: '♡' },
+  { id: 'offers', label: 'Предложения', icon: '%' },
+  { id: 'qr', label: 'QR / лиды', icon: 'QR' },
+  { id: 'verifications', label: 'Подтверждения', icon: '✓' },
 ];
 
 const adminState = {
@@ -209,10 +209,10 @@ const adminState = {
 };
 
 const partnerTabs = [
-  { id: 'profile', label: 'Профиль' },
-  { id: 'offers', label: 'Предложения' },
-  { id: 'qr', label: 'QR / лиды' },
-  { id: 'verifications', label: 'Подтверждения' },
+  { id: 'profile', label: 'Профиль', icon: '♡' },
+  { id: 'offers', label: 'Предложения', icon: '%' },
+  { id: 'qr', label: 'QR / лиды', icon: 'QR' },
+  { id: 'verifications', label: 'Подтверждения', icon: '✓' },
 ];
 
 const partnerState = {
@@ -228,10 +228,10 @@ const partnerState = {
 };
 
 const clientTabs = [
-  { id: 'profile', label: 'Профиль' },
-  { id: 'catalog', label: 'Каталог' },
-  { id: 'subscription', label: 'Моя подписка' },
-  { id: 'history', label: 'История' },
+  { id: 'profile', label: 'Профиль', icon: '♡' },
+  { id: 'catalog', label: 'Каталог', icon: '✦' },
+  { id: 'subscription', label: 'Моя подписка', icon: '₽' },
+  { id: 'history', label: 'История', icon: '↺' },
 ];
 
 const clientState = {
@@ -376,9 +376,16 @@ const getLogoutAttr = (role) => ({
   client: 'data-client-logout-button',
 }[role]);
 
+const getRoleCaption = (role) => ({
+  admin: 'Управление клубом, партнёрами и подтверждениями',
+  partner: 'Рабочее место партнёра клуба',
+  client: 'Персональный аккаунт с привилегиями',
+}[role]);
+
 const renderDashboardApp = (role) => {
   const user = getRoleUser(role) || {};
   const roleTitle = getRoleTitle(role);
+  const roleCaption = getRoleCaption(role);
   const contact = user.email || user.phone || 'пользователь клуба';
   const dashboardAttr = getDashboardDataAttr(role);
   const tabAttr = getTabDataAttr(role);
@@ -399,6 +406,7 @@ const renderDashboardApp = (role) => {
         <div class="dashboard-title-block">
           <p class="section-kicker">Кабинет клуба</p>
           <h1>${roleTitle}</h1>
+          <p class="dashboard-role-caption">${roleCaption}</p>
         </div>
         <div class="dashboard-user-block">
           <span>${escapeHtml(contact)}</span>
@@ -407,11 +415,18 @@ const renderDashboardApp = (role) => {
       </header>
       <div class="dashboard-layout">
         <aside class="dashboard-sidebar" aria-label="Разделы кабинета">
-          ${getRoleTabs(role).map((tab) => `
-            <button class="dashboard-nav-button${activeTab === tab.id ? ' is-active' : ''}" type="button" ${tabAttr}="${tab.id}">
-              ${tab.label}
-            </button>
-          `).join('')}
+          <div class="dashboard-sidebar-heading">
+            <span>Навигация</span>
+            <strong>${roleTitle}</strong>
+          </div>
+          <nav class="dashboard-nav" aria-label="Меню кабинета">
+            ${getRoleTabs(role).map((tab) => `
+              <button class="dashboard-nav-button${activeTab === tab.id ? ' is-active' : ''}" type="button" ${tabAttr}="${tab.id}">
+                <span class="dashboard-nav-icon" aria-hidden="true">${tab.icon || '•'}</span>
+                <span>${tab.label}</span>
+              </button>
+            `).join('')}
+          </nav>
         </aside>
         <main class="dashboard-main">
           <div class="admin-dashboard ${role}-dashboard" ${dashboardAttr}></div>
@@ -1021,27 +1036,49 @@ const renderAdminTabContent = () => {
 
 const renderOverviewTab = () => {
   const cards = [
-    ['Пользователи', adminState.users.length],
-    ['Города', adminState.cities.length],
-    ['Категории', adminState.categories.length],
-    ['Партнёры', adminState.partners.length],
-    ['Подтверждения', adminState.verifications.length],
-    ['Лиды', adminState.leads.reduce((sum, lead) => sum + Number(lead.total_clicks || 0), 0)],
+    ['Пользователи', adminState.users.length, 'Аккаунты всех ролей'],
+    ['Города', adminState.cities.length, 'Активная география'],
+    ['Категории', adminState.categories.length, 'Направления каталога'],
+    ['Партнёры', adminState.partners.length, 'CRM-база клуба'],
+    ['Подтверждения', adminState.verifications.length, 'Сессии привилегий'],
+    ['Лиды', adminState.leads.reduce((sum, lead) => sum + Number(lead.total_clicks || 0), 0), 'Переходы по QR'],
+  ];
+  const quickActions = [
+    ['users', 'Пользователи', 'Создать или активировать аккаунт'],
+    ['partners', 'Партнёры', 'Добавить партнёра и владельца'],
+    ['cities', 'Города', 'Настроить географию клуба'],
+    ['qr', 'QR / лиды', 'Посмотреть QR-ссылки и лиды'],
   ];
 
   return `
-    <div class="admin-section-heading">
+    <div class="admin-section-heading admin-page-heading">
+      <p class="section-kicker">CRM overview</p>
       <h4>Обзор</h4>
       <p>${adminState.overviewPartialError ? 'Не удалось загрузить часть данных.' : 'Короткая сводка по справочникам и активности.'}</p>
     </div>
     <div class="summary-grid">
-      ${cards.map(([label, value]) => `
+      ${cards.map(([label, value, caption]) => `
         <article class="summary-card">
           <span>${escapeHtml(label)}</span>
           <strong>${escapeHtml(value)}</strong>
+          <small>${escapeHtml(caption)}</small>
         </article>
       `).join('')}
     </div>
+    <section class="quick-actions-panel" aria-labelledby="quick-actions-title">
+      <div class="admin-section-heading">
+        <h4 id="quick-actions-title">Быстрые действия</h4>
+        <p>Самые частые административные разделы в один клик.</p>
+      </div>
+      <div class="quick-actions-grid">
+        ${quickActions.map(([tab, label, caption]) => `
+          <button class="quick-action-card" type="button" data-admin-tab="${tab}">
+            <span>${escapeHtml(label)}</span>
+            <strong>${escapeHtml(caption)}</strong>
+          </button>
+        `).join('')}
+      </div>
+    </section>
   `;
 };
 
@@ -1178,7 +1215,7 @@ const renderVerificationsTab = () => `
 
 const renderTable = (headers, rows, trustedHtml = false) => {
   if (!rows.length) {
-    return '<p class="empty-note">Пока нет данных.</p>';
+    return '<div class="empty-note">Пока нет данных.</div>';
   }
 
   return `
