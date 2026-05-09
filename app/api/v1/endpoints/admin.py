@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import require_admin
 from app.core.categories import WOMEN_CLUB_CATEGORY_SLUGS, get_women_club_categories
+from app.core.security import hash_password
 from app.db.session import get_db
 from app.models.city import City
 from app.models.client import ClientProfile
@@ -18,6 +19,9 @@ from app.models.partner import Partner, PartnerOffer, PartnerQrLink
 from app.models.user import AdminUser, User, UserRole
 from app.models.verification import PrivilegeVerificationSession
 from app.schemas.admin import (
+    AdminManagedUserCreate,
+    AdminManagedUserRead,
+    AdminManagedUserUpdate,
     AdminVerificationRead,
     CategoryRead,
     CityCreate,
@@ -45,6 +49,8 @@ from app.services.qr_links import (
 router = APIRouter(prefix="/admin", tags=["admin"])
 
 CITY_DUPLICATE_DETAIL = "City with this slug or name already exists"
+USER_DUPLICATE_DETAIL = "User with this email or phone already exists"
+ALLOWED_USER_ROLES = tuple(role.value for role in UserRole)
 PARTNER_TEXT_FIELDS = (
     "description",
     "address",
@@ -61,6 +67,7 @@ PARTNER_OFFER_TEXT_FIELDS = ("description", "benefit_text", "conditions", "image
 @router.get("/me", response_model=AdminUserRead)
 def read_admin_me(admin: AdminUser = Depends(require_admin)) -> AdminUser:
     return admin
+
 
 @router.get("/verifications", response_model=list[AdminVerificationRead])
 def list_admin_verifications(
@@ -97,6 +104,100 @@ def list_admin_verifications(
         _admin_verification_to_read(session, client_name, partner_name, city_id, city_name, offer_title)
         for session, client_name, partner_name, city_id, city_name, offer_title in db.execute(statement).all()
     ]
+
+
+@router.get("/users", response_model=list[AdminManagedUserRead])
+def list_admin_users(
+    role: str | None = None,
+    is_active: bool | None = None,
+    q: str | None = None,
+    admin: AdminUser = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> list[User]:
+    _ = admin
+    statement = select(User).order_by(User.id.asc())
+
+    if role is not None:
+        statement = statement.where(User.role == _normalize_user_role(role))
+    if is_active is not None:
+        statement = statement.where(User.is_active == is_active)
+    if q is not None:
+        search = q.strip()
+        if search:
+            pattern = f"%{search}%"
+            statement = statement.where(or_(User.email.ilike(pattern), User.phone.ilike(pattern)))
+
+    return list(db.execute(statement).scalars().all())
+
+
+@router.post("/users", response_model=AdminManagedUserRead)
+def create_admin_user(
+    payload: AdminManagedUserCreate,
+    admin: AdminUser = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> User:
+    _ = admin
+    email = _normalize_user_email(payload.email)
+    phone = _normalize_user_phone(payload.phone)
+    _ensure_user_contact_present(email, phone)
+    role = _normalize_user_role(payload.role)
+    password = _normalize_user_password(payload.password)
+    _ensure_unique_user_identity(db, email=email, phone=phone)
+
+    user = User(
+        email=email,
+        phone=phone,
+        password_hash=hash_password(password),
+        role=role,
+        is_active=payload.is_active,
+    )
+    db.add(user)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise _user_duplicate_error() from None
+    db.refresh(user)
+    return user
+
+
+@router.patch("/users/{user_id}", response_model=AdminManagedUserRead)
+def update_admin_user(
+    user_id: int,
+    payload: AdminManagedUserUpdate,
+    admin: AdminUser = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> User:
+    _ = admin
+    user = db.get(User, user_id)
+    if user is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+    update_data = payload.model_dump(exclude_unset=True)
+    next_email = _normalize_user_email(update_data["email"]) if "email" in update_data else user.email
+    next_phone = _normalize_user_phone(update_data["phone"]) if "phone" in update_data else user.phone
+    _ensure_user_contact_present(next_email, next_phone)
+    _ensure_unique_user_identity(db, email=next_email, phone=next_phone, exclude_user_id=user.id)
+
+    if "email" in update_data:
+        user.email = next_email
+    if "phone" in update_data:
+        user.phone = next_phone
+    if "role" in update_data:
+        user.role = _normalize_user_role(update_data["role"])
+    if "is_active" in update_data:
+        user.is_active = update_data["is_active"]
+    if "password" in update_data:
+        if update_data["password"] is not None:
+            user.password_hash = hash_password(_normalize_user_password(update_data["password"]))
+
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise _user_duplicate_error() from None
+    db.refresh(user)
+    return user
 
 
 @router.get("/cities", response_model=list[CityRead])
@@ -524,6 +625,72 @@ def _admin_verification_to_read(
             "ttl_seconds": _ttl_seconds(session.expires_at),
         }
     )
+
+
+def _normalize_user_email(value: str | None) -> str | None:
+    if value is None:
+        return None
+    normalized = value.strip().lower()
+    return normalized or None
+
+
+def _normalize_user_phone(value: str | None) -> str | None:
+    if value is None:
+        return None
+    normalized = value.strip()
+    return normalized or None
+
+
+def _ensure_user_contact_present(email: str | None, phone: str | None) -> None:
+    if email is None and phone is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email or phone is required",
+        )
+
+
+def _normalize_user_role(value: str | None) -> str:
+    normalized = value.strip().lower() if value is not None else ""
+    if normalized not in ALLOWED_USER_ROLES:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid user role")
+    return normalized
+
+
+def _normalize_user_password(value: str) -> str:
+    normalized = value.strip()
+    if len(normalized) < 8:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password must be at least 8 characters",
+        )
+    return normalized
+
+
+def _ensure_unique_user_identity(
+    db: Session,
+    *,
+    email: str | None,
+    phone: str | None,
+    exclude_user_id: int | None = None,
+) -> None:
+    conditions = []
+    if email is not None:
+        conditions.append(User.email == email)
+    if phone is not None:
+        conditions.append(User.phone == phone)
+    if not conditions:
+        return
+
+    statement = select(User.id).where(or_(*conditions))
+    if exclude_user_id is not None:
+        statement = statement.where(User.id != exclude_user_id)
+    duplicate_id = db.execute(statement.limit(1)).scalar_one_or_none()
+    if duplicate_id is not None:
+        raise _user_duplicate_error()
+
+
+def _user_duplicate_error() -> HTTPException:
+    return HTTPException(status_code=status.HTTP_409_CONFLICT, detail=USER_DUPLICATE_DETAIL)
 
 
 def _qr_slug_duplicate_error() -> HTTPException:

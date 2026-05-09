@@ -30,6 +30,32 @@ class CityUpdate(BaseModel):
     sort_order: int | None = None
 
 
+class AdminManagedUserRead(BaseModel):
+    id: int
+    email: str | None
+    phone: str | None
+    role: str
+    is_active: bool
+
+    model_config = {"from_attributes": True}
+
+
+class AdminManagedUserCreate(BaseModel):
+    email: str | None = None
+    phone: str | None = None
+    password: str
+    role: str
+    is_active: bool = True
+
+
+class AdminManagedUserUpdate(BaseModel):
+    email: str | None = None
+    phone: str | None = None
+    password: str | None = None
+    role: str | None = None
+    is_active: bool | None = None
+
+
 class CategoryRead(BaseModel):
     slug: str
     title: str
