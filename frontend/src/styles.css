@@ -10,7 +10,7 @@
   --color-border: rgba(201, 130, 120, 0.25);
   --shadow-soft: 0 24px 70px rgba(143, 81, 75, 0.13);
   --shadow-card: 0 18px 48px rgba(201, 130, 120, 0.15);
-  --lotus-line-art: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20240%20240'%20fill='none'%20stroke='%23b98278'%20stroke-width='2.2'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Cpath%20d='M120%2028C101%2056%2094%2085%20120%20125C146%2085%20139%2056%20120%2028Z'/%3E%3Cpath%20d='M82%2055C68%2089%2072%20117%20120%20154C123%20107%20110%2078%2082%2055Z'/%3E%3Cpath%20d='M158%2055C172%2089%20168%20117%20120%20154C117%20107%20130%2078%20158%2055Z'/%3E%3Cpath%20d='M47%2095C65%20139%2092%20168%20120%20178C112%20136%2087%20108%2047%2095Z'/%3E%3Cpath%20d='M193%2095C175%20139%20148%20168%20120%20178C128%20136%20153%20108%20193%2095Z'/%3E%3Cpath%20d='M30%20142C62%20182%2091%20199%20120%20200C94%20168%2068%20149%2030%20142Z'/%3E%3Cpath%20d='M210%20142C178%20182%20149%20199%20120%20200C146%20168%20172%20149%20210%20142Z'/%3E%3Cpath%20d='M62%20202C93%20217%20147%20217%20178%20202'/%3E%3Cpath%20d='M88%20184C104%20194%20136%20194%20152%20184'/%3E%3C/svg%3E");
+  --lotus-line-art: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A//www.w3.org/2000/svg'%20viewBox%3D'0%200%20260%20200'%20fill%3D'none'%20stroke%3D'%23b98278'%20stroke-width%3D'3'%20stroke-linecap%3D'round'%20stroke-linejoin%3D'round'%3E%3Cpath%20d%3D'M130%2018C105%2050%20104%2086%20130%20124C156%2086%20155%2050%20130%2018Z'/%3E%3Cpath%20d%3D'M101%2044C79%2067%2073%20103%20130%20144C129%20103%20121%2070%20101%2044Z'/%3E%3Cpath%20d%3D'M159%2044C181%2067%20187%20103%20130%20144C131%20103%20139%2070%20159%2044Z'/%3E%3Cpath%20d%3D'M72%2076C53%20111%2070%20144%20130%20160C116%20119%2099%2092%2072%2076Z'/%3E%3Cpath%20d%3D'M188%2076C207%20111%20190%20144%20130%20160C144%20119%20161%2092%20188%2076Z'/%3E%3Cpath%20d%3D'M42%20118C69%20157%20100%20178%20130%20176C108%20145%2082%20126%2042%20118Z'/%3E%3Cpath%20d%3D'M218%20118C191%20157%20160%20178%20130%20176C152%20145%20178%20126%20218%20118Z'/%3E%3Cpath%20d%3D'M88%20142C104%20168%20116%20181%20130%20186C144%20181%20156%20168%20172%20142'/%3E%3Cpath%20d%3D'M62%20176C94%20194%20166%20194%20198%20176'/%3E%3Cpath%20d%3D'M99%20180C116%20188%20144%20188%20161%20180'/%3E%3C/svg%3E");
   --radius-lg: 32px;
   --radius-md: 22px;
   --radius-sm: 14px;
@@ -108,30 +108,48 @@ a {
 }
 
 .lotus-layer--public .lotus-decor--left {
-  top: 116px;
-  left: max(-190px, calc((100vw - var(--max-width)) / 2 - 220px));
-  width: clamp(420px, 42vw, 660px);
-  height: clamp(420px, 42vw, 660px);
-  opacity: 0.14;
-  transform: rotate(10deg);
+  top: 164px;
+  left: max(-220px, calc((100vw - var(--max-width)) / 2 - 248px));
+  width: clamp(430px, 42vw, 680px);
+  height: clamp(330px, 32vw, 520px);
+  opacity: 0.15;
+  transform: rotate(8deg);
 }
 
 .lotus-layer--public .lotus-decor--right {
-  top: 72px;
-  right: max(-180px, calc((100vw - var(--max-width)) / 2 - 230px));
-  width: clamp(460px, 44vw, 680px);
-  height: clamp(460px, 44vw, 680px);
+  top: 128px;
+  right: max(-220px, calc((100vw - var(--max-width)) / 2 - 248px));
+  width: clamp(460px, 44vw, 700px);
+  height: clamp(354px, 34vw, 540px);
   opacity: 0.16;
-  transform: rotate(-11deg);
+  transform: scaleX(-1) rotate(9deg);
 }
 
-.lotus-layer--public .lotus-decor--bottom {
-  right: max(-96px, calc((100vw - var(--max-width)) / 2 - 72px));
-  bottom: -82px;
+.lotus-layer--public .lotus-decor--bottom-left {
+  bottom: -72px;
+  left: max(-86px, calc((100vw - var(--max-width)) / 2 - 72px));
   width: clamp(280px, 28vw, 420px);
-  height: clamp(280px, 28vw, 420px);
-  opacity: 0.085;
-  transform: rotate(18deg);
+  height: clamp(215px, 22vw, 324px);
+  opacity: 0.095;
+  transform: rotate(-13deg);
+}
+
+.lotus-layer--public .lotus-decor--bottom-right {
+  right: max(-92px, calc((100vw - var(--max-width)) / 2 - 76px));
+  bottom: -86px;
+  width: clamp(300px, 30vw, 450px);
+  height: clamp(230px, 23vw, 346px);
+  opacity: 0.105;
+  transform: scaleX(-1) rotate(15deg);
+}
+
+.lotus-layer--public .lotus-decor--top-soft {
+  top: -112px;
+  right: max(12px, calc((100vw - var(--max-width)) / 2 + 24px));
+  width: clamp(300px, 30vw, 470px);
+  height: clamp(230px, 23vw, 362px);
+  opacity: 0.07;
+  transform: rotate(-5deg);
 }
 
 .hero,
@@ -617,23 +635,25 @@ h2 {
   }
 
   .app-shell::after,
-  .lotus-layer--public .lotus-decor--bottom {
+  .lotus-layer--public .lotus-decor--bottom-left,
+  .lotus-layer--public .lotus-decor--bottom-right,
+  .lotus-layer--public .lotus-decor--top-soft {
     display: none;
   }
 
   .lotus-layer--public .lotus-decor--left {
-    top: 210px;
-    left: -178px;
-    width: 310px;
-    height: 310px;
-    opacity: 0.055;
+    top: 220px;
+    left: -194px;
+    width: 330px;
+    height: 254px;
+    opacity: 0.06;
   }
 
   .lotus-layer--public .lotus-decor--right {
-    top: 48px;
-    right: -172px;
-    width: 330px;
-    height: 330px;
+    top: 52px;
+    right: -196px;
+    width: 350px;
+    height: 270px;
     opacity: 0.065;
   }
 
@@ -1515,30 +1535,48 @@ body.is-dashboard::after {
 }
 
 .lotus-layer--dashboard .lotus-decor--left {
-  top: 120px;
-  left: max(-240px, calc((100vw - 1680px) / 2 - 180px));
-  width: clamp(440px, 36vw, 640px);
-  height: clamp(440px, 36vw, 640px);
+  top: 136px;
+  left: max(-250px, calc((100vw - 1680px) / 2 - 208px));
+  width: clamp(440px, 36vw, 660px);
+  height: clamp(338px, 28vw, 508px);
   opacity: 0.14;
-  transform: rotate(9deg);
+  transform: rotate(8deg);
 }
 
 .lotus-layer--dashboard .lotus-decor--right {
-  top: 92px;
-  right: max(-230px, calc((100vw - 1680px) / 2 - 190px));
-  width: clamp(460px, 38vw, 680px);
-  height: clamp(460px, 38vw, 680px);
+  top: 104px;
+  right: max(-250px, calc((100vw - 1680px) / 2 - 212px));
+  width: clamp(470px, 38vw, 700px);
+  height: clamp(362px, 29vw, 538px);
   opacity: 0.13;
-  transform: rotate(-10deg);
+  transform: scaleX(-1) rotate(10deg);
 }
 
-.lotus-layer--dashboard .lotus-decor--bottom {
-  right: 20vw;
-  bottom: -110px;
-  width: clamp(300px, 26vw, 420px);
-  height: clamp(300px, 26vw, 420px);
-  opacity: 0.075;
-  transform: rotate(17deg);
+.lotus-layer--dashboard .lotus-decor--bottom-left {
+  bottom: -96px;
+  left: max(-118px, calc((100vw - 1680px) / 2 + 36px));
+  width: clamp(300px, 26vw, 430px);
+  height: clamp(230px, 20vw, 330px);
+  opacity: 0.085;
+  transform: rotate(-15deg);
+}
+
+.lotus-layer--dashboard .lotus-decor--bottom-right {
+  right: max(-104px, calc((100vw - 1680px) / 2 + 60px));
+  bottom: -104px;
+  width: clamp(320px, 28vw, 460px);
+  height: clamp(246px, 22vw, 354px);
+  opacity: 0.09;
+  transform: scaleX(-1) rotate(16deg);
+}
+
+.lotus-layer--dashboard .lotus-decor--top-soft {
+  top: -120px;
+  left: 42vw;
+  width: clamp(300px, 28vw, 480px);
+  height: clamp(230px, 22vw, 370px);
+  opacity: 0.065;
+  transform: rotate(-4deg);
 }
 
 .dashboard-topbar,
@@ -1901,7 +1939,9 @@ body.is-dashboard::after {
   }
 
   body.is-dashboard::before,
-  .lotus-layer--dashboard .lotus-decor--bottom {
+  .lotus-layer--dashboard .lotus-decor--bottom-left,
+  .lotus-layer--dashboard .lotus-decor--bottom-right,
+  .lotus-layer--dashboard .lotus-decor--top-soft {
     display: none;
   }
 
@@ -1912,18 +1952,18 @@ body.is-dashboard::after {
   }
 
   .lotus-layer--dashboard .lotus-decor--left {
-    top: 180px;
-    left: -190px;
-    width: 330px;
-    height: 330px;
+    top: 184px;
+    left: -198px;
+    width: 340px;
+    height: 262px;
     opacity: 0.055;
   }
 
   .lotus-layer--dashboard .lotus-decor--right {
-    top: 60px;
-    right: -190px;
-    width: 340px;
-    height: 340px;
+    top: 64px;
+    right: -198px;
+    width: 350px;
+    height: 270px;
     opacity: 0.06;
   }
 

@@ -166,6 +166,14 @@ def test_frontend_contains_lotus_line_art_background() -> None:
     assert "lotus-layer--dashboard" in source
     assert "dashboard-shell" in source
 
+    for expected_class in (
+        "lotus-decor--bottom-left",
+        "lotus-decor--bottom-right",
+        "lotus-decor--top-soft",
+    ):
+        assert expected_class in source
+        assert expected_class in styles
+
     for expected in (
         "Женский клуб",
         "Федеральный клуб привилегий для девушек",

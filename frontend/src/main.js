@@ -49,7 +49,9 @@ const renderPublicApp = () => {
     <div class="lotus-layer lotus-layer--public" aria-hidden="true">
       <span class="lotus-decor lotus-decor--left"></span>
       <span class="lotus-decor lotus-decor--right"></span>
-      <span class="lotus-decor lotus-decor--bottom"></span>
+      <span class="lotus-decor lotus-decor--bottom-left"></span>
+      <span class="lotus-decor lotus-decor--bottom-right"></span>
+      <span class="lotus-decor lotus-decor--top-soft"></span>
     </div>
     <header class="hero" aria-labelledby="hero-title">
       <nav class="topbar" aria-label="Основная навигация">
@@ -408,7 +410,9 @@ const renderDashboardApp = (role) => {
       <div class="lotus-layer lotus-layer--dashboard" aria-hidden="true">
         <span class="lotus-decor lotus-decor--left"></span>
         <span class="lotus-decor lotus-decor--right"></span>
-        <span class="lotus-decor lotus-decor--bottom"></span>
+        <span class="lotus-decor lotus-decor--bottom-left"></span>
+        <span class="lotus-decor lotus-decor--bottom-right"></span>
+        <span class="lotus-decor lotus-decor--top-soft"></span>
       </div>
       <header class="dashboard-topbar">
         <div class="dashboard-brand" aria-label="Женский клуб">
