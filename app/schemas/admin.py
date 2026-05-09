@@ -134,3 +134,39 @@ class PartnerOfferUpdate(BaseModel):
     image_url: str | None = None
     is_active: bool | None = None
     sort_order: int | None = None
+
+class PartnerQrLinkRead(BaseModel):
+    id: int
+    partner_id: int
+    slug: str
+    deep_link_payload: str | None
+    target_url: str | None
+    is_active: bool
+    qr_url: str
+    partner_name: str | None = None
+
+    model_config = {"from_attributes": True}
+
+
+class PartnerQrLinkCreate(BaseModel):
+    slug: str | None = None
+    deep_link_payload: str | None = None
+    target_url: str | None = None
+    is_active: bool = True
+
+
+class PartnerQrLinkUpdate(BaseModel):
+    slug: str | None = None
+    deep_link_payload: str | None = None
+    target_url: str | None = None
+    is_active: bool | None = None
+
+
+class LeadStatsRead(BaseModel):
+    partner_id: int
+    partner_name: str
+    city_id: int | None
+    city_name: str | None
+    qr_link_id: int | None
+    qr_slug: str | None
+    total_clicks: int
