@@ -10,7 +10,8 @@
   --color-border: rgba(201, 130, 120, 0.25);
   --shadow-soft: 0 24px 70px rgba(143, 81, 75, 0.13);
   --shadow-card: 0 18px 48px rgba(201, 130, 120, 0.15);
-  --lotus-line-art: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A//www.w3.org/2000/svg'%20viewBox%3D'0%200%20260%20200'%20fill%3D'none'%20stroke%3D'%23b98278'%20stroke-width%3D'3'%20stroke-linecap%3D'round'%20stroke-linejoin%3D'round'%3E%3Cpath%20d%3D'M130%2018C105%2050%20104%2086%20130%20124C156%2086%20155%2050%20130%2018Z'/%3E%3Cpath%20d%3D'M101%2044C79%2067%2073%20103%20130%20144C129%20103%20121%2070%20101%2044Z'/%3E%3Cpath%20d%3D'M159%2044C181%2067%20187%20103%20130%20144C131%20103%20139%2070%20159%2044Z'/%3E%3Cpath%20d%3D'M72%2076C53%20111%2070%20144%20130%20160C116%20119%2099%2092%2072%2076Z'/%3E%3Cpath%20d%3D'M188%2076C207%20111%20190%20144%20130%20160C144%20119%20161%2092%20188%2076Z'/%3E%3Cpath%20d%3D'M42%20118C69%20157%20100%20178%20130%20176C108%20145%2082%20126%2042%20118Z'/%3E%3Cpath%20d%3D'M218%20118C191%20157%20160%20178%20130%20176C152%20145%20178%20126%20218%20118Z'/%3E%3Cpath%20d%3D'M88%20142C104%20168%20116%20181%20130%20186C144%20181%20156%20168%20172%20142'/%3E%3Cpath%20d%3D'M62%20176C94%20194%20166%20194%20198%20176'/%3E%3Cpath%20d%3D'M99%20180C116%20188%20144%20188%20161%20180'/%3E%3C/svg%3E");
+  --lotus-botanical-line-art: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20500%20520'%20fill='none'%20stroke='%23b98278'%20stroke-width='3.4'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Cpath%20d='M246%20188C222%20157%20224%20121%20253%2086C284%20122%20284%20157%20246%20188Z'/%3E%3Cpath%20d='M213%20194C180%20168%20172%20130%20194%2091C230%20120%20241%20154%20213%20194Z'/%3E%3Cpath%20d='M284%20194C319%20168%20328%20131%20305%2092C267%20121%20256%20155%20284%20194Z'/%3E%3Cpath%20d='M174%20210C134%20188%20117%20149%20132%20107C179%20129%20204%20162%20174%20210Z'/%3E%3Cpath%20d='M322%20210C362%20188%20379%20149%20364%20107C318%20129%20292%20162%20322%20210Z'/%3E%3Cpath%20d='M142%20240C101%20228%2074%20194%2082%20150C135%20160%20171%20188%20142%20240Z'/%3E%3Cpath%20d='M354%20240C395%20228%20422%20194%20414%20150C361%20160%20325%20188%20354%20240Z'/%3E%3Cpath%20d='M111%20278C154%20303%20210%20303%20247%20265C194%20247%20154%20247%20111%20278Z'/%3E%3Cpath%20d='M386%20278C343%20303%20286%20303%20250%20265C303%20247%20344%20247%20386%20278Z'/%3E%3Cpath%20d='M161%20287C190%20319%20221%20328%20248%20294C278%20328%20309%20319%20337%20287'/%3E%3Cpath%20d='M247%2096C247%20134%20247%20158%20246%20188'/%3E%3Cpath%20d='M196%20105C205%20143%20210%20168%20213%20194'/%3E%3Cpath%20d='M304%20106C294%20143%20289%20168%20284%20194'/%3E%3Cpath%20d='M134%20121C149%20158%20162%20186%20174%20210'/%3E%3Cpath%20d='M363%20121C347%20158%20334%20186%20322%20210'/%3E%3Cpath%20d='M248%20294C249%20355%20242%20422%20212%20500'/%3E%3Cpath%20d='M210%20500C239%20430%20279%20366%20338%20305'/%3E%3Cpath%20d='M338%20305C360%20274%20392%20251%20430%20239'/%3E%3Cpath%20d='M422%20236C405%20203%20413%20171%20447%20147C466%20182%20460%20214%20422%20236Z'/%3E%3Cpath%20d='M447%20147C444%20177%20438%20207%20422%20236'/%3E%3Cpath%20d='M214%20500C185%20420%20147%20353%2086%20303'/%3E%3Cpath%20d='M92%20309C56%20318%2030%20342%2019%20380C62%20388%2094%20367%20112%20330'/%3E%3Cpath%20d='M34%20375C58%20356%2081%20340%20112%20330'/%3E%3Cpath%20d='M307%20456C350%20420%20397%20406%20451%20419C414%20461%20363%20474%20307%20456Z'/%3E%3Cpath%20d='M325%20454C365%20444%20405%20432%20451%20419'/%3E%3C/svg%3E");
+  --lotus-line-art: var(--lotus-botanical-line-art);
   --radius-lg: 32px;
   --radius-md: 22px;
   --radius-sm: 14px;
@@ -33,6 +34,7 @@ html {
 body {
   min-width: 320px;
   margin: 0;
+  overflow-x: hidden;
   background:
     radial-gradient(circle at top left, rgba(246, 216, 210, 0.8), transparent 34rem),
     linear-gradient(135deg, var(--color-background), var(--color-background-soft));
@@ -90,65 +92,65 @@ a {
 }
 
 .app-shell::before {
-  top: 78px;
-  right: max(10px, calc((100vw - var(--max-width)) / 2 - 132px));
-  width: min(42vw, 520px);
-  height: min(42vw, 520px);
-  opacity: 0.11;
-  transform: rotate(-8deg);
+  top: 18%;
+  right: clamp(-170px, -7vw, -72px);
+  width: clamp(360px, 26vw, 520px);
+  height: clamp(374px, 27vw, 540px);
+  opacity: 0.08;
+  transform: scaleX(-1) rotate(-5deg);
 }
 
 .app-shell::after {
-  bottom: 18px;
-  left: max(8px, calc((100vw - var(--max-width)) / 2 - 86px));
-  width: min(28vw, 300px);
-  height: min(28vw, 300px);
-  opacity: 0.075;
-  transform: rotate(12deg);
-}
-
-.lotus-layer--public .lotus-decor--left {
-  top: 164px;
-  left: max(-220px, calc((100vw - var(--max-width)) / 2 - 248px));
-  width: clamp(430px, 42vw, 680px);
-  height: clamp(330px, 32vw, 520px);
-  opacity: 0.15;
+  bottom: -126px;
+  left: clamp(-150px, -6vw, -64px);
+  width: clamp(260px, 20vw, 360px);
+  height: clamp(270px, 21vw, 374px);
+  opacity: 0.055;
   transform: rotate(8deg);
 }
 
+.lotus-layer--public .lotus-decor--left {
+  top: clamp(132px, 24vh, 260px);
+  left: clamp(-160px, -6vw, -60px);
+  width: clamp(360px, 28vw, 620px);
+  height: clamp(374px, 30vw, 646px);
+  opacity: 0.21;
+  transform: rotate(4deg);
+}
+
 .lotus-layer--public .lotus-decor--right {
-  top: 128px;
-  right: max(-220px, calc((100vw - var(--max-width)) / 2 - 248px));
-  width: clamp(460px, 44vw, 700px);
-  height: clamp(354px, 34vw, 540px);
-  opacity: 0.16;
-  transform: scaleX(-1) rotate(9deg);
+  top: clamp(128px, 22vh, 248px);
+  right: clamp(-160px, -6vw, -60px);
+  width: clamp(360px, 28vw, 620px);
+  height: clamp(374px, 30vw, 646px);
+  opacity: 0.2;
+  transform: scaleX(-1) rotate(5deg);
 }
 
 .lotus-layer--public .lotus-decor--bottom-left {
-  bottom: -72px;
-  left: max(-86px, calc((100vw - var(--max-width)) / 2 - 72px));
-  width: clamp(280px, 28vw, 420px);
-  height: clamp(215px, 22vw, 324px);
-  opacity: 0.095;
-  transform: rotate(-13deg);
+  bottom: -134px;
+  left: clamp(-118px, -4vw, -42px);
+  width: clamp(230px, 18vw, 340px);
+  height: clamp(240px, 19vw, 354px);
+  opacity: 0.07;
+  transform: rotate(-11deg);
 }
 
 .lotus-layer--public .lotus-decor--bottom-right {
-  right: max(-92px, calc((100vw - var(--max-width)) / 2 - 76px));
-  bottom: -86px;
-  width: clamp(300px, 30vw, 450px);
-  height: clamp(230px, 23vw, 346px);
-  opacity: 0.105;
-  transform: scaleX(-1) rotate(15deg);
+  right: clamp(-128px, -4vw, -44px);
+  bottom: -142px;
+  width: clamp(240px, 19vw, 350px);
+  height: clamp(250px, 20vw, 364px);
+  opacity: 0.075;
+  transform: scaleX(-1) rotate(12deg);
 }
 
 .lotus-layer--public .lotus-decor--top-soft {
-  top: -112px;
-  right: max(12px, calc((100vw - var(--max-width)) / 2 + 24px));
-  width: clamp(300px, 30vw, 470px);
-  height: clamp(230px, 23vw, 362px);
-  opacity: 0.07;
+  top: -180px;
+  right: clamp(-110px, -4vw, -36px);
+  width: clamp(240px, 18vw, 330px);
+  height: clamp(250px, 19vw, 344px);
+  opacity: 0.05;
   transform: rotate(-5deg);
 }
 
@@ -643,18 +645,14 @@ h2 {
 
   .lotus-layer--public .lotus-decor--left {
     top: 220px;
-    left: -194px;
+    left: -206px;
     width: 330px;
-    height: 254px;
-    opacity: 0.06;
+    height: 344px;
+    opacity: 0.055;
   }
 
   .lotus-layer--public .lotus-decor--right {
-    top: 52px;
-    right: -196px;
-    width: 350px;
-    height: 270px;
-    opacity: 0.065;
+    display: none;
   }
 
   .hero,
@@ -1526,56 +1524,56 @@ body.is-dashboard::after {
 }
 
 .dashboard-shell::before {
-  top: 92px;
-  right: max(-118px, calc((100vw - 1680px) / 2 - 84px));
-  width: min(38vw, 600px);
-  height: min(38vw, 600px);
-  opacity: 0.12;
-  transform: rotate(-7deg);
+  top: 18%;
+  right: clamp(-170px, -7vw, -72px);
+  width: clamp(340px, 24vw, 540px);
+  height: clamp(354px, 25vw, 562px);
+  opacity: 0.07;
+  transform: scaleX(-1) rotate(-6deg);
 }
 
 .lotus-layer--dashboard .lotus-decor--left {
-  top: 136px;
-  left: max(-250px, calc((100vw - 1680px) / 2 - 208px));
-  width: clamp(440px, 36vw, 660px);
-  height: clamp(338px, 28vw, 508px);
-  opacity: 0.14;
-  transform: rotate(8deg);
+  top: clamp(126px, 22vh, 246px);
+  left: clamp(-170px, -6vw, -64px);
+  width: clamp(360px, 26vw, 600px);
+  height: clamp(374px, 27vw, 624px);
+  opacity: 0.16;
+  transform: rotate(4deg);
 }
 
 .lotus-layer--dashboard .lotus-decor--right {
-  top: 104px;
-  right: max(-250px, calc((100vw - 1680px) / 2 - 212px));
-  width: clamp(470px, 38vw, 700px);
-  height: clamp(362px, 29vw, 538px);
-  opacity: 0.13;
-  transform: scaleX(-1) rotate(10deg);
+  top: clamp(118px, 21vh, 238px);
+  right: clamp(-170px, -6vw, -64px);
+  width: clamp(360px, 26vw, 600px);
+  height: clamp(374px, 27vw, 624px);
+  opacity: 0.15;
+  transform: scaleX(-1) rotate(5deg);
 }
 
 .lotus-layer--dashboard .lotus-decor--bottom-left {
-  bottom: -96px;
-  left: max(-118px, calc((100vw - 1680px) / 2 + 36px));
-  width: clamp(300px, 26vw, 430px);
-  height: clamp(230px, 20vw, 330px);
-  opacity: 0.085;
-  transform: rotate(-15deg);
+  bottom: -148px;
+  left: clamp(-122px, -4vw, -44px);
+  width: clamp(230px, 17vw, 330px);
+  height: clamp(240px, 18vw, 344px);
+  opacity: 0.06;
+  transform: rotate(-12deg);
 }
 
 .lotus-layer--dashboard .lotus-decor--bottom-right {
-  right: max(-104px, calc((100vw - 1680px) / 2 + 60px));
-  bottom: -104px;
-  width: clamp(320px, 28vw, 460px);
-  height: clamp(246px, 22vw, 354px);
-  opacity: 0.09;
-  transform: scaleX(-1) rotate(16deg);
+  right: clamp(-132px, -4vw, -44px);
+  bottom: -150px;
+  width: clamp(240px, 18vw, 340px);
+  height: clamp(250px, 19vw, 354px);
+  opacity: 0.065;
+  transform: scaleX(-1) rotate(12deg);
 }
 
 .lotus-layer--dashboard .lotus-decor--top-soft {
-  top: -120px;
-  left: 42vw;
-  width: clamp(300px, 28vw, 480px);
-  height: clamp(230px, 22vw, 370px);
-  opacity: 0.065;
+  top: -190px;
+  left: 44vw;
+  width: clamp(240px, 18vw, 330px);
+  height: clamp(250px, 19vw, 344px);
+  opacity: 0.045;
   transform: rotate(-4deg);
 }
 
@@ -1953,18 +1951,14 @@ body.is-dashboard::after {
 
   .lotus-layer--dashboard .lotus-decor--left {
     top: 184px;
-    left: -198px;
+    left: -212px;
     width: 340px;
-    height: 262px;
-    opacity: 0.055;
+    height: 354px;
+    opacity: 0.05;
   }
 
   .lotus-layer--dashboard .lotus-decor--right {
-    top: 64px;
-    right: -198px;
-    width: 350px;
-    height: 270px;
-    opacity: 0.06;
+    display: none;
   }
 
   .dashboard-layout {
