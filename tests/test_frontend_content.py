@@ -138,6 +138,33 @@ def test_frontend_contains_dashboard_shell_classes() -> None:
         "dashboard-sidebar",
         "dashboard-main",
         "dashboard-topbar",
+        "Быстрые действия",
+    ):
+        assert expected in source
+
+
+def test_frontend_keeps_required_public_role_nav_and_token_copy() -> None:
+    source = _frontend_main()
+
+    for expected in (
+        "Женский клуб",
+        "Федеральный клуб привилегий для девушек",
+        "Новосибирск",
+        "Череповец",
+        "Панель администратора",
+        "Кабинет партнёра",
+        "Личный кабинет",
+        "Главная",
+        "Пользователи",
+        "Города",
+        "Категории",
+        "Партнёры",
+        "Предложения",
+        "QR / лиды",
+        "Подтверждения",
+        "womenClubAdminAccessToken",
+        "womenclub_partner_token",
+        "womenclub_client_token",
     ):
         assert expected in source
 
