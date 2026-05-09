@@ -224,3 +224,36 @@ def test_frontend_contains_partner_endpoint_strings_and_separate_token() -> None
 
     assert "/api/v1/auth/login" in source
     assert "womenclub_partner_token" in source
+
+
+def test_frontend_contains_client_cabinet_foundation() -> None:
+    source = _frontend_main()
+
+    for expected in (
+        "Личный кабинет",
+        "Клиент",
+        "Профиль",
+        "Каталог",
+        "Моя подписка",
+        "История",
+    ):
+        assert expected in source
+
+
+def test_frontend_contains_client_endpoint_strings_and_separate_token() -> None:
+    source = _frontend_main()
+
+    for endpoint in (
+        "/api/v1/auth/user-login",
+        "/api/v1/auth/user-me",
+        "/api/v1/clients/me",
+        "/api/v1/clients/me/subscription",
+        "/api/v1/clients/catalog/partners",
+        "/api/v1/clients/partners/",
+        "/api/v1/clients/me/verifications",
+    ):
+        assert endpoint in source
+
+    assert "womenclub_client_token" in source
+    assert "womenClubAdminAccessToken" in source
+    assert "womenclub_partner_token" in source
