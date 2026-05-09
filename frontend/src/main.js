@@ -42,7 +42,9 @@ const featureCards = [
   },
 ];
 
-root.innerHTML = `
+const renderPublicApp = () => {
+  document.body.classList.remove('is-dashboard');
+  root.innerHTML = `
   <main class="app-shell">
     <header class="hero" aria-labelledby="hero-title">
       <nav class="topbar" aria-label="Основная навигация">
@@ -167,18 +169,9 @@ root.innerHTML = `
 
   </main>
 `;
+  bindPublicElements();
+};
 
-
-document.querySelectorAll('[data-city-choice]').forEach((button) => {
-  button.addEventListener('click', () => {
-    document.querySelectorAll('[data-city-choice]').forEach((choice) => {
-      const isSelected = choice === button;
-
-      choice.classList.toggle('is-active', isSelected);
-      choice.setAttribute('aria-checked', String(isSelected));
-    });
-  });
-});
 
 
 
@@ -187,7 +180,7 @@ const partnerTokenKey = 'womenclub_partner_token';
 const clientTokenKey = 'womenclub_client_token';
 let activeLoginMode = 'admin';
 const adminTabs = [
-  { id: 'overview', label: 'Обзор' },
+  { id: 'overview', label: 'Главная' },
   { id: 'users', label: 'Пользователи' },
   { id: 'cities', label: 'Города' },
   { id: 'categories', label: 'Категории' },
@@ -263,14 +256,31 @@ const clientState = {
   formMessages: {},
 };
 
-const loginForm = document.querySelector('[data-login-form]');
-const loginModeButtons = document.querySelectorAll('[data-login-mode]');
-const loginMessage = document.querySelector('[data-login-message]');
-const adminDashboard = document.querySelector('[data-admin-dashboard]');
-const adminEmail = document.querySelector('[data-admin-email]');
-const logoutButton = document.querySelector('[data-logout-button]');
-const partnerDashboard = document.querySelector('[data-partner-dashboard]');
-const clientDashboard = document.querySelector('[data-client-dashboard]');
+let loginForm = null;
+let loginModeButtons = [];
+let loginMessage = null;
+let adminDashboard = null;
+let partnerDashboard = null;
+let clientDashboard = null;
+
+const bindPublicElements = () => {
+  loginForm = document.querySelector('[data-login-form]');
+  loginModeButtons = document.querySelectorAll('[data-login-mode]');
+  loginMessage = document.querySelector('[data-login-message]');
+  adminDashboard = document.querySelector('[data-admin-dashboard]');
+  partnerDashboard = document.querySelector('[data-partner-dashboard]');
+  clientDashboard = document.querySelector('[data-client-dashboard]');
+  setLoginMode(activeLoginMode);
+};
+
+const bindDashboardElements = () => {
+  loginForm = null;
+  loginModeButtons = [];
+  loginMessage = null;
+  adminDashboard = document.querySelector('[data-admin-dashboard]');
+  partnerDashboard = document.querySelector('[data-partner-dashboard]');
+  clientDashboard = document.querySelector('[data-client-dashboard]');
+};
 
 const escapeHtml = (value) => String(value ?? '')
   .replaceAll('&', '&amp;')
@@ -288,7 +298,9 @@ const getPartnerToken = () => localStorage.getItem(partnerTokenKey);
 const getClientToken = () => localStorage.getItem(clientTokenKey);
 
 const setLoginMessage = (message = '') => {
-  loginMessage.textContent = message;
+  if (loginMessage) {
+    loginMessage.textContent = message;
+  }
 };
 
 const setFormMessage = (formType, message = '') => {
@@ -322,15 +334,100 @@ const setLoginMode = (mode) => {
   });
 };
 
+const getRoleUser = (role) => {
+  if (role === 'admin') return adminState.user;
+  if (role === 'partner') return partnerState.user;
+  return clientState.user;
+};
+
+const getRoleTitle = (role) => ({
+  admin: 'Панель администратора',
+  partner: 'Кабинет партнёра',
+  client: 'Личный кабинет',
+}[role]);
+
+const getRoleTabs = (role) => ({
+  admin: adminTabs,
+  partner: partnerTabs,
+  client: clientTabs,
+}[role]);
+
+const getActiveTab = (role) => ({
+  admin: adminState.activeTab,
+  partner: partnerState.activeTab,
+  client: clientState.activeTab,
+}[role]);
+
+const getDashboardDataAttr = (role) => ({
+  admin: 'data-admin-dashboard',
+  partner: 'data-partner-dashboard',
+  client: 'data-client-dashboard',
+}[role]);
+
+const getTabDataAttr = (role) => ({
+  admin: 'data-admin-tab',
+  partner: 'data-partner-tab',
+  client: 'data-client-tab',
+}[role]);
+
+const getLogoutAttr = (role) => ({
+  admin: 'data-logout-button',
+  partner: 'data-partner-logout-button',
+  client: 'data-client-logout-button',
+}[role]);
+
+const renderDashboardApp = (role) => {
+  const user = getRoleUser(role) || {};
+  const roleTitle = getRoleTitle(role);
+  const contact = user.email || user.phone || 'пользователь клуба';
+  const dashboardAttr = getDashboardDataAttr(role);
+  const tabAttr = getTabDataAttr(role);
+  const logoutAttr = getLogoutAttr(role);
+  const activeTab = getActiveTab(role);
+
+  document.body.classList.add('is-dashboard');
+  root.innerHTML = `
+    <div class="dashboard-shell" data-dashboard-role="${role}">
+      <header class="dashboard-topbar">
+        <div class="dashboard-brand" aria-label="Женский клуб">
+          <span class="brand-mark" aria-hidden="true">ЖК</span>
+          <span>
+            <span class="brand-name">Женский клуб</span>
+            <span class="brand-caption">Федеральный клуб привилегий для девушек</span>
+          </span>
+        </div>
+        <div class="dashboard-title-block">
+          <p class="section-kicker">Кабинет клуба</p>
+          <h1>${roleTitle}</h1>
+        </div>
+        <div class="dashboard-user-block">
+          <span>${escapeHtml(contact)}</span>
+          <button type="button" ${logoutAttr}>Выйти</button>
+        </div>
+      </header>
+      <div class="dashboard-layout">
+        <aside class="dashboard-sidebar" aria-label="Разделы кабинета">
+          ${getRoleTabs(role).map((tab) => `
+            <button class="dashboard-nav-button${activeTab === tab.id ? ' is-active' : ''}" type="button" ${tabAttr}="${tab.id}">
+              ${tab.label}
+            </button>
+          `).join('')}
+        </aside>
+        <main class="dashboard-main">
+          <div class="admin-dashboard ${role}-dashboard" ${dashboardAttr}></div>
+        </main>
+      </div>
+    </div>
+  `;
+  bindDashboardElements();
+};
+
 const showLoginForm = () => {
-  loginForm.hidden = false;
-  adminDashboard.hidden = true;
-  partnerDashboard.hidden = true;
-  clientDashboard.hidden = true;
-  adminEmail.textContent = '';
   adminState.user = null;
   partnerState.user = null;
   clientState.user = null;
+  renderPublicApp();
+  setLoginMessage();
 };
 
 const buildErrorMessage = async (response) => {
@@ -527,22 +624,8 @@ const loadClientPartnerOffers = async (partnerId) => {
 };
 
 const renderClientLayout = () => {
+  renderDashboardApp('client');
   clientDashboard.innerHTML = `
-    <div class="admin-header-card client-header-card">
-      <div>
-        <p class="section-kicker">Личный кабинет</p>
-        <h3>Личный кабинет</h3>
-        <p>Вы вошли как: <strong>${escapeHtml(clientState.user?.email || clientState.user?.phone || 'клиент')}</strong></p>
-      </div>
-      <button type="button" data-client-logout-button>Выйти</button>
-    </div>
-    <nav class="admin-tabs" aria-label="Разделы личного кабинета">
-      ${clientTabs.map((tab) => `
-        <button class="admin-tab${clientState.activeTab === tab.id ? ' is-active' : ''}" type="button" data-client-tab="${tab.id}">
-          ${tab.label}
-        </button>
-      `).join('')}
-    </nav>
     ${clientState.panelMessage}
     <section class="admin-tab-panel">${renderClientTabContent()}</section>
   `;
@@ -720,22 +803,8 @@ const renderClientHistoryTab = () => `
 `;
 
 const renderPartnerLayout = () => {
+  renderDashboardApp('partner');
   partnerDashboard.innerHTML = `
-    <div class="admin-header-card partner-header-card">
-      <div>
-        <p class="section-kicker">Кабинет партнёра</p>
-        <h3>Кабинет партнёра</h3>
-        <p>Вы вошли как: <strong>${escapeHtml(partnerState.user?.email || partnerState.user?.phone || 'партнёр')}</strong></p>
-      </div>
-      <button type="button" data-partner-logout-button>Выйти</button>
-    </div>
-    <nav class="admin-tabs" aria-label="Разделы кабинета партнёра">
-      ${partnerTabs.map((tab) => `
-        <button class="admin-tab${partnerState.activeTab === tab.id ? ' is-active' : ''}" type="button" data-partner-tab="${tab.id}">
-          ${tab.label}
-        </button>
-      `).join('')}
-    </nav>
     ${partnerState.panelMessage}
     <section class="admin-tab-panel">${renderPartnerTabContent()}</section>
   `;
@@ -921,23 +990,9 @@ const ensureAdminDictionaries = async () => {
 };
 
 const renderAdminLayout = () => {
+  renderDashboardApp('admin');
   const content = renderAdminTabContent();
   adminDashboard.innerHTML = `
-    <div class="admin-header-card">
-      <div>
-        <p class="section-kicker">Кабинет клуба</p>
-        <h3>Админ-панель</h3>
-        <p>Вы вошли как: <strong data-admin-email>${escapeHtml(adminState.user?.email || '')}</strong></p>
-      </div>
-      <button type="button" data-logout-button>Выйти</button>
-    </div>
-    <nav class="admin-tabs" aria-label="Разделы админ-панели">
-      ${adminTabs.map((tab) => `
-        <button class="admin-tab${adminState.activeTab === tab.id ? ' is-active' : ''}" type="button" data-admin-tab="${tab.id}">
-          ${tab.label}
-        </button>
-      `).join('')}
-    </nav>
     ${adminState.panelMessage}
     <section class="admin-tab-panel">${content}</section>
   `;
@@ -1153,10 +1208,6 @@ const renderPartnerPicker = (scope, selectedValue) => `
 `;
 
 const showAdminDashboard = async (user) => {
-  loginForm.hidden = true;
-  adminDashboard.hidden = false;
-  partnerDashboard.hidden = true;
-  clientDashboard.hidden = true;
   adminState.user = user;
   setLoginMessage();
   setPanelMessage();
@@ -1165,10 +1216,6 @@ const showAdminDashboard = async (user) => {
 };
 
 const showPartnerDashboard = async (user) => {
-  loginForm.hidden = true;
-  adminDashboard.hidden = true;
-  partnerDashboard.hidden = false;
-  clientDashboard.hidden = true;
   partnerState.user = user;
   setLoginMessage();
   setPartnerPanelMessage();
@@ -1177,10 +1224,6 @@ const showPartnerDashboard = async (user) => {
 };
 
 const showClientDashboard = async (user) => {
-  loginForm.hidden = true;
-  adminDashboard.hidden = true;
-  partnerDashboard.hidden = true;
-  clientDashboard.hidden = false;
   clientState.user = user;
   setLoginMessage();
   setClientPanelMessage();
@@ -1226,6 +1269,9 @@ const loadActiveTabData = async () => {
       await loadVerifications();
     }
   } catch (error) {
+    if (!getToken()) {
+      return;
+    }
     setPanelMessage(error.message || 'Не удалось загрузить данные.', 'error');
   }
 
@@ -1248,6 +1294,9 @@ const loadActivePartnerTabData = async () => {
       await loadPartnerVerifications();
     }
   } catch (error) {
+    if (!getPartnerToken()) {
+      return;
+    }
     setPartnerPanelMessage(error.message || 'Не удалось загрузить данные.', 'error');
   }
 
@@ -1269,6 +1318,9 @@ const loadActiveClientTabData = async () => {
       await loadClientVerifications();
     }
   } catch (error) {
+    if (!getClientToken()) {
+      return;
+    }
     setClientPanelMessage(error.message || 'Не удалось загрузить данные.', 'error');
   }
 
@@ -1563,18 +1615,10 @@ const handleAdminFormSubmit = async (form) => {
   renderAdminLayout();
 };
 
-loginModeButtons.forEach((button) => {
-  button.addEventListener('click', () => {
-    setLoginMode(button.dataset.loginMode);
-    setLoginMessage();
-  });
-});
-
-loginForm.addEventListener('submit', async (event) => {
-  event.preventDefault();
+const handleLoginSubmit = async (form) => {
   setLoginMessage();
 
-  const formData = new FormData(loginForm);
+  const formData = new FormData(form);
   const loginValue = String(formData.get('email') || '').trim();
   const password = String(formData.get('password') || '');
 
@@ -1609,12 +1653,12 @@ loginForm.addEventListener('submit', async (event) => {
         return;
       }
 
+      form.reset();
       if (expectedRole === 'partner') {
         await showPartnerDashboard(data.user);
       } else {
         await showClientDashboard(data.user);
       }
-      loginForm.reset();
       return;
     }
 
@@ -1632,8 +1676,8 @@ loginForm.addEventListener('submit', async (event) => {
 
     const data = await response.json();
     localStorage.setItem(authTokenKey, data.access_token);
+    form.reset();
     await showAdminDashboard(data.user);
-    loginForm.reset();
   } catch (error) {
     if (activeLoginMode === 'partner') {
       clearPartnerToken();
@@ -1650,31 +1694,120 @@ loginForm.addEventListener('submit', async (event) => {
     }
     setLoginMessage('Неверный логин или пароль');
   }
-});
+};
 
-adminDashboard.addEventListener('click', (event) => {
-  const tabButton = event.target.closest('[data-admin-tab]');
-  const logout = event.target.closest('[data-logout-button]');
+root.addEventListener('click', async (event) => {
+  const cityChoice = event.target.closest('[data-city-choice]');
+  if (cityChoice) {
+    document.querySelectorAll('[data-city-choice]').forEach((choice) => {
+      const isSelected = choice === cityChoice;
+      choice.classList.toggle('is-active', isSelected);
+      choice.setAttribute('aria-checked', String(isSelected));
+    });
+    return;
+  }
+
+  const loginModeButton = event.target.closest('[data-login-mode]');
+  if (loginModeButton) {
+    setLoginMode(loginModeButton.dataset.loginMode);
+    setLoginMessage();
+    return;
+  }
+
   const userToggle = event.target.closest('[data-user-active-toggle]');
-
   if (userToggle) {
     toggleUserActive(userToggle.dataset.userActiveToggle);
     return;
   }
 
-  if (logout) {
+  const adminLogout = event.target.closest('[data-logout-button]');
+  if (adminLogout) {
     clearToken();
     showLoginForm();
+    setLoginMode('admin');
     return;
   }
 
-  if (tabButton) {
-    adminState.activeTab = tabButton.dataset.adminTab;
+  const adminTabButton = event.target.closest('[data-admin-tab]');
+  if (adminTabButton) {
+    adminState.activeTab = adminTabButton.dataset.adminTab;
     loadActiveTabData();
+    return;
+  }
+
+  const partnerOfferToggle = event.target.closest('[data-partner-offer-toggle]');
+  if (partnerOfferToggle) {
+    togglePartnerOffer(partnerOfferToggle.dataset.partnerOfferToggle);
+    return;
+  }
+
+  const partnerConfirmButton = event.target.closest('[data-partner-confirm-verification]');
+  if (partnerConfirmButton) {
+    confirmPartnerVerification(partnerConfirmButton.dataset.partnerConfirmVerification);
+    return;
+  }
+
+  const partnerLogout = event.target.closest('[data-partner-logout-button]');
+  if (partnerLogout) {
+    clearPartnerToken();
+    showLoginForm();
+    setLoginMode('partner');
+    return;
+  }
+
+  const partnerTabButton = event.target.closest('[data-partner-tab]');
+  if (partnerTabButton) {
+    partnerState.activeTab = partnerTabButton.dataset.partnerTab;
+    loadActivePartnerTabData();
+    return;
+  }
+
+  const clientLogout = event.target.closest('[data-client-logout-button]');
+  if (clientLogout) {
+    clearClientToken();
+    showLoginForm();
+    setLoginMode('client');
+    return;
+  }
+
+  const clientTabButton = event.target.closest('[data-client-tab]');
+  if (clientTabButton) {
+    clientState.activeTab = clientTabButton.dataset.clientTab;
+    await loadActiveClientTabData();
+    return;
+  }
+
+  const createVkCodeButton = event.target.closest('[data-client-create-vk-code]');
+  if (createVkCodeButton) {
+    await createClientVkLinkCode();
+    return;
+  }
+
+  const loadOffersButton = event.target.closest('[data-client-load-offers]');
+  if (loadOffersButton) {
+    try {
+      await loadClientPartnerOffers(loadOffersButton.dataset.clientLoadOffers);
+      setClientPanelMessage('Предложения загружены.', 'success');
+    } catch (error) {
+      setClientPanelMessage(error.message || 'Не удалось загрузить предложения.', 'error');
+    }
+    renderClientLayout();
+    return;
+  }
+
+  const verifyOfferButton = event.target.closest('[data-client-verify-offer]');
+  if (verifyOfferButton) {
+    await createClientVerification(verifyOfferButton.dataset.clientVerifyOffer, verifyOfferButton.dataset.offerId);
+    return;
+  }
+
+  const verifyPartnerButton = event.target.closest('[data-client-verify-partner]');
+  if (verifyPartnerButton) {
+    await createClientVerification(verifyPartnerButton.dataset.clientVerifyPartner);
   }
 });
 
-adminDashboard.addEventListener('change', (event) => {
+root.addEventListener('change', (event) => {
   const picker = event.target.closest('[data-partner-picker]');
   if (!picker) {
     return;
@@ -1689,108 +1822,33 @@ adminDashboard.addEventListener('change', (event) => {
   loadActiveTabData();
 });
 
-adminDashboard.addEventListener('submit', (event) => {
-  const form = event.target.closest('[data-admin-form]');
-  if (!form) {
-    return;
-  }
-  event.preventDefault();
-  handleAdminFormSubmit(form);
-});
-
-
-partnerDashboard.addEventListener('click', (event) => {
-  const tabButton = event.target.closest('[data-partner-tab]');
-  const logout = event.target.closest('[data-partner-logout-button]');
-  const offerToggle = event.target.closest('[data-partner-offer-toggle]');
-  const confirmButton = event.target.closest('[data-partner-confirm-verification]');
-
-  if (offerToggle) {
-    togglePartnerOffer(offerToggle.dataset.partnerOfferToggle);
+root.addEventListener('submit', (event) => {
+  const login = event.target.closest('[data-login-form]');
+  if (login) {
+    event.preventDefault();
+    handleLoginSubmit(login);
     return;
   }
 
-  if (confirmButton) {
-    confirmPartnerVerification(confirmButton.dataset.partnerConfirmVerification);
+  const adminForm = event.target.closest('[data-admin-form]');
+  if (adminForm) {
+    event.preventDefault();
+    handleAdminFormSubmit(adminForm);
     return;
   }
 
-  if (logout) {
-    clearPartnerToken();
-    showLoginForm();
-    setLoginMode('partner');
+  const partnerForm = event.target.closest('[data-partner-form]');
+  if (partnerForm) {
+    event.preventDefault();
+    handlePartnerFormSubmit(partnerForm);
     return;
   }
 
-  if (tabButton) {
-    partnerState.activeTab = tabButton.dataset.partnerTab;
-    loadActivePartnerTabData();
+  const clientForm = event.target.closest('[data-client-form]');
+  if (clientForm) {
+    event.preventDefault();
+    handleClientFormSubmit(clientForm);
   }
-});
-
-partnerDashboard.addEventListener('submit', (event) => {
-  const form = event.target.closest('[data-partner-form]');
-  if (!form) {
-    return;
-  }
-  event.preventDefault();
-  handlePartnerFormSubmit(form);
-});
-
-clientDashboard.addEventListener('click', async (event) => {
-  const tabButton = event.target.closest('[data-client-tab]');
-  const logout = event.target.closest('[data-client-logout-button]');
-  const loadOffersButton = event.target.closest('[data-client-load-offers]');
-  const verifyPartnerButton = event.target.closest('[data-client-verify-partner]');
-  const verifyOfferButton = event.target.closest('[data-client-verify-offer]');
-  const createVkCodeButton = event.target.closest('[data-client-create-vk-code]');
-
-  if (logout) {
-    clearClientToken();
-    showLoginForm();
-    setLoginMode('client');
-    return;
-  }
-
-  if (tabButton) {
-    clientState.activeTab = tabButton.dataset.clientTab;
-    await loadActiveClientTabData();
-    return;
-  }
-
-  if (createVkCodeButton) {
-    await createClientVkLinkCode();
-    return;
-  }
-
-  if (loadOffersButton) {
-    try {
-      await loadClientPartnerOffers(loadOffersButton.dataset.clientLoadOffers);
-      setClientPanelMessage('Предложения загружены.', 'success');
-    } catch (error) {
-      setClientPanelMessage(error.message || 'Не удалось загрузить предложения.', 'error');
-    }
-    renderClientLayout();
-    return;
-  }
-
-  if (verifyOfferButton) {
-    await createClientVerification(verifyOfferButton.dataset.clientVerifyOffer, verifyOfferButton.dataset.offerId);
-    return;
-  }
-
-  if (verifyPartnerButton) {
-    await createClientVerification(verifyPartnerButton.dataset.clientVerifyPartner);
-  }
-});
-
-clientDashboard.addEventListener('submit', (event) => {
-  const form = event.target.closest('[data-client-form]');
-  if (!form) {
-    return;
-  }
-  event.preventDefault();
-  handleClientFormSubmit(form);
 });
 
 const restoreClientSession = async () => {
