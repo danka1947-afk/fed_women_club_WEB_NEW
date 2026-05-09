@@ -628,7 +628,8 @@ h2 {
 
 .admin-tab,
 .admin-header-card button,
-.admin-form button {
+.admin-form button,
+.admin-inline-action {
   min-height: 42px;
   padding: 10px 16px;
   border-radius: 999px;
@@ -645,7 +646,8 @@ h2 {
 
 .admin-tab.is-active,
 .admin-header-card button,
-.admin-form button {
+.admin-form button,
+.admin-inline-action {
   border: 0;
   background: linear-gradient(135deg, var(--color-rose), #b87368 55%, var(--color-rose-dark));
   color: #fffaf8;
@@ -685,7 +687,7 @@ h2 {
 
 .summary-grid {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 12px;
 }
 
@@ -762,6 +764,11 @@ h2 {
   color: var(--color-rose-dark);
   font-weight: 800;
   word-break: break-all;
+}
+
+.admin-inline-action {
+  margin: 0;
+  white-space: nowrap;
 }
 
 .admin-form {
