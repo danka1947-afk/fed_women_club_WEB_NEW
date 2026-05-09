@@ -159,7 +159,11 @@ def test_frontend_contains_lotus_line_art_background() -> None:
     source = _frontend_main()
     styles = _frontend_styles()
 
-    assert "lotus-line-art" in styles or "lotus-bg" in styles or "lotus" in source
+    assert "--lotus-line-art" in styles
+    assert "lotus-layer" in source
+    assert "lotus-decor" in source
+    assert "lotus-layer--public" in source
+    assert "lotus-layer--dashboard" in source
     assert "dashboard-shell" in source
 
     for expected in (
