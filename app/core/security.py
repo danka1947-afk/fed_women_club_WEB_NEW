@@ -6,7 +6,7 @@ import hmac
 import importlib.util
 import json
 import os
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from app.core.config import Settings, settings
@@ -112,7 +112,7 @@ def _decode_jwt_stdlib(token: str) -> dict[str, Any]:
             raise ValueError("Invalid token algorithm")
         payload = json.loads(_base64url_decode(payload_segment))
         exp = payload.get("exp")
-        if exp is not None and datetime.now(UTC).timestamp() > float(exp):
+        if exp is not None and datetime.now(timezone.utc).timestamp() > float(exp):
             raise ValueError("Token expired")
         return payload
     except (ValueError, TypeError, json.JSONDecodeError) as exc:
@@ -120,7 +120,7 @@ def _decode_jwt_stdlib(token: str) -> dict[str, Any]:
 
 
 def create_access_token(subject: str, expires_delta: timedelta | None = None) -> str:
-    expire = datetime.now(UTC) + (
+    expire = datetime.now(timezone.utc) + (
         expires_delta or timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     )
     payload: dict[str, Any] = {"sub": subject, "exp": int(expire.timestamp())}
