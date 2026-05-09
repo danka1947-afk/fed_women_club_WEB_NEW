@@ -15,6 +15,7 @@ from app.core.security import hash_password
 from app.db.base import Base
 from app.db.session import get_db
 from app.main import app
+from app.models.city import City
 from app.models.client import ClientProfile, VkLinkCode, VkLinkCodeStatus
 from app.models.user import User, UserRole
 
@@ -48,6 +49,8 @@ def vk_link_client() -> Generator[TestClient, None, None]:
                     role=UserRole.CLIENT.value,
                     is_active=True,
                 ),
+                City(name="Moscow", slug="moscow", is_active=True),
+                City(name="Hidden", slug="hidden", is_active=False),
             ]
         )
         session.commit()
@@ -277,3 +280,216 @@ def test_bot_vk_token_returns_404_for_unlinked_vk_user_id(vk_link_client: TestCl
 
     assert response.status_code == 404
     assert response.json()["detail"] == "VK user is not linked"
+
+
+def test_bot_onboard_client_without_service_token_returns_401(vk_link_client: TestClient) -> None:
+    response = vk_link_client.post(
+        "/api/v1/bot/vk/onboard-client",
+        json={"vk_user_id": "vk-onboard-1"},
+    )
+
+    assert response.status_code == 401
+
+
+def test_bot_onboard_client_with_wrong_service_token_returns_401(vk_link_client: TestClient) -> None:
+    response = vk_link_client.post(
+        "/api/v1/bot/vk/onboard-client",
+        headers=_bot_headers("wrong-token"),
+        json={"vk_user_id": "vk-onboard-1"},
+    )
+
+    assert response.status_code == 401
+
+
+def test_bot_onboard_client_empty_vk_user_id_returns_400(vk_link_client: TestClient) -> None:
+    response = vk_link_client.post(
+        "/api/v1/bot/vk/onboard-client",
+        headers=_bot_headers(),
+        json={"vk_user_id": "   "},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "vk_user_id must not be empty"
+
+
+def test_bot_onboard_client_creates_passwordless_client_user_and_profile(vk_link_client: TestClient) -> None:
+    response = vk_link_client.post(
+        "/api/v1/bot/vk/onboard-client",
+        headers=_bot_headers(),
+        json={"vk_user_id": "  vk-new-client  ", "full_name": "  New Client  ", "source": None},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["token_type"] == "bearer"
+    assert data["access_token"]
+    assert data["is_new"] is True
+    assert data["password_setup_required"] is True
+    assert data["user"]["email"] is None
+    assert data["user"]["phone"] is None
+    assert data["user"]["role"] == UserRole.CLIENT.value
+    assert "password_hash" not in data["user"]
+    assert data["client"]["vk_user_id"] == "vk-new-client"
+    assert data["client"]["full_name"] == "New Client"
+    assert data["client"]["source"] == "vk"
+    assert data["client"]["is_active"] is True
+
+    with _db_session() as session:
+        profile = session.execute(
+            select(ClientProfile).where(ClientProfile.vk_user_id == "vk-new-client")
+        ).scalar_one()
+        user = session.execute(select(User).where(User.id == profile.user_id)).scalar_one()
+        assert user.role == UserRole.CLIENT.value
+        assert user.is_active is True
+        assert user.password_hash is None
+        assert user.email is None
+        assert user.phone is None
+        assert profile.full_name == "New Client"
+        assert profile.source == "vk"
+
+
+def test_bot_onboard_client_returned_token_works_for_client_me(vk_link_client: TestClient) -> None:
+    response = vk_link_client.post(
+        "/api/v1/bot/vk/onboard-client",
+        headers=_bot_headers(),
+        json={"vk_user_id": "vk-token-client"},
+    )
+    assert response.status_code == 200
+
+    me_response = vk_link_client.get(
+        "/api/v1/clients/me",
+        headers=_auth_headers(response.json()["access_token"]),
+    )
+
+    assert me_response.status_code == 200
+    assert me_response.json()["vk_user_id"] == "vk-token-client"
+
+
+def test_bot_onboard_client_repeated_vk_user_id_returns_existing_profile(vk_link_client: TestClient) -> None:
+    first_response = vk_link_client.post(
+        "/api/v1/bot/vk/onboard-client",
+        headers=_bot_headers(),
+        json={"vk_user_id": "vk-repeat"},
+    )
+    assert first_response.status_code == 200
+    first_data = first_response.json()
+
+    second_response = vk_link_client.post(
+        "/api/v1/bot/vk/onboard-client",
+        headers=_bot_headers(),
+        json={"vk_user_id": " vk-repeat "},
+    )
+
+    assert second_response.status_code == 200
+    second_data = second_response.json()
+    assert second_data["is_new"] is False
+    assert second_data["user"]["id"] == first_data["user"]["id"]
+    assert second_data["client"]["id"] == first_data["client"]["id"]
+    with _db_session() as session:
+        users_count = len(session.execute(select(User).where(User.email.is_(None))).scalars().all())
+        profiles_count = len(
+            session.execute(select(ClientProfile).where(ClientProfile.vk_user_id == "vk-repeat")).scalars().all()
+        )
+        assert users_count == 1
+        assert profiles_count == 1
+
+
+def test_bot_onboard_client_active_city_slug_sets_selected_city_id(vk_link_client: TestClient) -> None:
+    response = vk_link_client.post(
+        "/api/v1/bot/vk/onboard-client",
+        headers=_bot_headers(),
+        json={"vk_user_id": "vk-with-city", "selected_city_slug": " moscow "},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    with _db_session() as session:
+        city = session.execute(select(City).where(City.slug == "moscow")).scalar_one()
+        assert data["client"]["selected_city_id"] == city.id
+
+
+def test_bot_onboard_client_existing_profile_updates_selected_city(vk_link_client: TestClient) -> None:
+    first_response = vk_link_client.post(
+        "/api/v1/bot/vk/onboard-client",
+        headers=_bot_headers(),
+        json={"vk_user_id": "vk-city-sync"},
+    )
+    assert first_response.status_code == 200
+    assert first_response.json()["client"]["selected_city_id"] is None
+
+    second_response = vk_link_client.post(
+        "/api/v1/bot/vk/onboard-client",
+        headers=_bot_headers(),
+        json={"vk_user_id": "vk-city-sync", "selected_city_slug": "moscow"},
+    )
+
+    assert second_response.status_code == 200
+    assert second_response.json()["is_new"] is False
+    with _db_session() as session:
+        city = session.execute(select(City).where(City.slug == "moscow")).scalar_one()
+        profile = session.execute(select(ClientProfile).where(ClientProfile.vk_user_id == "vk-city-sync")).scalar_one()
+        assert second_response.json()["client"]["selected_city_id"] == city.id
+        assert profile.selected_city_id == city.id
+
+
+@pytest.mark.parametrize("city_slug", ["missing", "hidden"])
+def test_bot_onboard_client_missing_or_inactive_city_slug_returns_404(
+    vk_link_client: TestClient,
+    city_slug: str,
+) -> None:
+    response = vk_link_client.post(
+        "/api/v1/bot/vk/onboard-client",
+        headers=_bot_headers(),
+        json={"vk_user_id": "vk-bad-city", "selected_city_slug": city_slug},
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "City not found"
+
+
+def test_bot_onboard_client_existing_linked_inactive_user_returns_clean_error(vk_link_client: TestClient) -> None:
+    with _db_session() as session:
+        user = User(
+            email="inactive-client@example.com",
+            phone="+79990000003",
+            password_hash=None,
+            role=UserRole.CLIENT.value,
+            is_active=False,
+        )
+        session.add(user)
+        session.flush()
+        session.add(ClientProfile(user_id=user.id, vk_user_id="vk-inactive-user", is_active=True, source="vk"))
+        session.commit()
+
+    response = vk_link_client.post(
+        "/api/v1/bot/vk/onboard-client",
+        headers=_bot_headers(),
+        json={"vk_user_id": "vk-inactive-user"},
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Client user not found"
+
+
+def test_bot_onboard_client_existing_linked_non_client_user_returns_clean_error(vk_link_client: TestClient) -> None:
+    with _db_session() as session:
+        user = User(
+            email="partner-linked@example.com",
+            phone="+79990000004",
+            password_hash=None,
+            role=UserRole.PARTNER.value,
+            is_active=True,
+        )
+        session.add(user)
+        session.flush()
+        session.add(ClientProfile(user_id=user.id, vk_user_id="vk-non-client", is_active=True, source="vk"))
+        session.commit()
+
+    response = vk_link_client.post(
+        "/api/v1/bot/vk/onboard-client",
+        headers=_bot_headers(),
+        json={"vk_user_id": "vk-non-client"},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Linked user is not a client"

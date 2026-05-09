@@ -28,3 +28,39 @@ class VkExchangeTokenResponse(BaseModel):
     access_token: str
     token_type: Literal["bearer"] = "bearer"
     user: UnifiedUserRead
+
+
+class VkOnboardClientRequest(BaseModel):
+    vk_user_id: str
+    source: str | None = "vk"
+    selected_city_slug: str | None = None
+    full_name: str | None = None
+
+
+class VkOnboardClientUserRead(BaseModel):
+    id: int
+    email: str | None
+    phone: str | None
+    role: Literal["client"]
+
+    model_config = {"from_attributes": True}
+
+
+class VkOnboardClientProfileRead(BaseModel):
+    id: int
+    vk_user_id: str
+    selected_city_id: int | None
+    full_name: str | None
+    source: str | None
+    is_active: bool
+
+    model_config = {"from_attributes": True}
+
+
+class VkOnboardClientResponse(BaseModel):
+    access_token: str
+    token_type: Literal["bearer"] = "bearer"
+    user: VkOnboardClientUserRead
+    client: VkOnboardClientProfileRead
+    is_new: bool
+    password_setup_required: bool = True
