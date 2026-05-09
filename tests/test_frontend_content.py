@@ -192,3 +192,35 @@ def test_public_landing_copy_and_city_chips_remain_intact() -> None:
         "Череповец",
     ):
         assert public_copy in source
+
+
+def test_frontend_contains_partner_cabinet_foundation() -> None:
+    source = _frontend_main()
+
+    for expected in (
+        "Кабинет партнёра",
+        "Партнёр",
+        "Профиль",
+        "Предложения",
+        "QR / лиды",
+        "Подтверждения",
+    ):
+        assert expected in source
+
+
+def test_frontend_contains_partner_endpoint_strings_and_separate_token() -> None:
+    source = _frontend_main()
+
+    for endpoint in (
+        "/api/v1/auth/user-login",
+        "/api/v1/auth/user-me",
+        "/api/v1/partners/me",
+        "/api/v1/partners/me/offers",
+        "/api/v1/partners/me/qr-links",
+        "/api/v1/partners/me/leads",
+        "/api/v1/partners/me/verifications",
+    ):
+        assert endpoint in source
+
+    assert "/api/v1/auth/login" in source
+    assert "womenclub_partner_token" in source

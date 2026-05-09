@@ -858,3 +858,58 @@ h2 {
     grid-template-columns: 1fr 1fr;
   }
 }
+
+.login-mode-switch {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 18px 0 16px;
+  padding: 6px;
+  border: 1px solid rgba(201, 130, 120, 0.22);
+  border-radius: 999px;
+  background: rgba(255, 250, 248, 0.78);
+}
+
+.login-mode-button {
+  min-height: 44px;
+  padding: 10px 16px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--color-rose-dark);
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.login-mode-button.is-active {
+  background: linear-gradient(135deg, var(--color-rose), #b87368 55%, var(--color-rose-dark));
+  color: #fffaf8;
+  box-shadow: 0 14px 28px rgba(143, 81, 75, 0.18);
+}
+
+.partner-dashboard {
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.94), rgba(255, 247, 245, 0.97)),
+    radial-gradient(circle at top left, rgba(255, 232, 226, 0.8), transparent 14rem),
+    radial-gradient(circle at bottom right, rgba(234, 196, 190, 0.58), transparent 16rem);
+}
+
+.partner-profile-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.partner-profile-grid .summary-card strong {
+  font-size: 1rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 640px) {
+  .login-mode-switch {
+    grid-template-columns: 1fr;
+    border-radius: 24px;
+  }
+}
