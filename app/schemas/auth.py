@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, TypedDict
+from typing import Any, Literal, TypedDict
 
 from pydantic import BaseModel
 
@@ -26,3 +26,23 @@ class LoginResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
     user: AdminUserRead
+
+
+class UserLoginRequest(BaseModel):
+    login: str
+    password: str
+
+
+class UnifiedUserRead(BaseModel):
+    id: int
+    email: str | None
+    phone: str | None
+    role: Literal["admin", "partner", "client"]
+
+    model_config = {"from_attributes": True}
+
+
+class UnifiedTokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    user: UnifiedUserRead
