@@ -174,46 +174,509 @@ document.querySelectorAll('[data-city-choice]').forEach((button) => {
 });
 
 
+
 const authTokenKey = 'womenClubAdminAccessToken';
+const adminTabs = [
+  { id: 'overview', label: 'Обзор' },
+  { id: 'cities', label: 'Города' },
+  { id: 'categories', label: 'Категории' },
+  { id: 'partners', label: 'Партнёры' },
+  { id: 'offers', label: 'Предложения' },
+  { id: 'qr', label: 'QR / лиды' },
+  { id: 'verifications', label: 'Подтверждения' },
+];
+
+const adminState = {
+  activeTab: 'overview',
+  user: null,
+  cities: [],
+  categories: [],
+  partners: [],
+  offers: [],
+  qrLinks: [],
+  leads: [],
+  verifications: [],
+  selectedPartnerIdForOffers: '',
+  selectedPartnerIdForQr: '',
+  panelMessage: '',
+  overviewPartialError: false,
+};
+
 const loginForm = document.querySelector('[data-login-form]');
 const loginMessage = document.querySelector('[data-login-message]');
 const adminDashboard = document.querySelector('[data-admin-dashboard]');
 const adminEmail = document.querySelector('[data-admin-email]');
 const logoutButton = document.querySelector('[data-logout-button]');
 
+const escapeHtml = (value) => String(value ?? '')
+  .replaceAll('&', '&amp;')
+  .replaceAll('<', '&lt;')
+  .replaceAll('>', '&gt;')
+  .replaceAll('"', '&quot;')
+  .replaceAll("'", '&#039;');
+
+const formatBool = (value) => (value ? 'да' : 'нет');
+const formatValue = (value) => escapeHtml(value || '—');
+const formatDate = (value) => (value ? new Date(value).toLocaleString('ru-RU') : '—');
+
+const getToken = () => localStorage.getItem(authTokenKey);
+
 const setLoginMessage = (message = '') => {
   loginMessage.textContent = message;
 };
 
-const showLoginForm = () => {
-  loginForm.hidden = false;
-  adminDashboard.hidden = true;
-  adminEmail.textContent = '';
-};
-
-const showAdminDashboard = (user) => {
-  loginForm.hidden = true;
-  adminDashboard.hidden = false;
-  adminEmail.textContent = user.email;
-  setLoginMessage();
+const setPanelMessage = (message = '', type = 'info') => {
+  adminState.panelMessage = message
+    ? `<div class="admin-status admin-status--${type}" role="status">${escapeHtml(message)}</div>`
+    : '';
 };
 
 const clearToken = () => {
   localStorage.removeItem(authTokenKey);
 };
 
-const requestAdminMe = async (token) => {
-  const response = await fetch('/api/v1/admin/me', {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
+const showLoginForm = () => {
+  loginForm.hidden = false;
+  adminDashboard.hidden = true;
+  adminEmail.textContent = '';
+  adminState.user = null;
+};
+
+const buildErrorMessage = async (response) => {
+  try {
+    const data = await response.json();
+    if (typeof data.detail === 'string') {
+      return data.detail;
+    }
+  } catch (error) {
+    // response body is not JSON
+  }
+  return `Ошибка ${response.status}`;
+};
+
+const apiFetch = async (path, options = {}) => {
+  const token = getToken();
+  const headers = new Headers(options.headers || {});
+
+  if (token) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
+
+  if (options.body && !headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json');
+  }
+
+  const response = await fetch(path, {
+    ...options,
+    headers,
   });
 
+  if (response.status === 401 || response.status === 403) {
+    clearToken();
+    showLoginForm();
+    throw new Error('Сессия истекла. Войдите снова.');
+  }
+
   if (!response.ok) {
-    throw new Error('Invalid token');
+    throw new Error(await buildErrorMessage(response));
+  }
+
+  if (response.status === 204) {
+    return null;
   }
 
   return response.json();
+};
+
+const requestAdminMe = () => apiFetch('/api/v1/admin/me');
+
+const postJson = (path, payload) => apiFetch(path, {
+  method: 'POST',
+  body: JSON.stringify(payload),
+});
+
+const loadCities = async () => {
+  adminState.cities = await apiFetch('/api/v1/admin/cities');
+};
+
+const loadCategories = async () => {
+  adminState.categories = await apiFetch('/api/v1/admin/categories');
+};
+
+const loadPartners = async () => {
+  adminState.partners = await apiFetch('/api/v1/admin/partners');
+};
+
+const loadLeads = async () => {
+  adminState.leads = await apiFetch('/api/v1/admin/leads/partners');
+};
+
+const loadVerifications = async () => {
+  adminState.verifications = await apiFetch('/api/v1/admin/verifications');
+};
+
+const loadOffers = async () => {
+  if (!adminState.selectedPartnerIdForOffers) {
+    adminState.offers = [];
+    return;
+  }
+  adminState.offers = await apiFetch(`/api/v1/admin/partners/${adminState.selectedPartnerIdForOffers}/offers`);
+};
+
+const loadQrLinks = async () => {
+  if (!adminState.selectedPartnerIdForQr) {
+    adminState.qrLinks = [];
+    return;
+  }
+  adminState.qrLinks = await apiFetch(`/api/v1/admin/partners/${adminState.selectedPartnerIdForQr}/qr-links`);
+};
+
+const ensureAdminDictionaries = async () => {
+  await Promise.all([
+    adminState.cities.length ? Promise.resolve() : loadCities(),
+    adminState.categories.length ? Promise.resolve() : loadCategories(),
+    adminState.partners.length ? Promise.resolve() : loadPartners(),
+  ]);
+};
+
+const renderAdminLayout = () => {
+  const content = renderAdminTabContent();
+  adminDashboard.innerHTML = `
+    <div class="admin-header-card">
+      <div>
+        <p class="section-kicker">Кабинет клуба</p>
+        <h3>Админ-панель</h3>
+        <p>Вы вошли как: <strong data-admin-email>${escapeHtml(adminState.user?.email || '')}</strong></p>
+      </div>
+      <button type="button" data-logout-button>Выйти</button>
+    </div>
+    <nav class="admin-tabs" aria-label="Разделы админ-панели">
+      ${adminTabs.map((tab) => `
+        <button class="admin-tab${adminState.activeTab === tab.id ? ' is-active' : ''}" type="button" data-admin-tab="${tab.id}">
+          ${tab.label}
+        </button>
+      `).join('')}
+    </nav>
+    ${adminState.panelMessage}
+    <section class="admin-tab-panel">${content}</section>
+  `;
+};
+
+const renderAdminTabContent = () => {
+  switch (adminState.activeTab) {
+    case 'cities':
+      return renderCitiesTab();
+    case 'categories':
+      return renderCategoriesTab();
+    case 'partners':
+      return renderPartnersTab();
+    case 'offers':
+      return renderOffersTab();
+    case 'qr':
+      return renderQrTab();
+    case 'verifications':
+      return renderVerificationsTab();
+    default:
+      return renderOverviewTab();
+  }
+};
+
+const renderOverviewTab = () => {
+  const cards = [
+    ['Города', adminState.cities.length],
+    ['Категории', adminState.categories.length],
+    ['Партнёры', adminState.partners.length],
+    ['Подтверждения', adminState.verifications.length],
+    ['Лиды', adminState.leads.reduce((sum, lead) => sum + Number(lead.total_clicks || 0), 0)],
+  ];
+
+  return `
+    <div class="admin-section-heading">
+      <h4>Обзор</h4>
+      <p>${adminState.overviewPartialError ? 'Не удалось загрузить часть данных.' : 'Короткая сводка по справочникам и активности.'}</p>
+    </div>
+    <div class="summary-grid">
+      ${cards.map(([label, value]) => `
+        <article class="summary-card">
+          <span>${escapeHtml(label)}</span>
+          <strong>${escapeHtml(value)}</strong>
+        </article>
+      `).join('')}
+    </div>
+  `;
+};
+
+const renderCitiesTab = () => `
+  <div class="admin-two-column">
+    <div>
+      <div class="admin-section-heading"><h4>Города</h4><p>Список городов для управления каталогом.</p></div>
+      ${renderTable(['name', 'slug', 'active', 'sort_order'], adminState.cities.map((city) => [city.name, city.slug, formatBool(city.is_active), city.sort_order]))}
+    </div>
+    <form class="admin-form" data-admin-form="city">
+      <h4>Новый город</h4>
+      <label>name<input name="name" required /></label>
+      <label>slug<input name="slug" required /></label>
+      <label>sort_order<input name="sort_order" type="number" value="0" /></label>
+      <label class="checkbox-row"><input name="is_active" type="checkbox" checked /> active</label>
+      <button type="submit">Создать город</button>
+      <p class="form-message" data-form-message="city"></p>
+    </form>
+  </div>
+`;
+
+const renderCategoriesTab = () => `
+  <div class="admin-section-heading"><h4>Категории</h4><p>Read-only справочник категорий партнёров.</p></div>
+  ${renderTable(['title', 'slug', 'sort_order'], adminState.categories.map((category) => [category.title, category.slug, category.sort_order]))}
+`;
+
+const renderPartnersTab = () => `
+  <div class="admin-two-column admin-two-column--wide">
+    <div>
+      <div class="admin-section-heading"><h4>Партнёры</h4><p>Базовый список партнёров клуба.</p></div>
+      ${renderTable(['name', 'city_name', 'category_slug', 'active', 'verified'], adminState.partners.map((partner) => [partner.name, partner.city_name, partner.category_slug, formatBool(partner.is_active), formatBool(partner.is_verified)]))}
+    </div>
+    <form class="admin-form" data-admin-form="partner">
+      <h4>Новый партнёр</h4>
+      <label>city_id${renderSelect('city_id', adminState.cities.map((city) => [city.id, city.name]), true)}</label>
+      <label>category_slug${renderSelect('category_slug', adminState.categories.map((category) => [category.slug, category.title]), false)}</label>
+      <label>name<input name="name" required /></label>
+      <label>description<textarea name="description" rows="3"></textarea></label>
+      <label>address<input name="address" /></label>
+      <label>phone<input name="phone" /></label>
+      <label>social_url<input name="social_url" /></label>
+      <label class="checkbox-row"><input name="is_active" type="checkbox" checked /> active</label>
+      <label class="checkbox-row"><input name="is_verified" type="checkbox" /> verified</label>
+      <button type="submit">Создать партнёра</button>
+      <p class="form-message" data-form-message="partner"></p>
+    </form>
+  </div>
+`;
+
+const renderOffersTab = () => `
+  <div class="admin-section-heading"><h4>Предложения</h4><p>Выберите партнёра, чтобы увидеть и создать предложения.</p></div>
+  <label class="admin-select-label">Партнёр${renderPartnerPicker('offers', adminState.selectedPartnerIdForOffers)}</label>
+  ${adminState.selectedPartnerIdForOffers ? `
+    ${renderTable(['title', 'benefit_text', 'base_price', 'discount_percent', 'active', 'sort_order'], adminState.offers.map((offer) => [offer.title, offer.benefit_text, offer.base_price, offer.discount_percent, formatBool(offer.is_active), offer.sort_order]))}
+    <form class="admin-form admin-form--inline" data-admin-form="offer">
+      <h4>Новое предложение</h4>
+      <label>title<input name="title" required /></label>
+      <label>benefit_text<input name="benefit_text" /></label>
+      <label>description<textarea name="description" rows="3"></textarea></label>
+      <label>conditions<textarea name="conditions" rows="3"></textarea></label>
+      <label>base_price<input name="base_price" type="number" step="0.01" /></label>
+      <label>discount_percent<input name="discount_percent" type="number" step="0.01" /></label>
+      <label>sort_order<input name="sort_order" type="number" value="0" /></label>
+      <label class="checkbox-row"><input name="is_active" type="checkbox" checked /> active</label>
+      <button type="submit">Создать предложение</button>
+      <p class="form-message" data-form-message="offer"></p>
+    </form>
+  ` : '<p class="empty-note">Сначала выберите партнёра.</p>'}
+`;
+
+const renderQrTab = () => `
+  <div class="admin-section-heading"><h4>QR / лиды</h4><p>QR-ссылки партнёров и агрегированные переходы.</p></div>
+  <label class="admin-select-label">Партнёр${renderPartnerPicker('qr', adminState.selectedPartnerIdForQr)}</label>
+  ${adminState.selectedPartnerIdForQr ? `
+    ${renderTable(['slug', 'qr_url', 'target_url', 'active'], adminState.qrLinks.map((link) => [formatValue(link.slug), link.qr_url ? `<a href="${escapeHtml(link.qr_url)}" target="_blank" rel="noreferrer">${escapeHtml(link.qr_url)}</a>` : '—', formatValue(link.target_url), formatValue(formatBool(link.is_active))]), true)}
+    <form class="admin-form admin-form--inline" data-admin-form="qr">
+      <h4>Новая QR-ссылка</h4>
+      <label>slug optional<input name="slug" /></label>
+      <label>target_url optional<input name="target_url" /></label>
+      <label>deep_link_payload optional<input name="deep_link_payload" /></label>
+      <label class="checkbox-row"><input name="is_active" type="checkbox" checked /> active</label>
+      <button type="submit">Создать QR</button>
+      <p class="form-message" data-form-message="qr"></p>
+    </form>
+  ` : '<p class="empty-note">Сначала выберите партнёра.</p>'}
+  <h4 class="table-title">Лиды партнёров</h4>
+  ${renderTable(['partner_name', 'city_name', 'qr_slug', 'total_clicks'], adminState.leads.map((lead) => [lead.partner_name, lead.city_name, lead.qr_slug, lead.total_clicks]))}
+`;
+
+const renderVerificationsTab = () => `
+  <div class="admin-section-heading"><h4>Подтверждения</h4><p>Последние сессии подтверждения привилегий.</p></div>
+  ${renderTable(
+    ['status', 'code', 'partner_name', 'client_name/client_id', 'offer_title', 'created_at', 'expires_at', 'confirmed_at'],
+    adminState.verifications.map((item) => [item.status, item.code, item.partner_name, `${item.client_name || '—'} / ${item.client_id}`, item.offer_title, formatDate(item.created_at), formatDate(item.expires_at), formatDate(item.confirmed_at)]),
+  )}
+`;
+
+const renderTable = (headers, rows, trustedHtml = false) => {
+  if (!rows.length) {
+    return '<p class="empty-note">Пока нет данных.</p>';
+  }
+
+  return `
+    <div class="admin-table-wrap">
+      <table class="admin-table">
+        <thead><tr>${headers.map((header) => `<th>${escapeHtml(header)}</th>`).join('')}</tr></thead>
+        <tbody>
+          ${rows.map((row) => `<tr>${row.map((cell) => `<td>${trustedHtml ? cell : formatValue(cell)}</td>`).join('')}</tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+};
+
+const renderSelect = (name, options, required = false, selectedValue = '') => `
+  <select name="${name}" ${required ? 'required' : ''}>
+    <option value="">${required ? 'Выберите' : 'Без категории'}</option>
+    ${options.map(([value, label]) => `<option value="${escapeHtml(value)}" ${String(value) === String(selectedValue) ? 'selected' : ''}>${escapeHtml(label)}</option>`).join('')}
+  </select>
+`;
+
+const renderPartnerPicker = (scope, selectedValue) => `
+  <select data-partner-picker="${scope}">
+    <option value="">Выберите партнёра</option>
+    ${adminState.partners.map((partner) => `<option value="${partner.id}" ${String(partner.id) === String(selectedValue) ? 'selected' : ''}>${escapeHtml(partner.name)}</option>`).join('')}
+  </select>
+`;
+
+const showAdminDashboard = async (user) => {
+  loginForm.hidden = true;
+  adminDashboard.hidden = false;
+  adminState.user = user;
+  setLoginMessage();
+  setPanelMessage();
+  renderAdminLayout();
+  await loadActiveTabData();
+};
+
+const loadOverview = async () => {
+  adminState.overviewPartialError = false;
+  const tasks = [loadCities, loadCategories, loadPartners, loadVerifications, loadLeads];
+  const results = await Promise.allSettled(tasks.map((task) => task()));
+  adminState.overviewPartialError = results.some((result) => result.status === 'rejected');
+};
+
+const loadActiveTabData = async () => {
+  setPanelMessage();
+  renderAdminLayout();
+
+  try {
+    if (adminState.activeTab === 'overview') {
+      await loadOverview();
+    } else if (adminState.activeTab === 'cities') {
+      await loadCities();
+    } else if (adminState.activeTab === 'categories') {
+      await loadCategories();
+    } else if (adminState.activeTab === 'partners') {
+      await ensureAdminDictionaries();
+    } else if (adminState.activeTab === 'offers') {
+      await ensureAdminDictionaries();
+      if (!adminState.selectedPartnerIdForOffers && adminState.partners[0]) {
+        adminState.selectedPartnerIdForOffers = String(adminState.partners[0].id);
+      }
+      await loadOffers();
+    } else if (adminState.activeTab === 'qr') {
+      await Promise.all([ensureAdminDictionaries(), loadLeads()]);
+      if (!adminState.selectedPartnerIdForQr && adminState.partners[0]) {
+        adminState.selectedPartnerIdForQr = String(adminState.partners[0].id);
+      }
+      await loadQrLinks();
+    } else if (adminState.activeTab === 'verifications') {
+      await loadVerifications();
+    }
+  } catch (error) {
+    setPanelMessage(error.message || 'Не удалось загрузить данные.', 'error');
+  }
+
+  renderAdminLayout();
+};
+
+const getOptionalText = (formData, name) => {
+  const value = String(formData.get(name) || '').trim();
+  return value || null;
+};
+
+const submitCity = async (form) => {
+  const formData = new FormData(form);
+  await postJson('/api/v1/admin/cities', {
+    name: getOptionalText(formData, 'name'),
+    slug: getOptionalText(formData, 'slug'),
+    sort_order: Number(formData.get('sort_order') || 0),
+    is_active: formData.has('is_active'),
+  });
+  form.reset();
+  await loadCities();
+};
+
+const submitPartner = async (form) => {
+  const formData = new FormData(form);
+  await postJson('/api/v1/admin/partners', {
+    city_id: Number(formData.get('city_id')),
+    category_slug: getOptionalText(formData, 'category_slug'),
+    name: getOptionalText(formData, 'name'),
+    description: getOptionalText(formData, 'description'),
+    address: getOptionalText(formData, 'address'),
+    phone: getOptionalText(formData, 'phone'),
+    social_url: getOptionalText(formData, 'social_url'),
+    is_active: formData.has('is_active'),
+    is_verified: formData.has('is_verified'),
+  });
+  form.reset();
+  await loadPartners();
+};
+
+const decimalOrNull = (formData, name) => {
+  const value = String(formData.get(name) || '').trim();
+  return value || null;
+};
+
+const submitOffer = async (form) => {
+  const formData = new FormData(form);
+  await postJson(`/api/v1/admin/partners/${adminState.selectedPartnerIdForOffers}/offers`, {
+    title: getOptionalText(formData, 'title'),
+    benefit_text: getOptionalText(formData, 'benefit_text'),
+    description: getOptionalText(formData, 'description'),
+    conditions: getOptionalText(formData, 'conditions'),
+    base_price: decimalOrNull(formData, 'base_price'),
+    discount_percent: decimalOrNull(formData, 'discount_percent'),
+    sort_order: Number(formData.get('sort_order') || 0),
+    is_active: formData.has('is_active'),
+  });
+  form.reset();
+  await loadOffers();
+};
+
+const submitQr = async (form) => {
+  const formData = new FormData(form);
+  await postJson(`/api/v1/admin/partners/${adminState.selectedPartnerIdForQr}/qr-links`, {
+    slug: getOptionalText(formData, 'slug'),
+    target_url: getOptionalText(formData, 'target_url'),
+    deep_link_payload: getOptionalText(formData, 'deep_link_payload'),
+    is_active: formData.has('is_active'),
+  });
+  form.reset();
+  await loadQrLinks();
+  await loadLeads();
+};
+
+const handleAdminFormSubmit = async (form) => {
+  const formType = form.dataset.adminForm;
+  const message = form.querySelector(`[data-form-message="${formType}"]`);
+  if (message) {
+    message.textContent = '';
+  }
+
+  try {
+    if (formType === 'city') {
+      await submitCity(form);
+    } else if (formType === 'partner') {
+      await submitPartner(form);
+    } else if (formType === 'offer') {
+      await submitOffer(form);
+    } else if (formType === 'qr') {
+      await submitQr(form);
+    }
+    setPanelMessage('Сохранено.', 'success');
+  } catch (error) {
+    if (message) {
+      message.textContent = error.message || 'Не удалось сохранить.';
+    }
+    setPanelMessage(error.message || 'Не удалось сохранить.', 'error');
+  }
+
+  renderAdminLayout();
 };
 
 loginForm.addEventListener('submit', async (event) => {
@@ -241,7 +704,7 @@ loginForm.addEventListener('submit', async (event) => {
 
     const data = await response.json();
     localStorage.setItem(authTokenKey, data.access_token);
-    showAdminDashboard(data.user);
+    await showAdminDashboard(data.user);
     loginForm.reset();
   } catch (error) {
     clearToken();
@@ -250,21 +713,56 @@ loginForm.addEventListener('submit', async (event) => {
   }
 });
 
-logoutButton.addEventListener('click', () => {
-  clearToken();
-  showLoginForm();
+adminDashboard.addEventListener('click', (event) => {
+  const tabButton = event.target.closest('[data-admin-tab]');
+  const logout = event.target.closest('[data-logout-button]');
+
+  if (logout) {
+    clearToken();
+    showLoginForm();
+    return;
+  }
+
+  if (tabButton) {
+    adminState.activeTab = tabButton.dataset.adminTab;
+    loadActiveTabData();
+  }
+});
+
+adminDashboard.addEventListener('change', (event) => {
+  const picker = event.target.closest('[data-partner-picker]');
+  if (!picker) {
+    return;
+  }
+
+  if (picker.dataset.partnerPicker === 'offers') {
+    adminState.selectedPartnerIdForOffers = picker.value;
+  } else if (picker.dataset.partnerPicker === 'qr') {
+    adminState.selectedPartnerIdForQr = picker.value;
+  }
+
+  loadActiveTabData();
+});
+
+adminDashboard.addEventListener('submit', (event) => {
+  const form = event.target.closest('[data-admin-form]');
+  if (!form) {
+    return;
+  }
+  event.preventDefault();
+  handleAdminFormSubmit(form);
 });
 
 const restoreAdminSession = async () => {
-  const token = localStorage.getItem(authTokenKey);
+  const token = getToken();
   if (!token) {
     showLoginForm();
     return;
   }
 
   try {
-    const user = await requestAdminMe(token);
-    showAdminDashboard(user);
+    const user = await requestAdminMe();
+    await showAdminDashboard(user);
   } catch (error) {
     clearToken();
     showLoginForm();
