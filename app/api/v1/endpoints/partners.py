@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -9,10 +10,13 @@ from sqlalchemy.orm import Session
 from app.api.deps import require_partner
 from app.db.session import get_db
 from app.models.city import City
+from app.models.client import ClientProfile
 from app.models.lead import LeadClick
 from app.models.partner import Partner, PartnerOffer, PartnerQrLink
+from app.models.verification import PrivilegeVerificationSession, PrivilegeVerificationStatus
 from app.models.user import User
 from app.schemas.partner import (
+    ConfirmVerificationResponse,
     PartnerOfferCreate,
     PartnerOfferRead,
     LeadStatsRead,
@@ -20,6 +24,7 @@ from app.schemas.partner import (
     PartnerQrLinkRead,
     PartnerProfileRead,
     PartnerProfileUpdate,
+    PartnerVerificationRead,
 )
 from app.services.qr_links import qr_link_to_read
 
@@ -37,6 +42,7 @@ PARTNER_PROFILE_TEXT_FIELDS = (
 )
 PARTNER_OFFER_TEXT_FIELDS = ("description", "benefit_text", "conditions", "image_url")
 PARTNER_NOT_FOUND_DETAIL = "Partner profile for current user was not found"
+VERIFICATION_NOT_FOUND_DETAIL = "Verification session not found"
 
 
 @router.get("/me", response_model=PartnerProfileRead)
@@ -109,6 +115,73 @@ def list_partner_lead_stats(
     return [LeadStatsRead.model_validate(dict(row._mapping)) for row in rows]
 
 
+@router.get("/me/verifications", response_model=list[PartnerVerificationRead])
+def list_partner_verifications(
+    status: str | None = None,
+    current_user: User = Depends(require_partner),
+    db: Session = Depends(get_db),
+) -> list[PartnerVerificationRead]:
+    partner = _get_current_partner_or_404(db, current_user.id)
+    statement = (
+        select(
+            PrivilegeVerificationSession,
+            ClientProfile.full_name.label("client_name"),
+            Partner.name.label("partner_name"),
+            PartnerOffer.title.label("offer_title"),
+        )
+        .join(ClientProfile, PrivilegeVerificationSession.client_id == ClientProfile.id)
+        .join(Partner, PrivilegeVerificationSession.partner_id == Partner.id)
+        .outerjoin(PartnerOffer, PrivilegeVerificationSession.offer_id == PartnerOffer.id)
+        .where(PrivilegeVerificationSession.partner_id == partner.id)
+        .order_by(PrivilegeVerificationSession.created_at.desc(), PrivilegeVerificationSession.id.desc())
+    )
+    if status is not None:
+        statement = statement.where(PrivilegeVerificationSession.status == status)
+
+    return [
+        _partner_verification_to_read(session, client_name, partner_name, offer_title)
+        for session, client_name, partner_name, offer_title in db.execute(statement).all()
+    ]
+
+
+@router.post("/me/verifications/{verification_id}/confirm", response_model=ConfirmVerificationResponse)
+def confirm_partner_verification(
+    verification_id: int,
+    current_user: User = Depends(require_partner),
+    db: Session = Depends(get_db),
+) -> ConfirmVerificationResponse:
+    partner = _get_current_partner_or_404(db, current_user.id)
+    verification = db.execute(
+        select(PrivilegeVerificationSession).where(
+            PrivilegeVerificationSession.id == verification_id,
+            PrivilegeVerificationSession.partner_id == partner.id,
+        )
+    ).scalar_one_or_none()
+    if verification is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=VERIFICATION_NOT_FOUND_DETAIL)
+
+    if verification.status != PrivilegeVerificationStatus.active.value:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Verification session is not active")
+
+    now = datetime.now(timezone.utc)
+    if _as_aware_utc(verification.expires_at) < now:
+        verification.status = PrivilegeVerificationStatus.expired.value
+        db.commit()
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Verification session expired")
+
+    verification.status = PrivilegeVerificationStatus.confirmed.value
+    verification.confirmed_at = now
+    db.commit()
+    db.refresh(verification)
+    return ConfirmVerificationResponse.model_validate(
+        {
+            "id": verification.id,
+            "status": verification.status,
+            "confirmed_at": verification.confirmed_at,
+        }
+    )
+
+
 @router.get("/me/offers", response_model=list[PartnerOfferRead])
 def list_partner_offers(
     is_active: bool | None = None,
@@ -177,6 +250,43 @@ def update_partner_offer(
     db.commit()
     db.refresh(offer)
     return _partner_offer_to_read(offer)
+
+
+def _as_aware_utc(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
+
+
+def _ttl_seconds(expires_at: datetime) -> int | None:
+    seconds = int((_as_aware_utc(expires_at) - datetime.now(timezone.utc)).total_seconds())
+    return max(seconds, 0)
+
+
+def _partner_verification_to_read(
+    session: PrivilegeVerificationSession,
+    client_name: str | None,
+    partner_name: str | None,
+    offer_title: str | None,
+) -> PartnerVerificationRead:
+    return PartnerVerificationRead.model_validate(
+        {
+            "id": session.id,
+            "client_id": session.client_id,
+            "client_name": client_name,
+            "partner_id": session.partner_id,
+            "partner_name": partner_name,
+            "offer_id": session.offer_id,
+            "offer_title": offer_title,
+            "code": session.code,
+            "status": session.status,
+            "source": session.source,
+            "expires_at": session.expires_at,
+            "confirmed_at": session.confirmed_at,
+            "created_at": session.created_at,
+            "ttl_seconds": _ttl_seconds(session.expires_at),
+        }
+    )
 
 
 def _get_current_partner_or_404(db: Session, owner_user_id: int) -> Partner:

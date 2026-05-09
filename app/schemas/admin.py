@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from decimal import Decimal
 
 from pydantic import BaseModel
@@ -134,6 +135,26 @@ class PartnerOfferUpdate(BaseModel):
     image_url: str | None = None
     is_active: bool | None = None
     sort_order: int | None = None
+
+
+class AdminVerificationRead(BaseModel):
+    id: int
+    client_id: int
+    client_name: str | None
+    partner_id: int
+    partner_name: str | None
+    city_id: int | None
+    city_name: str | None
+    offer_id: int | None
+    offer_title: str | None
+    code: str
+    status: str
+    source: str | None
+    expires_at: datetime
+    confirmed_at: datetime | None
+    created_at: datetime
+    ttl_seconds: int | None
+
 
 class PartnerQrLinkRead(BaseModel):
     id: int

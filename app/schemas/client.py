@@ -56,6 +56,28 @@ class ClientPartnerCatalogItem(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class ClientCreateVerificationRequest(BaseModel):
+    offer_id: int | None = None
+    source: str | None = "web"
+
+
+class ClientVerificationRead(BaseModel):
+    id: int
+    client_id: int
+    partner_id: int
+    partner_name: str | None
+    offer_id: int | None
+    offer_title: str | None
+    code: str
+    status: str
+    source: str | None
+    expires_at: datetime
+    confirmed_at: datetime | None
+    created_at: datetime
+    ttl_seconds: int | None
+    subscription_required: bool = False
+
+
 class ClientPartnerOfferRead(BaseModel):
     id: int
     partner_id: int
