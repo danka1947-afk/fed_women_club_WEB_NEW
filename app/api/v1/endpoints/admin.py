@@ -6,16 +6,35 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.api.deps import require_admin
-from app.core.categories import get_women_club_categories
+from app.core.categories import WOMEN_CLUB_CATEGORY_SLUGS, get_women_club_categories
 from app.db.session import get_db
 from app.models.city import City
-from app.models.user import AdminUser
-from app.schemas.admin import CategoryRead, CityCreate, CityRead, CityUpdate
+from app.models.partner import Partner
+from app.models.user import AdminUser, User, UserRole
+from app.schemas.admin import (
+    CategoryRead,
+    CityCreate,
+    CityRead,
+    CityUpdate,
+    PartnerCreate,
+    PartnerRead,
+    PartnerUpdate,
+)
 from app.schemas.auth import AdminUserRead
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
 CITY_DUPLICATE_DETAIL = "City with this slug or name already exists"
+PARTNER_TEXT_FIELDS = (
+    "description",
+    "address",
+    "phone",
+    "website_url",
+    "social_url",
+    "working_hours",
+    "logo_url",
+    "cover_url",
+)
 
 
 @router.get("/me", response_model=AdminUserRead)
@@ -97,6 +116,120 @@ def list_admin_categories(admin: AdminUser = Depends(require_admin)) -> list[dic
     return sorted(get_women_club_categories(), key=lambda category: category["sort_order"])
 
 
+@router.get("/partners", response_model=list[PartnerRead])
+def list_admin_partners(
+    city_id: int | None = None,
+    is_active: bool | None = None,
+    category_slug: str | None = None,
+    q: str | None = None,
+    admin: AdminUser = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> list[PartnerRead]:
+    _ = admin
+    statement = (
+        select(Partner, City.name.label("city_name"), User.email.label("owner_email"))
+        .join(City, Partner.city_id == City.id)
+        .outerjoin(User, Partner.owner_user_id == User.id)
+        .order_by(Partner.sort_order.asc(), Partner.id.asc())
+    )
+
+    if city_id is not None:
+        statement = statement.where(Partner.city_id == city_id)
+    if is_active is not None:
+        statement = statement.where(Partner.is_active == is_active)
+    if category_slug is not None:
+        statement = statement.where(Partner.category_slug == _normalize_category_slug(category_slug))
+    if q is not None:
+        search = q.strip()
+        if search:
+            statement = statement.where(Partner.name.ilike(f"%{search}%"))
+
+    return [
+        _partner_to_read(partner, city_name, owner_email)
+        for partner, city_name, owner_email in db.execute(statement).all()
+    ]
+
+
+@router.post("/partners", response_model=PartnerRead)
+def create_admin_partner(
+    payload: PartnerCreate,
+    admin: AdminUser = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> PartnerRead:
+    _ = admin
+    _ensure_city_exists(db, payload.city_id)
+    if payload.owner_user_id is not None:
+        _get_partner_owner(db, payload.owner_user_id)
+
+    partner = Partner(
+        city_id=payload.city_id,
+        owner_user_id=payload.owner_user_id,
+        category_slug=_normalize_category_slug(payload.category_slug),
+        name=_strip_partner_name(payload.name),
+        is_active=payload.is_active,
+        is_verified=payload.is_verified,
+        sort_order=payload.sort_order,
+    )
+    for field in PARTNER_TEXT_FIELDS:
+        setattr(partner, field, _normalize_optional_text(getattr(payload, field)))
+
+    db.add(partner)
+    db.commit()
+    db.refresh(partner)
+    return _get_partner_read_or_404(db, partner.id)
+
+
+@router.get("/partners/{partner_id}", response_model=PartnerRead)
+def get_admin_partner(
+    partner_id: int,
+    admin: AdminUser = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> PartnerRead:
+    _ = admin
+    return _get_partner_read_or_404(db, partner_id)
+
+
+@router.patch("/partners/{partner_id}", response_model=PartnerRead)
+def update_admin_partner(
+    partner_id: int,
+    payload: PartnerUpdate,
+    admin: AdminUser = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> PartnerRead:
+    _ = admin
+    partner = db.get(Partner, partner_id)
+    if partner is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Partner not found")
+
+    update_data = payload.model_dump(exclude_unset=True)
+    if "city_id" in update_data:
+        city_id = update_data["city_id"]
+        if city_id is None:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="City not found")
+        _ensure_city_exists(db, city_id)
+        partner.city_id = city_id
+    if "owner_user_id" in update_data:
+        owner_user_id = update_data["owner_user_id"]
+        if owner_user_id is not None:
+            _get_partner_owner(db, owner_user_id)
+        partner.owner_user_id = owner_user_id
+    if "category_slug" in update_data:
+        partner.category_slug = _normalize_category_slug(update_data["category_slug"])
+    if "name" in update_data:
+        partner.name = _strip_partner_name(update_data["name"])
+
+    for field in PARTNER_TEXT_FIELDS:
+        if field in update_data:
+            setattr(partner, field, _normalize_optional_text(update_data[field]))
+    for field in ("is_active", "is_verified", "sort_order"):
+        if field in update_data:
+            setattr(partner, field, update_data[field])
+
+    db.commit()
+    db.refresh(partner)
+    return _get_partner_read_or_404(db, partner.id)
+
+
 def _strip_required(value: str, field_name: str) -> str:
     normalized = value.strip()
     if not normalized:
@@ -124,3 +257,87 @@ def _ensure_unique_city_identity(
 
 def _city_duplicate_error() -> HTTPException:
     return HTTPException(status_code=status.HTTP_409_CONFLICT, detail=CITY_DUPLICATE_DETAIL)
+
+
+def _ensure_city_exists(db: Session, city_id: int) -> City:
+    city = db.get(City, city_id)
+    if city is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="City not found")
+    return city
+
+
+def _get_partner_owner(db: Session, owner_user_id: int) -> User:
+    owner = db.get(User, owner_user_id)
+    if owner is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Owner user not found")
+    if owner.role != UserRole.PARTNER.value:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Owner user must have partner role",
+        )
+    return owner
+
+
+def _strip_partner_name(value: str | None) -> str:
+    normalized = value.strip() if value is not None else ""
+    if not normalized:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Partner name must not be empty",
+        )
+    return normalized
+
+
+def _normalize_optional_text(value: str | None) -> str | None:
+    if value is None:
+        return None
+    normalized = value.strip()
+    return normalized or None
+
+
+def _normalize_category_slug(value: str | None) -> str | None:
+    normalized = _normalize_optional_text(value)
+    if normalized is None:
+        return None
+    if normalized not in WOMEN_CLUB_CATEGORY_SLUGS:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unknown category slug")
+    return normalized
+
+
+def _get_partner_read_or_404(db: Session, partner_id: int) -> PartnerRead:
+    statement = (
+        select(Partner, City.name.label("city_name"), User.email.label("owner_email"))
+        .join(City, Partner.city_id == City.id)
+        .outerjoin(User, Partner.owner_user_id == User.id)
+        .where(Partner.id == partner_id)
+    )
+    row = db.execute(statement).one_or_none()
+    if row is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Partner not found")
+    partner, city_name, owner_email = row
+    return _partner_to_read(partner, city_name, owner_email)
+
+
+def _partner_to_read(partner: Partner, city_name: str | None, owner_email: str | None) -> PartnerRead:
+    return PartnerRead.model_validate(
+        {
+            "id": partner.id,
+            "city_id": partner.city_id,
+            "owner_user_id": partner.owner_user_id,
+            "category_slug": partner.category_slug,
+            "name": partner.name,
+            "description": partner.description,
+            "address": partner.address,
+            "phone": partner.phone,
+            "website_url": partner.website_url,
+            "social_url": partner.social_url,
+            "working_hours": partner.working_hours,
+            "logo_url": partner.logo_url,
+            "cover_url": partner.cover_url,
+            "is_active": partner.is_active,
+            "is_verified": partner.is_verified,
+            "sort_order": partner.sort_order,
+            "city_name": city_name,
+            "owner_email": owner_email,
+        }
+    )
