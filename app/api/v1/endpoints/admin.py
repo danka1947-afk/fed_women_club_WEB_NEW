@@ -3,7 +3,7 @@ from __future__ import annotations
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -11,21 +11,32 @@ from app.api.deps import require_admin
 from app.core.categories import WOMEN_CLUB_CATEGORY_SLUGS, get_women_club_categories
 from app.db.session import get_db
 from app.models.city import City
-from app.models.partner import Partner, PartnerOffer
+from app.models.lead import LeadClick
+from app.models.partner import Partner, PartnerOffer, PartnerQrLink
 from app.models.user import AdminUser, User, UserRole
 from app.schemas.admin import (
     CategoryRead,
     CityCreate,
     CityRead,
     CityUpdate,
+    LeadStatsRead,
     PartnerCreate,
     PartnerOfferCreate,
     PartnerOfferRead,
     PartnerOfferUpdate,
+    PartnerQrLinkCreate,
+    PartnerQrLinkRead,
+    PartnerQrLinkUpdate,
     PartnerRead,
     PartnerUpdate,
 )
 from app.schemas.auth import AdminUserRead
+from app.services.qr_links import (
+    generate_qr_slug,
+    is_valid_qr_slug,
+    normalize_qr_slug,
+    qr_link_to_read,
+)
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -236,6 +247,114 @@ def update_admin_partner(
     return _get_partner_read_or_404(db, partner.id)
 
 
+@router.post("/partners/{partner_id}/qr-links", response_model=PartnerQrLinkRead)
+def create_admin_partner_qr_link(
+    partner_id: int,
+    payload: PartnerQrLinkCreate,
+    admin: AdminUser = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> PartnerQrLinkRead:
+    _ = admin
+    partner = _ensure_partner_exists(db, partner_id)
+    slug = _normalize_or_generate_qr_slug(db, partner.id, payload.slug)
+
+    qr_link = PartnerQrLink(
+        partner_id=partner.id,
+        slug=slug,
+        deep_link_payload=_normalize_optional_text(payload.deep_link_payload),
+        target_url=_normalize_optional_text(payload.target_url),
+        is_active=payload.is_active,
+    )
+    db.add(qr_link)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise _qr_slug_duplicate_error() from None
+    db.refresh(qr_link)
+    return PartnerQrLinkRead.model_validate(qr_link_to_read(qr_link, partner_name=partner.name))
+
+
+@router.get("/partners/{partner_id}/qr-links", response_model=list[PartnerQrLinkRead])
+def list_admin_partner_qr_links(
+    partner_id: int,
+    admin: AdminUser = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> list[PartnerQrLinkRead]:
+    _ = admin
+    partner = _ensure_partner_exists(db, partner_id)
+    links = db.execute(
+        select(PartnerQrLink)
+        .where(PartnerQrLink.partner_id == partner.id)
+        .order_by(PartnerQrLink.id.asc())
+    ).scalars().all()
+    return [
+        PartnerQrLinkRead.model_validate(qr_link_to_read(link, partner_name=partner.name))
+        for link in links
+    ]
+
+
+@router.patch("/qr-links/{qr_link_id}", response_model=PartnerQrLinkRead)
+def update_admin_qr_link(
+    qr_link_id: int,
+    payload: PartnerQrLinkUpdate,
+    admin: AdminUser = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> PartnerQrLinkRead:
+    _ = admin
+    row = db.execute(
+        select(PartnerQrLink, Partner.name.label("partner_name"))
+        .join(Partner, PartnerQrLink.partner_id == Partner.id)
+        .where(PartnerQrLink.id == qr_link_id)
+    ).one_or_none()
+    if row is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="QR link not found")
+    qr_link, partner_name = row
+
+    update_data = payload.model_dump(exclude_unset=True)
+    if "slug" in update_data:
+        qr_link.slug = _normalize_existing_qr_slug(db, update_data["slug"], exclude_qr_link_id=qr_link.id)
+    if "deep_link_payload" in update_data:
+        qr_link.deep_link_payload = _normalize_optional_text(update_data["deep_link_payload"])
+    if "target_url" in update_data:
+        qr_link.target_url = _normalize_optional_text(update_data["target_url"])
+    if "is_active" in update_data:
+        qr_link.is_active = update_data["is_active"]
+
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise _qr_slug_duplicate_error() from None
+    db.refresh(qr_link)
+    return PartnerQrLinkRead.model_validate(qr_link_to_read(qr_link, partner_name=partner_name))
+
+
+@router.get("/leads/partners", response_model=list[LeadStatsRead])
+def list_admin_partner_lead_stats(
+    admin: AdminUser = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> list[LeadStatsRead]:
+    _ = admin
+    rows = db.execute(
+        select(
+            Partner.id.label("partner_id"),
+            Partner.name.label("partner_name"),
+            City.id.label("city_id"),
+            City.name.label("city_name"),
+            PartnerQrLink.id.label("qr_link_id"),
+            PartnerQrLink.slug.label("qr_slug"),
+            func.count(LeadClick.id).label("total_clicks"),
+        )
+        .join(Partner, LeadClick.partner_id == Partner.id)
+        .outerjoin(City, LeadClick.city_id == City.id)
+        .outerjoin(PartnerQrLink, LeadClick.qr_link_id == PartnerQrLink.id)
+        .group_by(Partner.id, Partner.name, City.id, City.name, PartnerQrLink.id, PartnerQrLink.slug)
+        .order_by(func.count(LeadClick.id).desc(), Partner.id.asc())
+    ).all()
+    return [LeadStatsRead.model_validate(dict(row._mapping)) for row in rows]
+
+
 @router.get("/partners/{partner_id}/offers", response_model=list[PartnerOfferRead])
 def list_admin_partner_offers(
     partner_id: int,
@@ -324,6 +443,51 @@ def update_admin_partner_offer(
     db.commit()
     db.refresh(offer)
     return _get_partner_offer_read_or_404(db, offer.id)
+
+
+def _qr_slug_duplicate_error() -> HTTPException:
+    return HTTPException(status_code=status.HTTP_409_CONFLICT, detail="QR slug already exists")
+
+
+def _invalid_qr_slug_error() -> HTTPException:
+    return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid QR slug")
+
+
+def _ensure_unique_qr_slug(db: Session, slug: str, exclude_qr_link_id: int | None = None) -> None:
+    statement = select(PartnerQrLink.id).where(PartnerQrLink.slug == slug)
+    if exclude_qr_link_id is not None:
+        statement = statement.where(PartnerQrLink.id != exclude_qr_link_id)
+    duplicate_id = db.execute(statement.limit(1)).scalar_one_or_none()
+    if duplicate_id is not None:
+        raise _qr_slug_duplicate_error()
+
+
+def _normalize_existing_qr_slug(
+    db: Session,
+    slug: str | None,
+    *,
+    exclude_qr_link_id: int | None = None,
+) -> str:
+    normalized = normalize_qr_slug(slug)
+    if not is_valid_qr_slug(normalized):
+        raise _invalid_qr_slug_error()
+    assert normalized is not None
+    _ensure_unique_qr_slug(db, normalized, exclude_qr_link_id=exclude_qr_link_id)
+    return normalized
+
+
+def _normalize_or_generate_qr_slug(db: Session, partner_id: int, slug: str | None) -> str:
+    if slug is not None:
+        return _normalize_existing_qr_slug(db, slug)
+    for _ in range(5):
+        generated = generate_qr_slug(partner_id)
+        if is_valid_qr_slug(generated):
+            existing_id = db.execute(
+                select(PartnerQrLink.id).where(PartnerQrLink.slug == generated).limit(1)
+            ).scalar_one_or_none()
+            if existing_id is None:
+                return generated
+    raise _qr_slug_duplicate_error()
 
 
 def _strip_required(value: str, field_name: str) -> str:

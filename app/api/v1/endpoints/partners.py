@@ -3,21 +3,25 @@ from __future__ import annotations
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import require_partner
 from app.db.session import get_db
 from app.models.city import City
-from app.models.partner import Partner, PartnerOffer
+from app.models.lead import LeadClick
+from app.models.partner import Partner, PartnerOffer, PartnerQrLink
 from app.models.user import User
 from app.schemas.partner import (
     PartnerOfferCreate,
     PartnerOfferRead,
+    LeadStatsRead,
     PartnerOfferUpdate,
+    PartnerQrLinkRead,
     PartnerProfileRead,
     PartnerProfileUpdate,
 )
+from app.services.qr_links import qr_link_to_read
 
 router = APIRouter(prefix="/partners", tags=["partners"])
 
@@ -60,6 +64,49 @@ def update_partner_me(
     db.commit()
     db.refresh(partner)
     return _get_partner_profile_read(db, partner.id)
+
+
+@router.get("/me/qr-links", response_model=list[PartnerQrLinkRead])
+def list_partner_qr_links(
+    current_user: User = Depends(require_partner),
+    db: Session = Depends(get_db),
+) -> list[PartnerQrLinkRead]:
+    partner = _get_current_partner_or_404(db, current_user.id)
+    links = db.execute(
+        select(PartnerQrLink)
+        .where(PartnerQrLink.partner_id == partner.id)
+        .order_by(PartnerQrLink.id.asc())
+    ).scalars().all()
+    return [
+        PartnerQrLinkRead.model_validate(qr_link_to_read(link, partner_name=partner.name))
+        for link in links
+    ]
+
+
+@router.get("/me/leads", response_model=list[LeadStatsRead])
+def list_partner_lead_stats(
+    current_user: User = Depends(require_partner),
+    db: Session = Depends(get_db),
+) -> list[LeadStatsRead]:
+    partner = _get_current_partner_or_404(db, current_user.id)
+    rows = db.execute(
+        select(
+            Partner.id.label("partner_id"),
+            Partner.name.label("partner_name"),
+            City.id.label("city_id"),
+            City.name.label("city_name"),
+            PartnerQrLink.id.label("qr_link_id"),
+            PartnerQrLink.slug.label("qr_slug"),
+            func.count(LeadClick.id).label("total_clicks"),
+        )
+        .join(Partner, LeadClick.partner_id == Partner.id)
+        .outerjoin(City, LeadClick.city_id == City.id)
+        .outerjoin(PartnerQrLink, LeadClick.qr_link_id == PartnerQrLink.id)
+        .where(LeadClick.partner_id == partner.id)
+        .group_by(Partner.id, Partner.name, City.id, City.name, PartnerQrLink.id, PartnerQrLink.slug)
+        .order_by(func.count(LeadClick.id).desc(), PartnerQrLink.id.asc())
+    ).all()
+    return [LeadStatsRead.model_validate(dict(row._mapping)) for row in rows]
 
 
 @router.get("/me/offers", response_model=list[PartnerOfferRead])
