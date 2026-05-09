@@ -21,6 +21,7 @@ from app.models import (
     PaymentReceipt,
     PaymentRequest,
     PrivilegeVerificationSession,
+    PrivilegeVerificationStatus,
     Subscription,
     User,
     UserRole,
@@ -67,6 +68,27 @@ def test_base_metadata_includes_domain_foundation_tables() -> None:
         "privilege_verification_sessions",
         "admin_users",
     }.issubset(Base.metadata.tables)
+
+
+def test_privilege_verification_model_has_single_metadata_table_and_mapper() -> None:
+    table_name = "privilege_verification_sessions"
+
+    assert list(Base.metadata.tables).count(table_name) == 1
+    assert [
+        mapper.class_
+        for mapper in Base.registry.mappers
+        if mapper.local_table.name == table_name
+    ] == [PrivilegeVerificationSession]
+
+
+def test_verify_module_remains_backward_compatible_alias() -> None:
+    from app.models.verify import (
+        PrivilegeVerificationSession as VerifyPrivilegeVerificationSession,
+        PrivilegeVerificationStatus as VerifyPrivilegeVerificationStatus,
+    )
+
+    assert VerifyPrivilegeVerificationSession is PrivilegeVerificationSession
+    assert VerifyPrivilegeVerificationStatus is PrivilegeVerificationStatus
 
 
 def test_domain_foundation_persists_in_sqlite_memory() -> None:
