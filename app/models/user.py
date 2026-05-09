@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 
 from sqlalchemy import Boolean, DateTime, Integer, String, func
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
 
@@ -21,12 +20,33 @@ class UserRole(str, Enum):
     client = CLIENT
 
 
-@dataclass(slots=True)
-class User:
-    id: int | None
-    email: str
-    role: UserRole
-    is_active: bool = True
+class User(Base):
+    """Future unified account model for partner/client/admin roles.
+
+    The existing AdminUser authentication flow intentionally remains separate
+    in this PR and continues to use the admin_users table.
+    """
+
+    __tablename__ = "users"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    email: Mapped[str | None] = mapped_column(String(255), nullable=True, unique=True, index=True)
+    phone: Mapped[str | None] = mapped_column(String(64), nullable=True, unique=True, index=True)
+    password_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    role: Mapped[str] = mapped_column(String(32), nullable=False, default=UserRole.CLIENT.value)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+    client_profile: Mapped["ClientProfile | None"] = relationship(
+        "ClientProfile",
+        back_populates="user",
+        uselist=False,
+    )
+    owned_partners: Mapped[list["Partner"]] = relationship("Partner", back_populates="owner_user")
 
 
 class AdminUser(Base):

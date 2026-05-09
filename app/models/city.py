@@ -1,14 +1,27 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime
+
+from sqlalchemy import Boolean, DateTime, Integer, String, func
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from app.db.base import Base
 
 
-@dataclass(slots=True)
-class City:
-    id: int | None
-    name: str
-    slug: str
-    is_active: bool = True
-    sort_order: int = 0
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+class City(Base):
+    __tablename__ = "cities"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String(120), nullable=False, unique=True, index=True)
+    slug: Mapped[str] = mapped_column(String(120), nullable=False, unique=True, index=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+    client_profiles: Mapped[list["ClientProfile"]] = relationship("ClientProfile", back_populates="selected_city")
+    partners: Mapped[list["Partner"]] = relationship("Partner", back_populates="city")
+    lead_clicks: Mapped[list["LeadClick"]] = relationship("LeadClick", back_populates="city")
