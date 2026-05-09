@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from collections.abc import Generator
+from datetime import timedelta
+from time import time
 
 import pytest
 from fastapi.testclient import TestClient
@@ -8,7 +10,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from app.core.security import hash_password, verify_password
+from app.core.security import create_access_token, decode_access_token, hash_password, verify_password
 from app.db.base import Base
 from app.db.session import get_db
 from app.main import app
@@ -68,6 +70,17 @@ def test_password_hash_verify_works() -> None:
 def test_user_role_admin_serializes_to_string_value() -> None:
     assert UserRole.ADMIN.value == "admin"
     assert UserRole.ADMIN == "admin"
+
+
+def test_access_token_round_trip_uses_python310_compatible_timezone() -> None:
+    token = create_access_token("admin@example.com", expires_delta=timedelta(minutes=5))
+
+    assert isinstance(token, str)
+    payload = decode_access_token(token)
+
+    assert payload["sub"] == "admin@example.com"
+    assert isinstance(payload["exp"], int)
+    assert payload["exp"] > int(time())
 
 
 def test_admin_login_succeeds_with_correct_password(client_with_admin_db: TestClient) -> None:
