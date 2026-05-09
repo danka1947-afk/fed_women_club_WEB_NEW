@@ -1,11 +1,19 @@
 from __future__ import annotations
 
 from datetime import datetime
+from enum import Enum
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+
+
+class VkLinkCodeStatus(str, Enum):
+    ACTIVE = "active"
+    USED = "used"
+    EXPIRED = "expired"
+    CANCELLED = "cancelled"
 
 
 class ClientProfile(Base):
@@ -32,3 +40,22 @@ class ClientProfile(Base):
         "PrivilegeVerificationSession",
         back_populates="client",
     )
+    vk_link_codes: Mapped[list["VkLinkCode"]] = relationship("VkLinkCode", back_populates="client")
+
+
+class VkLinkCode(Base):
+    __tablename__ = "vk_link_codes"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    client_id: Mapped[int] = mapped_column(ForeignKey("client_profiles.id"), nullable=False, index=True)
+    code: Mapped[str] = mapped_column(String(16), nullable=False, unique=True, index=True)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default=VkLinkCodeStatus.ACTIVE.value)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+    client: Mapped["ClientProfile"] = relationship("ClientProfile", back_populates="vk_link_codes")

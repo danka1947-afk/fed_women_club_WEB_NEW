@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import require_client
 from app.db.session import get_db
 from app.models.city import City
-from app.models.client import ClientProfile
+from app.models.client import ClientProfile, VkLinkCode, VkLinkCodeStatus
 from app.models.partner import Partner, PartnerOffer
 from app.models.payment import Subscription
 from app.models.verification import PrivilegeVerificationSession, PrivilegeVerificationStatus
@@ -25,6 +25,7 @@ from app.schemas.client import (
     ClientVerificationRead,
     SubscriptionRead,
 )
+from app.schemas.vk import VkLinkCodeRead
 
 router = APIRouter(prefix="/clients", tags=["clients"])
 
@@ -33,6 +34,9 @@ PARTNER_NOT_FOUND_DETAIL = "Partner not found"
 OFFER_NOT_FOUND_DETAIL = "Offer not found"
 VERIFICATION_TTL_SECONDS = 5 * 60
 VERIFICATION_CODE_ALPHABET = string.digits
+VK_LINK_CODE_TTL_SECONDS = 10 * 60
+VK_LINK_CODE_LENGTH = 8
+VK_LINK_CODE_ALPHABET = string.ascii_uppercase + string.digits
 
 
 @router.get("/me", response_model=ClientProfileRead)
@@ -66,6 +70,35 @@ def update_client_me(
     db.commit()
     db.refresh(profile)
     return _client_profile_to_read(db, profile, current_user)
+
+
+@router.post("/me/vk-link-codes", response_model=VkLinkCodeRead)
+def create_client_vk_link_code(
+    current_user: User = Depends(require_client),
+    db: Session = Depends(get_db),
+) -> VkLinkCodeRead:
+    profile = _get_or_create_client_profile(db, current_user.id)
+    now = datetime.now(timezone.utc)
+    active_codes = db.execute(
+        select(VkLinkCode).where(
+            VkLinkCode.client_id == profile.id,
+            VkLinkCode.status == VkLinkCodeStatus.ACTIVE.value,
+            VkLinkCode.expires_at > now,
+        )
+    ).scalars().all()
+    for active_code in active_codes:
+        active_code.status = VkLinkCodeStatus.CANCELLED.value
+
+    link_code = VkLinkCode(
+        client_id=profile.id,
+        code=_generate_vk_link_code(db),
+        status=VkLinkCodeStatus.ACTIVE.value,
+        expires_at=now + timedelta(seconds=VK_LINK_CODE_TTL_SECONDS),
+    )
+    db.add(link_code)
+    db.commit()
+    db.refresh(link_code)
+    return _vk_link_code_to_read(link_code)
 
 
 @router.get("/me/subscription", response_model=SubscriptionRead | None)
@@ -223,6 +256,35 @@ def _client_profile_to_read(db: Session, profile: ClientProfile, user: User) -> 
             "is_active": profile.is_active,
         }
     )
+
+
+def _generate_vk_link_code(db: Session) -> str:
+    for _ in range(20):
+        code = "".join(secrets.choice(VK_LINK_CODE_ALPHABET) for _ in range(VK_LINK_CODE_LENGTH))
+        exists = db.execute(select(VkLinkCode.id).where(VkLinkCode.code == code)).scalar_one_or_none()
+        if exists is None:
+            return code
+    raise HTTPException(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        detail="Could not generate VK link code",
+    )
+
+
+def _vk_link_code_to_read(link_code: VkLinkCode) -> VkLinkCodeRead:
+    expires_at = _ensure_aware_utc(link_code.expires_at)
+    ttl_seconds = max(0, int((expires_at - datetime.now(timezone.utc)).total_seconds()))
+    return VkLinkCodeRead(
+        code=link_code.code,
+        status=link_code.status,
+        expires_at=expires_at,
+        ttl_seconds=ttl_seconds,
+    )
+
+
+def _ensure_aware_utc(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
 
 
 def _get_active_city_or_404(db: Session, city_id: int) -> City:

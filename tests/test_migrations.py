@@ -24,6 +24,7 @@ from app.models import (
     PrivilegeVerificationStatus,
     Subscription,
     User,
+    VkLinkCode,
     UserRole,
 )
 
@@ -50,7 +51,7 @@ def test_migration_files_have_single_head_revision() -> None:
     referenced_revisions = {down_revision for down_revision in revisions.values() if down_revision}
     heads = sorted(set(revisions) - referenced_revisions)
 
-    assert heads == ["20260509_0004"]
+    assert heads == ["20260509_0005"]
 
 
 def test_base_metadata_includes_domain_foundation_tables() -> None:
@@ -67,6 +68,7 @@ def test_base_metadata_includes_domain_foundation_tables() -> None:
         "lead_clicks",
         "privilege_verification_sessions",
         "admin_users",
+        "vk_link_codes",
     }.issubset(Base.metadata.tables)
 
 
@@ -118,6 +120,7 @@ def test_domain_foundation_persists_in_sqlite_memory() -> None:
             assert session.query(PaymentReceipt).count() == 1
             assert session.query(Subscription).count() == 1
             assert session.query(PrivilegeVerificationSession).count() == 1
+            assert session.query(VkLinkCode).count() == 1
     finally:
         engine.dispose()
 
@@ -183,5 +186,10 @@ def _create_domain_foundation_graph(session: Session, now: datetime) -> None:
         code="ABC123",
         expires_at=now + timedelta(minutes=10),
     )
-    session.add_all([receipt, subscription, verification_session])
+    vk_link_code = VkLinkCode(
+        client_id=client.id,
+        code="VK123456",
+        expires_at=now + timedelta(minutes=10),
+    )
+    session.add_all([receipt, subscription, verification_session, vk_link_code])
     session.commit()
