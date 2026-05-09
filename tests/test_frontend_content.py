@@ -5,6 +5,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 FRONTEND_DIR = REPO_ROOT / "frontend"
 FRONTEND_INDEX = FRONTEND_DIR / "index.html"
 FRONTEND_MAIN = FRONTEND_DIR / "src" / "main.js"
+FRONTEND_STYLES = FRONTEND_DIR / "src" / "styles.css"
 
 EXPECTED_TITLE = "Женский клуб — федеральный клуб привилегий для девушек"
 FORBIDDEN_PUBLIC_COPY = (
@@ -25,6 +26,10 @@ def _frontend_index() -> str:
 
 def _frontend_main() -> str:
     return FRONTEND_MAIN.read_text(encoding="utf-8")
+
+
+def _frontend_styles() -> str:
+    return FRONTEND_STYLES.read_text(encoding="utf-8")
 
 
 def _frontend_public_sources() -> str:
@@ -132,15 +137,22 @@ def test_frontend_contains_real_login_form_and_dashboard_strings() -> None:
 
 def test_frontend_contains_dashboard_shell_classes() -> None:
     source = _frontend_main()
+    styles = _frontend_styles()
 
     for expected in (
         "dashboard-shell",
+        "dashboard-layout",
         "dashboard-sidebar",
         "dashboard-main",
         "dashboard-topbar",
         "Быстрые действия",
     ):
-        assert expected in source
+        assert expected in source or expected in styles
+
+    assert "--dashboard-width: min(1680px, calc(100vw - 48px));" in styles
+    assert "grid-template-columns: 260px minmax(0, 1fr);" in styles
+    assert ".dashboard-main" in styles
+    assert "min-width: 0;" in styles
 
 
 def test_frontend_keeps_required_public_role_nav_and_token_copy() -> None:
@@ -167,6 +179,50 @@ def test_frontend_keeps_required_public_role_nav_and_token_copy() -> None:
         "womenclub_client_token",
     ):
         assert expected in source
+
+
+
+
+def test_frontend_contains_human_readable_admin_labels() -> None:
+    source = _frontend_main()
+
+    for expected in (
+        "Название города",
+        "Порядок сортировки",
+        "Владелец / аккаунт партнёра",
+        "Название партнёра",
+        "Ссылка на соцсеть / сайт",
+        "Название предложения",
+        "Цена со скидкой",
+        "Скидка, %",
+        "Целевая ссылка",
+        "Подтверждено",
+        "Email",
+        "Телефон",
+        "Роль",
+        "Активен",
+        "Действие",
+        "Клиент",
+        "Администратор",
+    ):
+        assert expected in source
+
+
+def test_frontend_does_not_render_technical_admin_labels() -> None:
+    source = _frontend_main()
+    rendered_table_headers = "\n".join(re.findall(r"renderTable\(\[(.*?)\]", source, re.S))
+
+    for forbidden_label in (
+        "city_id",
+        "owner_user_id",
+        "category_slug",
+        "sort_order",
+        "is_active",
+    ):
+        assert f">{forbidden_label}<" not in source
+        assert f">{forbidden_label}" not in source
+        assert f"'{forbidden_label}'" not in rendered_table_headers
+        assert f'"{forbidden_label}"' not in rendered_table_headers
 
 
 def test_frontend_contains_admin_cabinet_tabs() -> None:

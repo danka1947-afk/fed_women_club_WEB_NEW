@@ -289,7 +289,12 @@ const escapeHtml = (value) => String(value ?? '')
   .replaceAll('"', '&quot;')
   .replaceAll("'", '&#039;');
 
-const formatBool = (value) => (value ? 'да' : 'нет');
+const formatBool = (value) => (value ? 'Активен' : 'Неактивен');
+const formatRole = (role) => ({
+  client: 'Клиент',
+  partner: 'Партнёр',
+  admin: 'Администратор',
+}[role] || role);
 const formatValue = (value) => escapeHtml(value || '—');
 const formatDate = (value) => (value ? new Date(value).toLocaleString('ru-RU') : '—');
 
@@ -668,12 +673,12 @@ const renderClientProfileTab = () => {
     </div>
     <div class="partner-profile-grid">
       ${[
-        ['email', profile.email],
-        ['phone', profile.phone],
-        ['full_name', profile.full_name],
-        ['selected_city_name', profile.selected_city_name],
-        ['source', profile.source],
-        ['is_active', formatBool(profile.is_active)],
+        ['Email', profile.email],
+        ['Телефон', profile.phone],
+        ['Имя', profile.full_name],
+        ['Город', profile.selected_city_name],
+        ['Источник', profile.source],
+        ['Активность', formatBool(profile.is_active)],
       ].map(([label, value]) => `
         <div class="summary-card"><span>${label}</span><strong>${formatValue(value)}</strong></div>
       `).join('')}
@@ -690,8 +695,8 @@ const renderClientProfileTab = () => {
     </section>
     <form class="admin-form admin-form--inline" data-client-form="profile">
       <h4>Обновить профиль</h4>
-      <label>full_name<input name="full_name" value="${escapeHtml(profile.full_name || '')}" /></label>
-      <label>ID города<input name="selected_city_id" type="number" min="1" value="${escapeHtml(profile.selected_city_id || '')}" placeholder="ID из админки" /></label>
+      <label>Имя<input name="full_name" value="${escapeHtml(profile.full_name || '')}" /></label>
+      <label>Город (ID)<input name="selected_city_id" type="number" min="1" value="${escapeHtml(profile.selected_city_id || '')}" placeholder="ID из админки" /></label>
       <p class="form-message">Новосибирск / Череповец доступны как публичные city chips, но их ID не хардкодятся.</p>
       <button type="submit">Сохранить профиль</button>
       <p class="form-message" data-client-form-message="profile">${escapeHtml(clientState.formMessages.profile || '')}</p>
@@ -714,8 +719,8 @@ const renderClientVkLinkCode = () => {
     <div class="client-vk-link-result">
       <span class="client-vk-link-code">${escapeHtml(code)}</span>
       <dl class="client-vk-link-meta">
-        <div><dt>expires_at</dt><dd>${formatValue(formatDate(expiresAt))}</dd></div>
-        <div><dt>ttl_seconds</dt><dd>${formatValue(ttlSeconds)}</dd></div>
+        <div><dt>Истекает</dt><dd>${formatValue(formatDate(expiresAt))}</dd></div>
+        <div><dt>TTL, сек.</dt><dd>${formatValue(ttlSeconds)}</dd></div>
       </dl>
       <p>Скопируйте код и отправьте VK-боту: <strong>Привязать ${escapeHtml(code)}</strong></p>
       <p class="client-warning">Код действует 10 минут. Новый код отменяет предыдущий.</p>
@@ -733,9 +738,9 @@ const renderClientSubscriptionTab = () => {
   return `
     <div class="admin-section-heading"><h4>Моя подписка</h4><p>Статус и сроки текущей подписки.</p></div>
     <div class="summary-grid">
-      <div class="summary-card"><span>status</span><strong>${formatValue(subscription.status)}</strong></div>
-      <div class="summary-card"><span>starts_at</span><strong>${formatValue(formatDate(subscription.starts_at))}</strong></div>
-      <div class="summary-card"><span>ends_at</span><strong>${formatValue(formatDate(subscription.ends_at))}</strong></div>
+      <div class="summary-card"><span>Статус</span><strong>${formatValue(subscription.status)}</strong></div>
+      <div class="summary-card"><span>Начало</span><strong>${formatValue(formatDate(subscription.starts_at))}</strong></div>
+      <div class="summary-card"><span>Окончание</span><strong>${formatValue(formatDate(subscription.ends_at))}</strong></div>
     </div>
   `;
 };
@@ -747,12 +752,12 @@ const renderClientCatalogTab = () => `
   </div>
   <form class="admin-form client-catalog-filter" data-client-form="catalog">
     <label>Поиск<input name="q" value="${escapeHtml(clientState.catalogFilters.q)}" placeholder="Название, описание, адрес" /></label>
-    <label>category_slug<input name="category_slug" value="${escapeHtml(clientState.catalogFilters.category_slug)}" placeholder="beauty" /></label>
-    <label>city_slug
+    <label>Категория<input name="category_slug" value="${escapeHtml(clientState.catalogFilters.category_slug)}" placeholder="Например, beauty" /></label>
+    <label>Город
       <select name="city_slug">
         <option value="">По выбранному городу</option>
-        <option value="novosibirsk" ${clientState.catalogFilters.city_slug === 'novosibirsk' ? 'selected' : ''}>novosibirsk</option>
-        <option value="cherepovets" ${clientState.catalogFilters.city_slug === 'cherepovets' ? 'selected' : ''}>cherepovets</option>
+        <option value="novosibirsk" ${clientState.catalogFilters.city_slug === 'novosibirsk' ? 'selected' : ''}>Новосибирск</option>
+        <option value="cherepovets" ${clientState.catalogFilters.city_slug === 'cherepovets' ? 'selected' : ''}>Череповец</option>
       </select>
     </label>
     <button type="submit">Найти</button>
@@ -812,7 +817,7 @@ const renderClientVerificationResult = (verification) => `
 const renderClientHistoryTab = () => `
   <div class="admin-section-heading"><h4>История</h4><p>Ваши последние подтверждения привилегий.</p></div>
   ${renderTable(
-    ['code', 'status', 'partner_name', 'offer_title', 'expires_at', 'confirmed_at', 'created_at'],
+    ['Код', 'Статус', 'Партнёр', 'Название предложения', 'Истекает', 'Подтверждено', 'Создано'],
     clientState.verifications.map((item) => [item.code, item.status, item.partner_name, item.offer_title, formatDate(item.expires_at), formatDate(item.confirmed_at), formatDate(item.created_at)]),
   )}
 `;
@@ -850,7 +855,7 @@ const renderPartnerProfileTab = () => {
             ['Город', profile.city_name],
             ['Категория', profile.category_slug],
             ['Активность', formatBool(profile.is_active)],
-            ['Верификация', formatBool(profile.is_verified)],
+            ['Верификация', profile.is_verified ? 'Проверен' : 'Не проверен'],
             ['Описание', profile.description],
             ['Адрес', profile.address],
             ['Телефон', profile.phone],
@@ -862,14 +867,14 @@ const renderPartnerProfileTab = () => {
       </div>
       <form class="admin-form" data-partner-form="profile">
         <h4>Обновить профиль</h4>
-        <label>description<textarea name="description" rows="4">${escapeHtml(profile.description || '')}</textarea></label>
-        <label>address<input name="address" value="${escapeHtml(profile.address || '')}" /></label>
-        <label>phone<input name="phone" autocomplete="tel" value="${escapeHtml(profile.phone || '')}" /></label>
-        <label>website_url<input name="website_url" value="${escapeHtml(profile.website_url || '')}" /></label>
-        <label>social_url<input name="social_url" value="${escapeHtml(profile.social_url || '')}" /></label>
-        <label>working_hours<input name="working_hours" value="${escapeHtml(profile.working_hours || '')}" /></label>
-        <label>logo_url<input name="logo_url" value="${escapeHtml(profile.logo_url || '')}" /></label>
-        <label>cover_url<input name="cover_url" value="${escapeHtml(profile.cover_url || '')}" /></label>
+        <label>Описание<textarea name="description" rows="4">${escapeHtml(profile.description || '')}</textarea></label>
+        <label>Адрес<input name="address" value="${escapeHtml(profile.address || '')}" /></label>
+        <label>Телефон<input name="phone" autocomplete="tel" value="${escapeHtml(profile.phone || '')}" /></label>
+        <label>Сайт<input name="website_url" value="${escapeHtml(profile.website_url || '')}" /></label>
+        <label>Соцсети<input name="social_url" value="${escapeHtml(profile.social_url || '')}" /></label>
+        <label>График работы<input name="working_hours" value="${escapeHtml(profile.working_hours || '')}" /></label>
+        <label>Логотип<input name="logo_url" value="${escapeHtml(profile.logo_url || '')}" /></label>
+        <label>Обложка<input name="cover_url" value="${escapeHtml(profile.cover_url || '')}" /></label>
         <button type="submit">Сохранить профиль</button>
         <p class="form-message" data-partner-form-message="profile">${escapeHtml(partnerState.formMessages.profile || '')}</p>
       </form>
@@ -886,21 +891,21 @@ const renderPartnerOfferAction = (offer) => `
 const renderPartnerOffersTab = () => `
   <div class="admin-section-heading"><h4>Предложения</h4><p>Создавайте предложения и быстро скрывайте или показывайте их в каталоге.</p></div>
   ${renderTable(
-    ['title', 'benefit_text', 'discount_percent', 'is_active', 'sort_order', 'action'],
+    ['Название предложения', 'Описание', 'Скидка, %', 'Активно', 'Сортировка', 'Действие'],
     partnerState.offers.map((offer) => [formatValue(offer.title), formatValue(offer.benefit_text), formatValue(offer.discount_percent), formatValue(formatBool(offer.is_active)), formatValue(offer.sort_order), renderPartnerOfferAction(offer)]),
     true,
   )}
   <form class="admin-form admin-form--inline" data-partner-form="offer">
     <h4>Новое предложение</h4>
-    <label>title<input name="title" required /></label>
-    <label>benefit_text<input name="benefit_text" /></label>
-    <label>description<textarea name="description" rows="3"></textarea></label>
-    <label>conditions<textarea name="conditions" rows="3"></textarea></label>
-    <label>base_price<input name="base_price" inputmode="decimal" /></label>
-    <label>discount_percent<input name="discount_percent" inputmode="decimal" /></label>
-    <label>image_url<input name="image_url" /></label>
-    <label>sort_order<input name="sort_order" type="number" value="0" /></label>
-    <label class="checkbox-row"><input name="is_active" type="checkbox" checked /> active</label>
+    <label>Название предложения<input name="title" required /></label>
+    <label>Краткая выгода<input name="benefit_text" /></label>
+    <label>Описание<textarea name="description" rows="3"></textarea></label>
+    <label>Условия<textarea name="conditions" rows="3"></textarea></label>
+    <label>Базовая цена<input name="base_price" inputmode="decimal" /></label>
+    <label>Скидка, %<input name="discount_percent" inputmode="decimal" /></label>
+    <label>Изображение<input name="image_url" /></label>
+    <label>Порядок сортировки<input name="sort_order" type="number" value="0" /></label>
+    <label class="checkbox-row"><input name="is_active" type="checkbox" checked /> Активен</label>
     <button type="submit">Создать предложение</button>
     <p class="form-message" data-partner-form-message="offer">${escapeHtml(partnerState.formMessages.offer || '')}</p>
   </form>
@@ -909,7 +914,7 @@ const renderPartnerOffersTab = () => `
 const renderPartnerQrTab = () => `
   <div class="admin-section-heading"><h4>QR / лиды</h4><p>QR-ссылки создаёт администратор. Партнёр видит ссылки и статистику переходов.</p></div>
   ${renderTable(
-    ['slug', 'qr_url', 'target_url', 'is_active'],
+    ['Код ссылки', 'QR-ссылка', 'Целевая ссылка', 'Активна'],
     partnerState.qrLinks.map((link) => [
       formatValue(link.slug),
       `<a href="${escapeHtml(link.qr_url)}" target="_blank" rel="noreferrer">${escapeHtml(link.qr_url)}</a>`,
@@ -919,7 +924,7 @@ const renderPartnerQrTab = () => `
     true,
   )}
   <h4 class="table-title">Лиды</h4>
-  ${renderTable(['qr_slug', 'total_clicks'], partnerState.leads.map((lead) => [lead.qr_slug, lead.total_clicks]))}
+  ${renderTable(['Код ссылки', 'Лиды / переходы'], partnerState.leads.map((lead) => [lead.qr_slug, lead.total_clicks]))}
 `;
 
 const renderPartnerVerificationAction = (verification) => verification.status === 'active'
@@ -929,7 +934,7 @@ const renderPartnerVerificationAction = (verification) => verification.status ==
 const renderPartnerVerificationsTab = () => `
   <div class="admin-section-heading"><h4>Подтверждения</h4><p>Подтверждайте активные клиентские коды до окончания срока действия.</p></div>
   ${renderTable(
-    ['code', 'status', 'client_name/client_id', 'offer_title', 'expires_at', 'confirmed_at', 'action'],
+    ['Код', 'Статус', 'Клиент', 'Название предложения', 'Истекает', 'Подтверждено', 'Действие'],
     partnerState.verifications.map((item) => [
       formatValue(item.code),
       formatValue(item.status),
@@ -1093,12 +1098,12 @@ const renderUsersTab = () => `
     <div>
       <div class="admin-section-heading"><h4>Пользователи</h4><p>Unified users для клиентских, партнёрских и административных кабинетов.</p></div>
       ${renderTable(
-        ['id', 'email', 'phone', 'role', 'is_active', 'action'],
+        ['ID', 'Email', 'Телефон', 'Роль', 'Активен', 'Действие'],
         adminState.users.map((item) => [
           formatValue(item.id),
           formatValue(item.email),
           formatValue(item.phone),
-          formatValue(item.role),
+          formatValue(formatRole(item.role)),
           formatValue(formatBool(item.is_active)),
           renderUserActionButton(item),
         ]),
@@ -1107,11 +1112,11 @@ const renderUsersTab = () => `
     </div>
     <form class="admin-form" data-admin-form="user">
       <h4>Новый пользователь</h4>
-      <label>email<input name="email" type="email" autocomplete="email" /></label>
-      <label>phone<input name="phone" autocomplete="tel" /></label>
-      <label>password<input name="password" type="password" autocomplete="new-password" required /></label>
-      <label>role${renderSelect('role', [['client', 'client'], ['partner', 'partner'], ['admin', 'admin']], true, 'client')}</label>
-      <label class="checkbox-row"><input name="is_active" type="checkbox" checked /> active</label>
+      <label>Email<input name="email" type="email" autocomplete="email" /></label>
+      <label>Телефон<input name="phone" autocomplete="tel" /></label>
+      <label>Пароль<input name="password" type="password" autocomplete="new-password" required /></label>
+      <label>Роль${renderSelect('role', [['client', 'Клиент'], ['partner', 'Партнёр'], ['admin', 'Администратор']], true, 'client')}</label>
+      <label class="checkbox-row"><input name="is_active" type="checkbox" checked /> Активен</label>
       <button type="submit">Создать пользователя</button>
       <p class="form-message" data-form-message="user">${escapeHtml(adminState.formMessages.user || '')}</p>
     </form>
@@ -1122,14 +1127,14 @@ const renderCitiesTab = () => `
   <div class="admin-two-column">
     <div>
       <div class="admin-section-heading"><h4>Города</h4><p>Список городов для управления каталогом.</p></div>
-      ${renderTable(['name', 'slug', 'active', 'sort_order'], adminState.cities.map((city) => [city.name, city.slug, formatBool(city.is_active), city.sort_order]))}
+      ${renderTable(['Город', 'Слаг', 'Активен', 'Сортировка'], adminState.cities.map((city) => [city.name, city.slug, formatBool(city.is_active), city.sort_order]))}
     </div>
     <form class="admin-form" data-admin-form="city">
       <h4>Новый город</h4>
-      <label>name<input name="name" required /></label>
-      <label>slug<input name="slug" required /></label>
-      <label>sort_order<input name="sort_order" type="number" value="0" /></label>
-      <label class="checkbox-row"><input name="is_active" type="checkbox" checked /> active</label>
+      <label>Название города<input name="name" required /></label>
+      <label>Слаг / код города<input name="slug" required /></label>
+      <label>Порядок сортировки<input name="sort_order" type="number" value="0" /></label>
+      <label class="checkbox-row"><input name="is_active" type="checkbox" checked /> Активен</label>
       <button type="submit">Создать город</button>
       <p class="form-message" data-form-message="city">${escapeHtml(adminState.formMessages.city || '')}</p>
     </form>
@@ -1138,27 +1143,27 @@ const renderCitiesTab = () => `
 
 const renderCategoriesTab = () => `
   <div class="admin-section-heading"><h4>Категории</h4><p>Read-only справочник категорий партнёров.</p></div>
-  ${renderTable(['title', 'slug', 'sort_order'], adminState.categories.map((category) => [category.title, category.slug, category.sort_order]))}
+  ${renderTable(['Категория', 'Слаг', 'Сортировка'], adminState.categories.map((category) => [category.title, category.slug, category.sort_order]))}
 `;
 
 const renderPartnersTab = () => `
   <div class="admin-two-column admin-two-column--wide">
     <div>
       <div class="admin-section-heading"><h4>Партнёры</h4><p>Базовый список партнёров клуба.</p></div>
-      ${renderTable(['name', 'city_name', 'category_slug', 'owner_email', 'active', 'verified'], adminState.partners.map((partner) => [partner.name, partner.city_name, partner.category_slug, partner.owner_email, formatBool(partner.is_active), formatBool(partner.is_verified)]))}
+      ${renderTable(['Партнёр', 'Город', 'Категория', 'Владелец', 'Активен', 'Проверен'], adminState.partners.map((partner) => [partner.name, partner.city_name, partner.category_slug, partner.owner_email, formatBool(partner.is_active), partner.is_verified ? 'Проверен' : 'Не проверен']))}
     </div>
     <form class="admin-form" data-admin-form="partner">
       <h4>Новый партнёр</h4>
-      <label>city_id${renderSelect('city_id', adminState.cities.map((city) => [city.id, city.name]), true)}</label>
-      <label>owner_user_id${renderSelect('owner_user_id', adminState.users.filter((item) => item.role === 'partner').map((item) => [item.id, item.email || item.phone || `partner #${item.id}`]), false, '', 'Без владельца')}</label>
-      <label>category_slug${renderSelect('category_slug', adminState.categories.map((category) => [category.slug, category.title]), false)}</label>
-      <label>name<input name="name" required /></label>
-      <label>description<textarea name="description" rows="3"></textarea></label>
-      <label>address<input name="address" /></label>
-      <label>phone<input name="phone" /></label>
-      <label>social_url<input name="social_url" /></label>
-      <label class="checkbox-row"><input name="is_active" type="checkbox" checked /> active</label>
-      <label class="checkbox-row"><input name="is_verified" type="checkbox" /> verified</label>
+      <label>Город${renderSelect('city_id', adminState.cities.map((city) => [city.id, city.name]), true)}</label>
+      <label>Владелец / аккаунт партнёра${renderSelect('owner_user_id', adminState.users.filter((item) => item.role === 'partner').map((item) => [item.id, item.email || item.phone || `Партнёр #${item.id}`]), false, '', 'Без владельца')}</label>
+      <label>Категория${renderSelect('category_slug', adminState.categories.map((category) => [category.slug, category.title]), false)}</label>
+      <label>Название партнёра<input name="name" required /></label>
+      <label>Описание<textarea name="description" rows="3"></textarea></label>
+      <label>Адрес<input name="address" /></label>
+      <label>Телефон<input name="phone" /></label>
+      <label>Ссылка на соцсеть / сайт<input name="social_url" /></label>
+      <label class="checkbox-row"><input name="is_active" type="checkbox" checked /> Активен</label>
+      <label class="checkbox-row"><input name="is_verified" type="checkbox" /> Проверен</label>
       <button type="submit">Создать партнёра</button>
       <p class="form-message" data-form-message="partner">${escapeHtml(adminState.formMessages.partner || '')}</p>
     </form>
@@ -1169,17 +1174,18 @@ const renderOffersTab = () => `
   <div class="admin-section-heading"><h4>Предложения</h4><p>Выберите партнёра, чтобы увидеть и создать предложения.</p></div>
   <label class="admin-select-label">Партнёр${renderPartnerPicker('offers', adminState.selectedPartnerIdForOffers)}</label>
   ${adminState.selectedPartnerIdForOffers ? `
-    ${renderTable(['title', 'benefit_text', 'base_price', 'discount_percent', 'active', 'sort_order'], adminState.offers.map((offer) => [offer.title, offer.benefit_text, offer.base_price, offer.discount_percent, formatBool(offer.is_active), offer.sort_order]))}
+    ${renderTable(['Название предложения', 'Описание', 'Базовая цена', 'Скидка, %', 'Активно', 'Сортировка'], adminState.offers.map((offer) => [offer.title, offer.benefit_text, offer.base_price, offer.discount_percent, formatBool(offer.is_active), offer.sort_order]))}
     <form class="admin-form admin-form--inline" data-admin-form="offer">
       <h4>Новое предложение</h4>
-      <label>title<input name="title" required /></label>
-      <label>benefit_text<input name="benefit_text" /></label>
-      <label>description<textarea name="description" rows="3"></textarea></label>
-      <label>conditions<textarea name="conditions" rows="3"></textarea></label>
-      <label>base_price<input name="base_price" type="number" step="0.01" /></label>
-      <label>discount_percent<input name="discount_percent" type="number" step="0.01" /></label>
-      <label>sort_order<input name="sort_order" type="number" value="0" /></label>
-      <label class="checkbox-row"><input name="is_active" type="checkbox" checked /> active</label>
+      <label>Название предложения<input name="title" required /></label>
+      <label>Краткая выгода<input name="benefit_text" /></label>
+      <label>Описание<textarea name="description" rows="3"></textarea></label>
+      <label>Условия<textarea name="conditions" rows="3"></textarea></label>
+      <label>Базовая цена<input name="base_price" type="number" step="0.01" /></label>
+      <p class="form-message">Цена со скидкой рассчитывается по базовой цене и проценту скидки.</p>
+      <label>Скидка, %<input name="discount_percent" type="number" step="0.01" /></label>
+      <label>Порядок сортировки<input name="sort_order" type="number" value="0" /></label>
+      <label class="checkbox-row"><input name="is_active" type="checkbox" checked /> Активен</label>
       <button type="submit">Создать предложение</button>
       <p class="form-message" data-form-message="offer">${escapeHtml(adminState.formMessages.offer || '')}</p>
     </form>
@@ -1190,25 +1196,25 @@ const renderQrTab = () => `
   <div class="admin-section-heading"><h4>QR / лиды</h4><p>QR-ссылки партнёров и агрегированные переходы.</p></div>
   <label class="admin-select-label">Партнёр${renderPartnerPicker('qr', adminState.selectedPartnerIdForQr)}</label>
   ${adminState.selectedPartnerIdForQr ? `
-    ${renderTable(['slug', 'qr_url', 'target_url', 'active'], adminState.qrLinks.map((link) => [formatValue(link.slug), link.qr_url ? `<a href="${escapeHtml(link.qr_url)}" target="_blank" rel="noreferrer">${escapeHtml(link.qr_url)}</a>` : '—', formatValue(link.target_url), formatValue(formatBool(link.is_active))]), true)}
+    ${renderTable(['Код ссылки', 'QR-ссылка', 'Целевая ссылка', 'Активна'], adminState.qrLinks.map((link) => [formatValue(link.slug), link.qr_url ? `<a href="${escapeHtml(link.qr_url)}" target="_blank" rel="noreferrer">${escapeHtml(link.qr_url)}</a>` : '—', formatValue(link.target_url), formatValue(formatBool(link.is_active))]), true)}
     <form class="admin-form admin-form--inline" data-admin-form="qr">
       <h4>Новая QR-ссылка</h4>
-      <label>slug optional<input name="slug" /></label>
-      <label>target_url optional<input name="target_url" /></label>
-      <label>deep_link_payload optional<input name="deep_link_payload" /></label>
-      <label class="checkbox-row"><input name="is_active" type="checkbox" checked /> active</label>
+      <label>Код ссылки<input name="slug" /></label>
+      <label>Целевая ссылка<input name="target_url" /></label>
+      <label>Deep link payload / payload<input name="deep_link_payload" /></label>
+      <label class="checkbox-row"><input name="is_active" type="checkbox" checked /> Активен</label>
       <button type="submit">Создать QR</button>
       <p class="form-message" data-form-message="qr">${escapeHtml(adminState.formMessages.qr || '')}</p>
     </form>
   ` : '<p class="empty-note">Сначала выберите партнёра.</p>'}
   <h4 class="table-title">Лиды партнёров</h4>
-  ${renderTable(['partner_name', 'city_name', 'qr_slug', 'total_clicks'], adminState.leads.map((lead) => [lead.partner_name, lead.city_name, lead.qr_slug, lead.total_clicks]))}
+  ${renderTable(['Партнёр', 'Город', 'Код ссылки', 'Лиды / переходы'], adminState.leads.map((lead) => [lead.partner_name, lead.city_name, lead.qr_slug, lead.total_clicks]))}
 `;
 
 const renderVerificationsTab = () => `
   <div class="admin-section-heading"><h4>Подтверждения</h4><p>Последние сессии подтверждения привилегий.</p></div>
   ${renderTable(
-    ['status', 'code', 'partner_name', 'client_name/client_id', 'offer_title', 'created_at', 'expires_at', 'confirmed_at'],
+    ['Статус', 'Код', 'Партнёр', 'Клиент', 'Название предложения', 'Создано', 'Истекает', 'Подтверждено'],
     adminState.verifications.map((item) => [item.status, item.code, item.partner_name, `${item.client_name || '—'} / ${item.client_id}`, item.offer_title, formatDate(item.created_at), formatDate(item.expires_at), formatDate(item.confirmed_at)]),
   )}
 `;
