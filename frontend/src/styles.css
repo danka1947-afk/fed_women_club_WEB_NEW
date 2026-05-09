@@ -54,6 +54,27 @@ body.is-dashboard::after,
   pointer-events: none;
 }
 
+.lotus-layer,
+.lotus-decor {
+  pointer-events: none;
+}
+
+.lotus-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.lotus-decor {
+  position: absolute;
+  display: block;
+  background-image: var(--lotus-line-art);
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+}
+
 a {
   color: inherit;
   text-decoration: none;
@@ -62,6 +83,7 @@ a {
 .app-shell {
   position: relative;
   z-index: 1;
+  isolation: isolate;
   width: min(100% - 32px, var(--max-width));
   margin: 0 auto;
   padding: 28px 0 56px;
@@ -72,7 +94,7 @@ a {
   right: max(10px, calc((100vw - var(--max-width)) / 2 - 132px));
   width: min(42vw, 520px);
   height: min(42vw, 520px);
-  opacity: 0.08;
+  opacity: 0.11;
   transform: rotate(-8deg);
 }
 
@@ -81,13 +103,43 @@ a {
   left: max(8px, calc((100vw - var(--max-width)) / 2 - 86px));
   width: min(28vw, 300px);
   height: min(28vw, 300px);
-  opacity: 0.055;
+  opacity: 0.075;
   transform: rotate(12deg);
+}
+
+.lotus-layer--public .lotus-decor--left {
+  top: 116px;
+  left: max(-190px, calc((100vw - var(--max-width)) / 2 - 220px));
+  width: clamp(420px, 42vw, 660px);
+  height: clamp(420px, 42vw, 660px);
+  opacity: 0.14;
+  transform: rotate(10deg);
+}
+
+.lotus-layer--public .lotus-decor--right {
+  top: 72px;
+  right: max(-180px, calc((100vw - var(--max-width)) / 2 - 230px));
+  width: clamp(460px, 44vw, 680px);
+  height: clamp(460px, 44vw, 680px);
+  opacity: 0.16;
+  transform: rotate(-11deg);
+}
+
+.lotus-layer--public .lotus-decor--bottom {
+  right: max(-96px, calc((100vw - var(--max-width)) / 2 - 72px));
+  bottom: -82px;
+  width: clamp(280px, 28vw, 420px);
+  height: clamp(280px, 28vw, 420px);
+  opacity: 0.085;
+  transform: rotate(18deg);
 }
 
 .hero,
 .panel,
-.feature-card {
+.feature-card,
+.topbar,
+.content-grid,
+.category-list {
   position: relative;
   z-index: 1;
 }
@@ -561,11 +613,28 @@ h2 {
     right: -92px;
     width: 280px;
     height: 280px;
-    opacity: 0.045;
+    opacity: 0.055;
   }
 
-  .app-shell::after {
+  .app-shell::after,
+  .lotus-layer--public .lotus-decor--bottom {
     display: none;
+  }
+
+  .lotus-layer--public .lotus-decor--left {
+    top: 210px;
+    left: -178px;
+    width: 310px;
+    height: 310px;
+    opacity: 0.055;
+  }
+
+  .lotus-layer--public .lotus-decor--right {
+    top: 48px;
+    right: -172px;
+    width: 330px;
+    height: 330px;
+    opacity: 0.065;
   }
 
   .hero,
@@ -1411,26 +1480,27 @@ body.is-dashboard {
 }
 
 body.is-dashboard::before {
-  right: -160px;
+  right: -130px;
   bottom: -150px;
-  width: min(42vw, 520px);
-  height: min(42vw, 520px);
-  opacity: 0.045;
+  width: clamp(320px, 32vw, 520px);
+  height: clamp(320px, 32vw, 520px);
+  opacity: 0.08;
   transform: rotate(16deg);
 }
 
 body.is-dashboard::after {
   bottom: 4vh;
   left: -92px;
-  width: min(34vw, 390px);
-  height: min(34vw, 390px);
-  opacity: 0.065;
+  width: clamp(300px, 30vw, 430px);
+  height: clamp(300px, 30vw, 430px);
+  opacity: 0.09;
   transform: rotate(-13deg);
 }
 
 .dashboard-shell {
   position: relative;
   z-index: 1;
+  isolation: isolate;
   min-height: 100vh;
   color: var(--color-text);
 }
@@ -1440,8 +1510,35 @@ body.is-dashboard::after {
   right: max(-118px, calc((100vw - 1680px) / 2 - 84px));
   width: min(38vw, 600px);
   height: min(38vw, 600px);
-  opacity: 0.075;
+  opacity: 0.12;
   transform: rotate(-7deg);
+}
+
+.lotus-layer--dashboard .lotus-decor--left {
+  top: 120px;
+  left: max(-240px, calc((100vw - 1680px) / 2 - 180px));
+  width: clamp(440px, 36vw, 640px);
+  height: clamp(440px, 36vw, 640px);
+  opacity: 0.14;
+  transform: rotate(9deg);
+}
+
+.lotus-layer--dashboard .lotus-decor--right {
+  top: 92px;
+  right: max(-230px, calc((100vw - 1680px) / 2 - 190px));
+  width: clamp(460px, 38vw, 680px);
+  height: clamp(460px, 38vw, 680px);
+  opacity: 0.13;
+  transform: rotate(-10deg);
+}
+
+.lotus-layer--dashboard .lotus-decor--bottom {
+  right: 20vw;
+  bottom: -110px;
+  width: clamp(300px, 26vw, 420px);
+  height: clamp(300px, 26vw, 420px);
+  opacity: 0.075;
+  transform: rotate(17deg);
 }
 
 .dashboard-topbar,
@@ -1803,7 +1900,8 @@ body.is-dashboard::after {
     opacity: 0.045;
   }
 
-  body.is-dashboard::before {
+  body.is-dashboard::before,
+  .lotus-layer--dashboard .lotus-decor--bottom {
     display: none;
   }
 
@@ -1811,6 +1909,22 @@ body.is-dashboard::after {
     left: -130px;
     width: 280px;
     height: 280px;
+  }
+
+  .lotus-layer--dashboard .lotus-decor--left {
+    top: 180px;
+    left: -190px;
+    width: 330px;
+    height: 330px;
+    opacity: 0.055;
+  }
+
+  .lotus-layer--dashboard .lotus-decor--right {
+    top: 60px;
+    right: -190px;
+    width: 340px;
+    height: 340px;
+    opacity: 0.06;
   }
 
   .dashboard-layout {
