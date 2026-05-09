@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from decimal import Decimal
+
 from pydantic import BaseModel
 
 
@@ -90,4 +92,45 @@ class PartnerUpdate(BaseModel):
     cover_url: str | None = None
     is_active: bool | None = None
     is_verified: bool | None = None
+    sort_order: int | None = None
+
+
+class PartnerOfferRead(BaseModel):
+    id: int
+    partner_id: int
+    title: str
+    description: str | None
+    benefit_text: str | None
+    conditions: str | None
+    base_price: Decimal | None
+    discount_percent: Decimal | None
+    image_url: str | None
+    is_active: bool
+    sort_order: int
+    partner_name: str | None = None
+
+    model_config = {"from_attributes": True}
+
+
+class PartnerOfferCreate(BaseModel):
+    title: str
+    description: str | None = None
+    benefit_text: str | None = None
+    conditions: str | None = None
+    base_price: Decimal | None = None
+    discount_percent: Decimal | None = None
+    image_url: str | None = None
+    is_active: bool = True
+    sort_order: int = 0
+
+
+class PartnerOfferUpdate(BaseModel):
+    title: str | None = None
+    description: str | None = None
+    benefit_text: str | None = None
+    conditions: str | None = None
+    base_price: Decimal | None = None
+    discount_percent: Decimal | None = None
+    image_url: str | None = None
+    is_active: bool | None = None
     sort_order: int | None = None
