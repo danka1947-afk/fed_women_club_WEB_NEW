@@ -133,6 +133,7 @@ root.innerHTML = `
         <div class="login-mode-switch" role="tablist" aria-label="Тип входа">
           <button class="login-mode-button is-active" type="button" data-login-mode="admin" role="tab" aria-selected="true">Администратор</button>
           <button class="login-mode-button" type="button" data-login-mode="partner" role="tab" aria-selected="false">Партнёр</button>
+          <button class="login-mode-button" type="button" data-login-mode="client" role="tab" aria-selected="false">Клиент</button>
         </div>
         <form class="login-form" data-login-form>
           <label>
@@ -152,6 +153,7 @@ root.innerHTML = `
           <button type="button" data-logout-button>Выйти</button>
         </div>
         <div class="admin-dashboard partner-dashboard" data-partner-dashboard hidden></div>
+        <div class="admin-dashboard client-dashboard" data-client-dashboard hidden></div>
       </section>
     </section>
 
@@ -182,6 +184,7 @@ document.querySelectorAll('[data-city-choice]').forEach((button) => {
 
 const authTokenKey = 'womenClubAdminAccessToken';
 const partnerTokenKey = 'womenclub_partner_token';
+const clientTokenKey = 'womenclub_client_token';
 let activeLoginMode = 'admin';
 const adminTabs = [
   { id: 'overview', label: 'Обзор' },
@@ -231,6 +234,32 @@ const partnerState = {
   formMessages: {},
 };
 
+const clientTabs = [
+  { id: 'profile', label: 'Профиль' },
+  { id: 'catalog', label: 'Каталог' },
+  { id: 'subscription', label: 'Моя подписка' },
+  { id: 'history', label: 'История' },
+];
+
+const clientState = {
+  activeTab: 'profile',
+  user: null,
+  profile: null,
+  subscription: null,
+  partners: [],
+  offersByPartner: {},
+  selectedPartner: null,
+  latestVerification: null,
+  verifications: [],
+  catalogFilters: {
+    q: '',
+    category_slug: '',
+    city_slug: '',
+  },
+  panelMessage: '',
+  formMessages: {},
+};
+
 const loginForm = document.querySelector('[data-login-form]');
 const loginModeButtons = document.querySelectorAll('[data-login-mode]');
 const loginMessage = document.querySelector('[data-login-message]');
@@ -238,6 +267,7 @@ const adminDashboard = document.querySelector('[data-admin-dashboard]');
 const adminEmail = document.querySelector('[data-admin-email]');
 const logoutButton = document.querySelector('[data-logout-button]');
 const partnerDashboard = document.querySelector('[data-partner-dashboard]');
+const clientDashboard = document.querySelector('[data-client-dashboard]');
 
 const escapeHtml = (value) => String(value ?? '')
   .replaceAll('&', '&amp;')
@@ -252,6 +282,7 @@ const formatDate = (value) => (value ? new Date(value).toLocaleString('ru-RU') :
 
 const getToken = () => localStorage.getItem(authTokenKey);
 const getPartnerToken = () => localStorage.getItem(partnerTokenKey);
+const getClientToken = () => localStorage.getItem(clientTokenKey);
 
 const setLoginMessage = (message = '') => {
   loginMessage.textContent = message;
@@ -275,6 +306,10 @@ const clearPartnerToken = () => {
   localStorage.removeItem(partnerTokenKey);
 };
 
+const clearClientToken = () => {
+  localStorage.removeItem(clientTokenKey);
+};
+
 const setLoginMode = (mode) => {
   activeLoginMode = mode;
   loginModeButtons.forEach((button) => {
@@ -288,9 +323,11 @@ const showLoginForm = () => {
   loginForm.hidden = false;
   adminDashboard.hidden = true;
   partnerDashboard.hidden = true;
+  clientDashboard.hidden = true;
   adminEmail.textContent = '';
   adminState.user = null;
   partnerState.user = null;
+  clientState.user = null;
 };
 
 const buildErrorMessage = async (response) => {
@@ -395,12 +432,254 @@ const partnerPostJson = (path, payload = {}) => partnerApiFetch(path, {
   body: JSON.stringify(payload),
 });
 
+const setClientPanelMessage = (message = '', type = 'info') => {
+  clientState.panelMessage = message
+    ? `<div class="admin-status admin-status--${type}" role="status">${escapeHtml(message)}</div>`
+    : '';
+};
+
+const setClientFormMessage = (formType, message = '') => {
+  clientState.formMessages[formType] = message;
+};
+
+const clientApiFetch = async (path, options = {}) => {
+  const token = getClientToken();
+  const headers = new Headers(options.headers || {});
+
+  if (token) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
+
+  if (options.body && !headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json');
+  }
+
+  const response = await fetch(path, {
+    ...options,
+    headers,
+  });
+
+  if (response.status === 401 || response.status === 403) {
+    clearClientToken();
+    showLoginForm();
+    setLoginMode('client');
+    throw new Error('Сессия клиента истекла. Войдите снова.');
+  }
+
+  if (!response.ok) {
+    throw new Error(await buildErrorMessage(response));
+  }
+
+  if (response.status === 204) {
+    return null;
+  }
+
+  return response.json();
+};
+
+const clientPatchJson = (path, payload) => clientApiFetch(path, {
+  method: 'PATCH',
+  body: JSON.stringify(payload),
+});
+
+const clientPostJson = (path, payload = {}) => clientApiFetch(path, {
+  method: 'POST',
+  body: JSON.stringify(payload),
+});
+
 const requestPartnerUserMe = () => partnerApiFetch('/api/v1/auth/user-me');
 const loadPartnerProfile = async () => { partnerState.profile = await partnerApiFetch('/api/v1/partners/me'); };
 const loadPartnerOffers = async () => { partnerState.offers = await partnerApiFetch('/api/v1/partners/me/offers'); };
 const loadPartnerQrLinks = async () => { partnerState.qrLinks = await partnerApiFetch('/api/v1/partners/me/qr-links'); };
 const loadPartnerLeads = async () => { partnerState.leads = await partnerApiFetch('/api/v1/partners/me/leads'); };
 const loadPartnerVerifications = async () => { partnerState.verifications = await partnerApiFetch('/api/v1/partners/me/verifications'); };
+
+const requestClientUserMe = () => clientApiFetch('/api/v1/auth/user-me');
+const loadClientProfile = async () => { clientState.profile = await clientApiFetch('/api/v1/clients/me'); };
+const loadClientSubscription = async () => { clientState.subscription = await clientApiFetch('/api/v1/clients/me/subscription'); };
+const loadClientVerifications = async () => { clientState.verifications = await clientApiFetch('/api/v1/clients/me/verifications'); };
+
+const buildClientCatalogPath = () => {
+  const params = new URLSearchParams();
+  const { q, category_slug: categorySlug, city_slug: citySlug } = clientState.catalogFilters;
+  if (q) params.set('q', q);
+  if (categorySlug) params.set('category_slug', categorySlug);
+  if (citySlug) params.set('city_slug', citySlug);
+  if (!citySlug && clientState.profile?.selected_city_id) {
+    params.set('city_id', clientState.profile.selected_city_id);
+  }
+  const query = params.toString();
+  return `/api/v1/clients/catalog/partners${query ? `?${query}` : ''}`;
+};
+
+const loadClientCatalog = async () => {
+  if (!clientState.profile) {
+    await loadClientProfile();
+  }
+  clientState.partners = await clientApiFetch(buildClientCatalogPath());
+};
+
+const loadClientPartnerOffers = async (partnerId) => {
+  clientState.offersByPartner[partnerId] = await clientApiFetch(`/api/v1/clients/partners/${partnerId}/offers`);
+};
+
+const renderClientLayout = () => {
+  clientDashboard.innerHTML = `
+    <div class="admin-header-card client-header-card">
+      <div>
+        <p class="section-kicker">Личный кабинет</p>
+        <h3>Личный кабинет</h3>
+        <p>Вы вошли как: <strong>${escapeHtml(clientState.user?.email || clientState.user?.phone || 'клиент')}</strong></p>
+      </div>
+      <button type="button" data-client-logout-button>Выйти</button>
+    </div>
+    <nav class="admin-tabs" aria-label="Разделы личного кабинета">
+      ${clientTabs.map((tab) => `
+        <button class="admin-tab${clientState.activeTab === tab.id ? ' is-active' : ''}" type="button" data-client-tab="${tab.id}">
+          ${tab.label}
+        </button>
+      `).join('')}
+    </nav>
+    ${clientState.panelMessage}
+    <section class="admin-tab-panel">${renderClientTabContent()}</section>
+  `;
+};
+
+const renderClientTabContent = () => {
+  if (clientState.activeTab === 'catalog') {
+    return renderClientCatalogTab();
+  }
+  if (clientState.activeTab === 'subscription') {
+    return renderClientSubscriptionTab();
+  }
+  if (clientState.activeTab === 'history') {
+    return renderClientHistoryTab();
+  }
+  return renderClientProfileTab();
+};
+
+const renderClientProfileTab = () => {
+  const profile = clientState.profile || {};
+  return `
+    <div class="admin-section-heading">
+      <h4>Профиль</h4>
+      <p>ID города не угадывается на frontend: Новосибирск / Череповец создаются администратором, ID видно в админке.</p>
+    </div>
+    <div class="partner-profile-grid">
+      ${[
+        ['email', profile.email],
+        ['phone', profile.phone],
+        ['full_name', profile.full_name],
+        ['selected_city_name', profile.selected_city_name],
+        ['source', profile.source],
+        ['is_active', formatBool(profile.is_active)],
+      ].map(([label, value]) => `
+        <div class="summary-card"><span>${label}</span><strong>${formatValue(value)}</strong></div>
+      `).join('')}
+    </div>
+    <form class="admin-form admin-form--inline" data-client-form="profile">
+      <h4>Обновить профиль</h4>
+      <label>full_name<input name="full_name" value="${escapeHtml(profile.full_name || '')}" /></label>
+      <label>ID города<input name="selected_city_id" type="number" min="1" value="${escapeHtml(profile.selected_city_id || '')}" placeholder="ID из админки" /></label>
+      <p class="form-message">Новосибирск / Череповец доступны как публичные city chips, но их ID не хардкодятся.</p>
+      <button type="submit">Сохранить профиль</button>
+      <p class="form-message" data-client-form-message="profile">${escapeHtml(clientState.formMessages.profile || '')}</p>
+    </form>
+  `;
+};
+
+const renderClientSubscriptionTab = () => {
+  const subscription = clientState.subscription;
+  if (!subscription) {
+    return '<div class="admin-section-heading"><h4>Моя подписка</h4><p>Активная подписка пока не найдена.</p></div>';
+  }
+
+  return `
+    <div class="admin-section-heading"><h4>Моя подписка</h4><p>Статус и сроки текущей подписки.</p></div>
+    <div class="summary-grid">
+      <div class="summary-card"><span>status</span><strong>${formatValue(subscription.status)}</strong></div>
+      <div class="summary-card"><span>starts_at</span><strong>${formatValue(formatDate(subscription.starts_at))}</strong></div>
+      <div class="summary-card"><span>ends_at</span><strong>${formatValue(formatDate(subscription.ends_at))}</strong></div>
+    </div>
+  `;
+};
+
+const renderClientCatalogTab = () => `
+  <div class="admin-section-heading">
+    <h4>Каталог</h4>
+    <p>Ищите партнёров по выбранному городу профиля или публичному city_slug.</p>
+  </div>
+  <form class="admin-form client-catalog-filter" data-client-form="catalog">
+    <label>Поиск<input name="q" value="${escapeHtml(clientState.catalogFilters.q)}" placeholder="Название, описание, адрес" /></label>
+    <label>category_slug<input name="category_slug" value="${escapeHtml(clientState.catalogFilters.category_slug)}" placeholder="beauty" /></label>
+    <label>city_slug
+      <select name="city_slug">
+        <option value="">По выбранному городу</option>
+        <option value="novosibirsk" ${clientState.catalogFilters.city_slug === 'novosibirsk' ? 'selected' : ''}>novosibirsk</option>
+        <option value="cherepovets" ${clientState.catalogFilters.city_slug === 'cherepovets' ? 'selected' : ''}>cherepovets</option>
+      </select>
+    </label>
+    <button type="submit">Найти</button>
+  </form>
+  ${clientState.latestVerification ? renderClientVerificationResult(clientState.latestVerification) : ''}
+  <div class="client-catalog-grid">
+    ${clientState.partners.length ? clientState.partners.map(renderClientPartnerCard).join('') : '<p class="empty-note">Партнёры пока не найдены.</p>'}
+  </div>
+`;
+
+const renderClientPartnerCard = (partner) => {
+  const partnerId = partner.id;
+  const offers = clientState.offersByPartner[partnerId] || [];
+  return `
+    <article class="client-partner-card">
+      <div class="client-card-topline">
+        <span>${formatValue(partner.category_slug)}</span>
+        <span>${partner.is_verified ? 'Проверен' : 'На проверке'}</span>
+      </div>
+      <h4>${formatValue(partner.name)}</h4>
+      <p>${formatValue(partner.description)}</p>
+      <dl class="client-card-details">
+        <div><dt>Город</dt><dd>${formatValue(partner.city_name)}</dd></div>
+        <div><dt>Адрес</dt><dd>${formatValue(partner.address)}</dd></div>
+        <div><dt>Телефон</dt><dd>${formatValue(partner.phone)}</dd></div>
+        <div><dt>Соцсети</dt><dd>${partner.social_url ? `<a href="${escapeHtml(partner.social_url)}" target="_blank" rel="noreferrer">${escapeHtml(partner.social_url)}</a>` : '—'}</dd></div>
+      </dl>
+      <div class="client-card-actions">
+        <button type="button" data-client-load-offers="${escapeHtml(partnerId)}">Открыть предложения</button>
+        <button type="button" data-client-verify-partner="${escapeHtml(partnerId)}">Подтвердить привилегию</button>
+      </div>
+      ${offers.length ? `<div class="client-offer-list">${offers.map((offer) => renderClientOffer(partnerId, offer)).join('')}</div>` : ''}
+    </article>
+  `;
+};
+
+const renderClientOffer = (partnerId, offer) => `
+  <div class="client-offer-card">
+    <h5>${formatValue(offer.title)}</h5>
+    <p><strong>${formatValue(offer.benefit_text)}</strong></p>
+    <p>${formatValue(offer.description)}</p>
+    <p class="client-offer-meta">Условия: ${formatValue(offer.conditions)} · Цена: ${formatValue(offer.base_price)} · Скидка: ${formatValue(offer.discount_percent)}</p>
+    <button type="button" data-client-verify-offer="${escapeHtml(partnerId)}" data-offer-id="${escapeHtml(offer.id)}">Подтвердить привилегию</button>
+  </div>
+`;
+
+const renderClientVerificationResult = (verification) => `
+  <div class="client-verification-result" role="status">
+    <p class="section-kicker">Привилегия подтверждена</p>
+    <h4>Код: ${formatValue(verification.code)}</h4>
+    <p>Действует до: <strong>${formatValue(formatDate(verification.expires_at))}</strong> · TTL: <strong>${formatValue(verification.ttl_seconds)}</strong> сек.</p>
+    <p>Партнёр: <strong>${formatValue(verification.partner_name)}</strong> · Предложение: <strong>${formatValue(verification.offer_title)}</strong></p>
+    <p class="client-warning">Покажите этот код сотруднику партнёра. Код действует 5 минут.</p>
+  </div>
+`;
+
+const renderClientHistoryTab = () => `
+  <div class="admin-section-heading"><h4>История</h4><p>Ваши последние подтверждения привилегий.</p></div>
+  ${renderTable(
+    ['code', 'status', 'partner_name', 'offer_title', 'expires_at', 'confirmed_at', 'created_at'],
+    clientState.verifications.map((item) => [item.code, item.status, item.partner_name, item.offer_title, formatDate(item.expires_at), formatDate(item.confirmed_at), formatDate(item.created_at)]),
+  )}
+`;
 
 const renderPartnerLayout = () => {
   partnerDashboard.innerHTML = `
@@ -839,6 +1118,7 @@ const showAdminDashboard = async (user) => {
   loginForm.hidden = true;
   adminDashboard.hidden = false;
   partnerDashboard.hidden = true;
+  clientDashboard.hidden = true;
   adminState.user = user;
   setLoginMessage();
   setPanelMessage();
@@ -850,11 +1130,24 @@ const showPartnerDashboard = async (user) => {
   loginForm.hidden = true;
   adminDashboard.hidden = true;
   partnerDashboard.hidden = false;
+  clientDashboard.hidden = true;
   partnerState.user = user;
   setLoginMessage();
   setPartnerPanelMessage();
   renderPartnerLayout();
   await loadActivePartnerTabData();
+};
+
+const showClientDashboard = async (user) => {
+  loginForm.hidden = true;
+  adminDashboard.hidden = true;
+  partnerDashboard.hidden = true;
+  clientDashboard.hidden = false;
+  clientState.user = user;
+  setLoginMessage();
+  setClientPanelMessage();
+  renderClientLayout();
+  await loadActiveClientTabData();
 };
 
 const loadOverview = async () => {
@@ -923,6 +1216,27 @@ const loadActivePartnerTabData = async () => {
   renderPartnerLayout();
 };
 
+const loadActiveClientTabData = async () => {
+  setClientPanelMessage();
+  renderClientLayout();
+
+  try {
+    if (clientState.activeTab === 'profile') {
+      await loadClientProfile();
+    } else if (clientState.activeTab === 'catalog') {
+      await loadClientCatalog();
+    } else if (clientState.activeTab === 'subscription') {
+      await loadClientSubscription();
+    } else if (clientState.activeTab === 'history') {
+      await loadClientVerifications();
+    }
+  } catch (error) {
+    setClientPanelMessage(error.message || 'Не удалось загрузить данные.', 'error');
+  }
+
+  renderClientLayout();
+};
+
 const submitPartnerProfile = async (form) => {
   const formData = new FormData(form);
   await partnerPatchJson('/api/v1/partners/me', {
@@ -973,6 +1287,60 @@ const handlePartnerFormSubmit = async (form) => {
   }
 
   renderPartnerLayout();
+};
+
+const submitClientProfile = async (form) => {
+  const formData = new FormData(form);
+  const selectedCityId = String(formData.get('selected_city_id') || '').trim();
+  await clientPatchJson('/api/v1/clients/me', {
+    full_name: getOptionalText(formData, 'full_name'),
+    selected_city_id: selectedCityId ? Number(selectedCityId) : null,
+  });
+  await loadClientProfile();
+};
+
+const submitClientCatalogFilters = async (form) => {
+  const formData = new FormData(form);
+  clientState.catalogFilters = {
+    q: String(formData.get('q') || '').trim(),
+    category_slug: String(formData.get('category_slug') || '').trim(),
+    city_slug: String(formData.get('city_slug') || '').trim(),
+  };
+  await loadClientCatalog();
+};
+
+const handleClientFormSubmit = async (form) => {
+  const formType = form.dataset.clientForm;
+  setClientFormMessage(formType);
+
+  try {
+    if (formType === 'profile') {
+      await submitClientProfile(form);
+    } else if (formType === 'catalog') {
+      await submitClientCatalogFilters(form);
+    }
+    setClientFormMessage(formType, 'Сохранено.');
+    setClientPanelMessage(formType === 'catalog' ? 'Каталог обновлён.' : 'Сохранено.', 'success');
+  } catch (error) {
+    setClientFormMessage(formType, error.message || 'Не удалось сохранить.');
+    setClientPanelMessage(error.message || 'Не удалось сохранить.', 'error');
+  }
+
+  renderClientLayout();
+};
+
+const createClientVerification = async (partnerId, offerId = null) => {
+  try {
+    clientState.latestVerification = await clientPostJson(`/api/v1/clients/partners/${partnerId}/verify`, {
+      ...(offerId ? { offer_id: Number(offerId) } : {}),
+      source: 'web',
+    });
+    setClientPanelMessage('Привилегия подтверждена.', 'success');
+  } catch (error) {
+    setClientPanelMessage(error.message || 'Не удалось подтвердить привилегию.', 'error');
+  }
+
+  renderClientLayout();
 };
 
 const togglePartnerOffer = async (offerId) => {
@@ -1154,7 +1522,7 @@ loginForm.addEventListener('submit', async (event) => {
   const password = String(formData.get('password') || '');
 
   try {
-    if (activeLoginMode === 'partner') {
+    if (activeLoginMode === 'partner' || activeLoginMode === 'client') {
       const response = await fetch('/api/v1/auth/user-login', {
         method: 'POST',
         headers: {
@@ -1168,17 +1536,27 @@ loginForm.addEventListener('submit', async (event) => {
       }
 
       const data = await response.json();
-      localStorage.setItem(partnerTokenKey, data.access_token);
+      const expectedRole = activeLoginMode;
+      const tokenKey = expectedRole === 'partner' ? partnerTokenKey : clientTokenKey;
+      localStorage.setItem(tokenKey, data.access_token);
 
-      if (data.user?.role !== 'partner') {
-        clearPartnerToken();
+      if (data.user?.role !== expectedRole) {
+        if (expectedRole === 'partner') {
+          clearPartnerToken();
+        } else {
+          clearClientToken();
+        }
         showLoginForm();
-        setLoginMode('partner');
-        setLoginMessage('Этот вход доступен только партнёрам');
+        setLoginMode(expectedRole);
+        setLoginMessage(expectedRole === 'partner' ? 'Этот вход доступен только партнёрам' : 'Этот вход доступен только клиентам');
         return;
       }
 
-      await showPartnerDashboard(data.user);
+      if (expectedRole === 'partner') {
+        await showPartnerDashboard(data.user);
+      } else {
+        await showClientDashboard(data.user);
+      }
       loginForm.reset();
       return;
     }
@@ -1204,6 +1582,10 @@ loginForm.addEventListener('submit', async (event) => {
       clearPartnerToken();
       showLoginForm();
       setLoginMode('partner');
+    } else if (activeLoginMode === 'client') {
+      clearClientToken();
+      showLoginForm();
+      setLoginMode('client');
     } else {
       clearToken();
       showLoginForm();
@@ -1298,10 +1680,82 @@ partnerDashboard.addEventListener('submit', (event) => {
   handlePartnerFormSubmit(form);
 });
 
+clientDashboard.addEventListener('click', async (event) => {
+  const tabButton = event.target.closest('[data-client-tab]');
+  const logout = event.target.closest('[data-client-logout-button]');
+  const loadOffersButton = event.target.closest('[data-client-load-offers]');
+  const verifyPartnerButton = event.target.closest('[data-client-verify-partner]');
+  const verifyOfferButton = event.target.closest('[data-client-verify-offer]');
+
+  if (logout) {
+    clearClientToken();
+    showLoginForm();
+    setLoginMode('client');
+    return;
+  }
+
+  if (tabButton) {
+    clientState.activeTab = tabButton.dataset.clientTab;
+    await loadActiveClientTabData();
+    return;
+  }
+
+  if (loadOffersButton) {
+    try {
+      await loadClientPartnerOffers(loadOffersButton.dataset.clientLoadOffers);
+      setClientPanelMessage('Предложения загружены.', 'success');
+    } catch (error) {
+      setClientPanelMessage(error.message || 'Не удалось загрузить предложения.', 'error');
+    }
+    renderClientLayout();
+    return;
+  }
+
+  if (verifyOfferButton) {
+    await createClientVerification(verifyOfferButton.dataset.clientVerifyOffer, verifyOfferButton.dataset.offerId);
+    return;
+  }
+
+  if (verifyPartnerButton) {
+    await createClientVerification(verifyPartnerButton.dataset.clientVerifyPartner);
+  }
+});
+
+clientDashboard.addEventListener('submit', (event) => {
+  const form = event.target.closest('[data-client-form]');
+  if (!form) {
+    return;
+  }
+  event.preventDefault();
+  handleClientFormSubmit(form);
+});
+
+const restoreClientSession = async () => {
+  const token = getClientToken();
+  if (!token) {
+    showLoginForm();
+    return;
+  }
+
+  try {
+    const user = await requestClientUserMe();
+    if (user.role !== 'client') {
+      clearClientToken();
+      showLoginForm();
+      return;
+    }
+    setLoginMode('client');
+    await showClientDashboard(user);
+  } catch (error) {
+    clearClientToken();
+    showLoginForm();
+  }
+};
+
 const restorePartnerSession = async () => {
   const token = getPartnerToken();
   if (!token) {
-    showLoginForm();
+    await restoreClientSession();
     return;
   }
 
@@ -1309,14 +1763,14 @@ const restorePartnerSession = async () => {
     const user = await requestPartnerUserMe();
     if (user.role !== 'partner') {
       clearPartnerToken();
-      showLoginForm();
+      await restoreClientSession();
       return;
     }
     setLoginMode('partner');
     await showPartnerDashboard(user);
   } catch (error) {
     clearPartnerToken();
-    showLoginForm();
+    await restoreClientSession();
   }
 };
 
