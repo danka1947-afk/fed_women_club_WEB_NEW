@@ -125,16 +125,29 @@ def test_frontend_contains_real_login_form_and_dashboard_strings() -> None:
     assert 'name="password"' in source
     assert '/api/v1/auth/login' in source
     assert '/api/v1/admin/me' in source
-    assert 'Админ-панель' in source
-    assert 'Вы вошли как:' in source
+    assert 'Панель администратора' in source
     assert 'Неверный логин или пароль' in source
     assert 'localStorage.setItem(authTokenKey, data.access_token)' in source
+
+
+def test_frontend_contains_dashboard_shell_classes() -> None:
+    source = _frontend_main()
+
+    for expected in (
+        "dashboard-shell",
+        "dashboard-sidebar",
+        "dashboard-main",
+        "dashboard-topbar",
+    ):
+        assert expected in source
 
 
 def test_frontend_contains_admin_cabinet_tabs() -> None:
     source = _frontend_main()
 
     for tab_text in (
+        "Панель администратора",
+        "Главная",
         "Обзор",
         "Пользователи",
         "Города",
@@ -192,6 +205,18 @@ def test_public_landing_copy_and_city_chips_remain_intact() -> None:
         "Череповец",
     ):
         assert public_copy in source
+
+
+
+def test_frontend_login_modes_remain_available() -> None:
+    source = _frontend_main()
+
+    for expected in (
+        "Администратор",
+        "Партнёр",
+        "Клиент",
+    ):
+        assert expected in source
 
 
 def test_frontend_contains_partner_cabinet_foundation() -> None:

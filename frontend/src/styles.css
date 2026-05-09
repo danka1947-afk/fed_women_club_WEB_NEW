@@ -1133,3 +1133,192 @@ h2 {
     grid-template-columns: 1fr;
   }
 }
+
+body.is-dashboard {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top left, rgba(246, 216, 210, 0.72), transparent 34rem),
+    radial-gradient(circle at bottom right, rgba(201, 130, 120, 0.16), transparent 28rem),
+    linear-gradient(135deg, var(--color-background), var(--color-background-soft));
+}
+
+body.is-dashboard #root {
+  min-height: 100vh;
+}
+
+.dashboard-shell {
+  display: grid;
+  min-height: 100vh;
+  grid-template-rows: auto 1fr;
+}
+
+.dashboard-topbar {
+  position: sticky;
+  z-index: 10;
+  top: 0;
+  display: grid;
+  grid-template-columns: minmax(220px, 0.9fr) minmax(220px, 1.2fr) minmax(220px, auto);
+  gap: 18px;
+  align-items: center;
+  padding: 18px clamp(18px, 3vw, 40px);
+  border-bottom: 1px solid rgba(201, 130, 120, 0.22);
+  background: rgba(255, 250, 248, 0.92);
+  backdrop-filter: blur(18px);
+  box-shadow: 0 16px 40px rgba(143, 81, 75, 0.1);
+}
+
+.dashboard-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.dashboard-title-block h1 {
+  margin: 0;
+  color: var(--color-rose-dark);
+  font-size: clamp(1.45rem, 3vw, 2.2rem);
+  line-height: 1.05;
+  letter-spacing: -0.04em;
+}
+
+.dashboard-title-block .section-kicker {
+  margin-bottom: 6px;
+}
+
+.dashboard-user-block {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  color: var(--color-muted);
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
+.dashboard-user-block button,
+.dashboard-nav-button {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  border-radius: 999px;
+  font: inherit;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.dashboard-user-block button {
+  padding: 11px 18px;
+  border: 0;
+  background: linear-gradient(135deg, var(--color-rose), #b87368 55%, var(--color-rose-dark));
+  color: #fffaf8;
+  box-shadow: 0 14px 28px rgba(143, 81, 75, 0.2);
+  white-space: nowrap;
+}
+
+.dashboard-layout {
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr);
+  gap: 24px;
+  width: min(100% - 36px, 1440px);
+  margin: 0 auto;
+  padding: 24px 0 42px;
+}
+
+.dashboard-sidebar {
+  position: sticky;
+  top: 104px;
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  max-height: calc(100vh - 128px);
+  padding: 18px;
+  border: 1px solid rgba(201, 130, 120, 0.24);
+  border-radius: 28px;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.9), rgba(255, 247, 245, 0.96)),
+    radial-gradient(circle at top right, rgba(246, 216, 210, 0.64), transparent 13rem);
+  box-shadow: var(--shadow-card);
+}
+
+.dashboard-nav-button {
+  width: 100%;
+  justify-content: flex-start;
+  padding: 12px 16px;
+  border: 1px solid rgba(201, 130, 120, 0.22);
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--color-rose-dark);
+  text-align: left;
+  transition:
+    background 180ms ease,
+    box-shadow 180ms ease,
+    transform 180ms ease;
+}
+
+.dashboard-nav-button:hover,
+.dashboard-nav-button.is-active {
+  border-color: transparent;
+  background: linear-gradient(135deg, var(--color-rose), #b87368 55%, var(--color-rose-dark));
+  color: #fffaf8;
+  box-shadow: 0 14px 28px rgba(143, 81, 75, 0.18);
+  transform: translateY(-1px);
+}
+
+.dashboard-main {
+  min-width: 0;
+}
+
+.dashboard-main .admin-dashboard {
+  min-height: calc(100vh - 170px);
+  margin-top: 0;
+  padding: clamp(18px, 3vw, 30px);
+  border-radius: 30px;
+}
+
+@media (max-width: 980px) {
+  .dashboard-topbar {
+    position: static;
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-user-block {
+    justify-content: flex-start;
+  }
+
+  .dashboard-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-sidebar {
+    position: static;
+    display: flex;
+    max-height: none;
+    overflow-x: auto;
+  }
+
+  .dashboard-nav-button {
+    width: auto;
+    white-space: nowrap;
+  }
+}
+
+@media (max-width: 640px) {
+  .dashboard-topbar {
+    padding: 14px;
+  }
+
+  .dashboard-user-block {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .dashboard-layout {
+    width: min(100% - 20px, 1440px);
+    gap: 16px;
+    padding-top: 16px;
+  }
+
+  .dashboard-sidebar {
+    padding: 12px;
+    border-radius: 22px;
+  }
+}
