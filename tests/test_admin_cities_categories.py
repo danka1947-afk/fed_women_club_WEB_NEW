@@ -1,0 +1,185 @@
+from __future__ import annotations
+
+from collections.abc import Generator
+
+import pytest
+from fastapi.testclient import TestClient
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.pool import StaticPool
+
+import app.models  # noqa: F401 - register all SQLAlchemy models for test metadata
+from app.core.security import hash_password
+from app.db.base import Base
+from app.db.session import get_db
+from app.main import app
+from app.models.city import City
+from app.models.user import AdminUser, UserRole
+
+
+@pytest.fixture()
+def admin_client() -> Generator[TestClient, None, None]:
+    engine = create_engine(
+        "sqlite:///:memory:",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    session_factory = sessionmaker(bind=engine, autoflush=False, autocommit=False, expire_on_commit=False)
+
+    Base.metadata.create_all(bind=engine)
+    with session_factory() as session:
+        session.add(
+            AdminUser(
+                email="admin@example.com",
+                password_hash=hash_password("StrongPassword123"),
+                role=UserRole.ADMIN.value,
+                is_active=True,
+            )
+        )
+        session.add_all(
+            [
+                City(name="Поздний город", slug="late-city", is_active=True, sort_order=20),
+                City(name="Ранний город", slug="early-city", is_active=True, sort_order=10),
+            ]
+        )
+        session.commit()
+
+    def override_get_db() -> Generator[Session, None, None]:
+        with session_factory() as session:
+            yield session
+
+    app.dependency_overrides[get_db] = override_get_db
+    try:
+        with TestClient(app) as client:
+            yield client
+    finally:
+        app.dependency_overrides.clear()
+        engine.dispose()
+
+
+@pytest.fixture()
+def admin_token(admin_client: TestClient) -> str:
+    response = admin_client.post(
+        "/api/v1/auth/login",
+        json={"email": "admin@example.com", "password": "StrongPassword123"},
+    )
+    assert response.status_code == 200
+    return str(response.json()["access_token"])
+
+
+def _auth_headers(token: str) -> dict[str, str]:
+    return {"Authorization": f"Bearer {token}"}
+
+
+def test_admin_cities_returns_401_without_token(admin_client: TestClient) -> None:
+    response = admin_client.get("/api/v1/admin/cities")
+
+    assert response.status_code == 401
+
+
+def test_admin_categories_returns_401_without_token(admin_client: TestClient) -> None:
+    response = admin_client.get("/api/v1/admin/categories")
+
+    assert response.status_code == 401
+
+
+def test_admin_categories_returns_expected_categories(admin_client: TestClient, admin_token: str) -> None:
+    response = admin_client.get("/api/v1/admin/categories", headers=_auth_headers(admin_token))
+
+    assert response.status_code == 200
+    data = response.json()
+    titles = [category["title"] for category in data]
+    assert "Красота" in titles
+    assert "Маникюр / педикюр" in titles
+    assert "Другое" in titles
+    assert [category["sort_order"] for category in data] == sorted(
+        category["sort_order"] for category in data
+    )
+    assert data[0] == {"slug": "krasota", "title": "Красота", "is_active": True, "sort_order": 1}
+    assert data[-1]["slug"] == "drugoe"
+
+
+def test_admin_cities_returns_cities_ordered_by_sort_order(admin_client: TestClient, admin_token: str) -> None:
+    response = admin_client.get("/api/v1/admin/cities", headers=_auth_headers(admin_token))
+
+    assert response.status_code == 200
+    data = response.json()
+    assert [city["slug"] for city in data] == ["early-city", "late-city"]
+    assert [city["sort_order"] for city in data] == [10, 20]
+
+
+def test_admin_city_create_strips_values_and_creates_city(admin_client: TestClient, admin_token: str) -> None:
+    response = admin_client.post(
+        "/api/v1/admin/cities",
+        headers=_auth_headers(admin_token),
+        json={"name": "  Новый город  ", "slug": "  new-city  ", "is_active": False, "sort_order": 15},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["id"]
+    assert data["name"] == "Новый город"
+    assert data["slug"] == "new-city"
+    assert data["is_active"] is False
+    assert data["sort_order"] == 15
+
+
+def test_admin_city_create_duplicate_returns_409(admin_client: TestClient, admin_token: str) -> None:
+    response = admin_client.post(
+        "/api/v1/admin/cities",
+        headers=_auth_headers(admin_token),
+        json={"name": "Ранний город", "slug": "unique-slug"},
+    )
+
+    assert response.status_code == 409
+    assert response.json()["detail"] == "City with this slug or name already exists"
+
+
+def test_admin_city_patch_updates_city(admin_client: TestClient, admin_token: str) -> None:
+    cities_response = admin_client.get("/api/v1/admin/cities", headers=_auth_headers(admin_token))
+    city_id = cities_response.json()[0]["id"]
+
+    response = admin_client.patch(
+        f"/api/v1/admin/cities/{city_id}",
+        headers=_auth_headers(admin_token),
+        json={"name": "  Обновленный город  ", "slug": "  updated-city  ", "sort_order": 30},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["id"] == city_id
+    assert data["name"] == "Обновленный город"
+    assert data["slug"] == "updated-city"
+    assert data["sort_order"] == 30
+
+
+def test_admin_city_patch_duplicate_returns_409(admin_client: TestClient, admin_token: str) -> None:
+    cities_response = admin_client.get("/api/v1/admin/cities", headers=_auth_headers(admin_token))
+    city_id = cities_response.json()[0]["id"]
+
+    response = admin_client.patch(
+        f"/api/v1/admin/cities/{city_id}",
+        headers=_auth_headers(admin_token),
+        json={"slug": "late-city"},
+    )
+
+    assert response.status_code == 409
+    assert response.json()["detail"] == "City with this slug or name already exists"
+
+
+def test_admin_city_patch_missing_city_returns_404(admin_client: TestClient, admin_token: str) -> None:
+    response = admin_client.patch(
+        "/api/v1/admin/cities/9999",
+        headers=_auth_headers(admin_token),
+        json={"name": "Missing"},
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "City not found"
+
+
+def test_admin_me_still_works_with_admin_token(admin_client: TestClient, admin_token: str) -> None:
+    response = admin_client.get("/api/v1/admin/me", headers=_auth_headers(admin_token))
+
+    assert response.status_code == 200
+    assert response.json() == {"id": 1, "email": "admin@example.com", "role": "admin"}
