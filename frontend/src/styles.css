@@ -639,7 +639,8 @@ h2 {
 }
 
 .client-card-actions button,
-.client-offer-card button {
+.client-offer-card button,
+.client-vk-link-card button {
   min-height: 40px;
   padding: 10px 14px;
   border: 0;
@@ -923,7 +924,8 @@ h2 {
 
 .client-partner-card,
 .client-offer-card,
-.client-verification-result {
+.client-verification-result,
+.client-vk-link-card {
   border: 1px solid rgba(201, 130, 120, 0.24);
   background: rgba(255, 250, 248, 0.9);
   box-shadow: 0 14px 34px rgba(143, 81, 75, 0.08);
@@ -938,7 +940,8 @@ h2 {
 
 .client-partner-card h4,
 .client-offer-card h5,
-.client-verification-result h4 {
+.client-verification-result h4,
+.client-vk-link-card h4 {
   margin: 0;
   color: var(--color-rose-dark);
 }
@@ -1022,6 +1025,91 @@ h2 {
     radial-gradient(circle at top right, rgba(246, 216, 210, 0.74), transparent 13rem);
 }
 
+.client-vk-link-card {
+  display: grid;
+  gap: 16px;
+  padding: 20px;
+  border-radius: 26px;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.96), rgba(255, 247, 245, 0.96)),
+    radial-gradient(circle at top right, rgba(246, 216, 210, 0.72), transparent 13rem);
+}
+
+.client-vk-link-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.client-vk-link-header p,
+.client-vk-link-result p {
+  margin: 0;
+  color: var(--color-muted);
+}
+
+.client-vk-link-result {
+  display: grid;
+  gap: 12px;
+}
+
+.client-vk-link-code {
+  display: inline-flex;
+  width: fit-content;
+  max-width: 100%;
+  padding: 14px 18px;
+  border: 1px solid rgba(201, 130, 120, 0.34);
+  border-radius: 18px;
+  background: #fffdfc;
+  color: var(--color-rose-dark);
+  font-size: clamp(1.7rem, 5vw, 2.6rem);
+  font-weight: 900;
+  letter-spacing: 0.14em;
+  overflow-wrap: anywhere;
+}
+
+.client-vk-link-meta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+}
+
+.client-vk-link-meta div {
+  padding: 12px;
+  border: 1px solid rgba(201, 130, 120, 0.18);
+  border-radius: 16px;
+  background: rgba(255, 250, 248, 0.78);
+}
+
+.client-vk-link-meta dt {
+  color: var(--color-muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.client-vk-link-meta dd {
+  margin: 4px 0 0;
+  color: var(--color-rose-dark);
+  font-weight: 900;
+  overflow-wrap: anywhere;
+}
+
+.client-vk-link-message {
+  margin: 0;
+  color: var(--color-rose-dark);
+  font-weight: 900;
+}
+
+.client-vk-link-message--error {
+  color: #914343;
+}
+
+.client-vk-link-message--success {
+  color: #597a55;
+}
+
 .partner-profile-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -1040,7 +1128,8 @@ h2 {
     border-radius: 24px;
   }
 
-  .client-catalog-filter {
+  .client-catalog-filter,
+  .client-vk-link-meta {
     grid-template-columns: 1fr;
   }
 }

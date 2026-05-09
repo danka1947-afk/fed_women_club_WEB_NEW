@@ -250,6 +250,9 @@ const clientState = {
   offersByPartner: {},
   selectedPartner: null,
   latestVerification: null,
+  vkLinkCode: null,
+  vkLinkStatus: '',
+  vkLinkMessage: '',
   verifications: [],
   catalogFilters: {
     q: '',
@@ -577,6 +580,16 @@ const renderClientProfileTab = () => {
         <div class="summary-card"><span>${label}</span><strong>${formatValue(value)}</strong></div>
       `).join('')}
     </div>
+    <section class="client-vk-link-card" aria-labelledby="client-vk-link-title">
+      <div class="client-vk-link-header">
+        <div>
+          <h4 id="client-vk-link-title">Привязка VK</h4>
+          <p>Создайте одноразовый код и отправьте его VK-боту командой: Привязать КОД</p>
+        </div>
+        <button type="button" data-client-create-vk-code>Создать код для VK</button>
+      </div>
+      ${renderClientVkLinkCode()}
+    </section>
     <form class="admin-form admin-form--inline" data-client-form="profile">
       <h4>Обновить профиль</h4>
       <label>full_name<input name="full_name" value="${escapeHtml(profile.full_name || '')}" /></label>
@@ -585,6 +598,31 @@ const renderClientProfileTab = () => {
       <button type="submit">Сохранить профиль</button>
       <p class="form-message" data-client-form-message="profile">${escapeHtml(clientState.formMessages.profile || '')}</p>
     </form>
+  `;
+};
+
+const renderClientVkLinkCode = () => {
+  const statusClass = clientState.vkLinkStatus ? ` client-vk-link-message--${clientState.vkLinkStatus}` : '';
+  const message = clientState.vkLinkMessage
+    ? `<p class="client-vk-link-message${statusClass}">${escapeHtml(clientState.vkLinkMessage)}</p>`
+    : '';
+
+  if (!clientState.vkLinkCode) {
+    return message;
+  }
+
+  const { code, expires_at: expiresAt, ttl_seconds: ttlSeconds } = clientState.vkLinkCode;
+  return `
+    <div class="client-vk-link-result">
+      <span class="client-vk-link-code">${escapeHtml(code)}</span>
+      <dl class="client-vk-link-meta">
+        <div><dt>expires_at</dt><dd>${formatValue(formatDate(expiresAt))}</dd></div>
+        <div><dt>ttl_seconds</dt><dd>${formatValue(ttlSeconds)}</dd></div>
+      </dl>
+      <p>Скопируйте код и отправьте VK-боту: <strong>Привязать ${escapeHtml(code)}</strong></p>
+      <p class="client-warning">Код действует 10 минут. Новый код отменяет предыдущий.</p>
+      ${message}
+    </div>
   `;
 };
 
@@ -1343,6 +1381,25 @@ const createClientVerification = async (partnerId, offerId = null) => {
   renderClientLayout();
 };
 
+const createClientVkLinkCode = async () => {
+  clientState.vkLinkStatus = '';
+  clientState.vkLinkMessage = '';
+
+  try {
+    clientState.vkLinkCode = await clientPostJson('/api/v1/clients/me/vk-link-codes');
+    clientState.vkLinkStatus = 'success';
+    clientState.vkLinkMessage = 'Код VK создан.';
+  } catch (error) {
+    if (error.message === 'Сессия клиента истекла. Войдите снова.') {
+      return;
+    }
+    clientState.vkLinkStatus = 'error';
+    clientState.vkLinkMessage = 'Не удалось создать код VK. Попробуйте позже.';
+  }
+
+  renderClientLayout();
+};
+
 const togglePartnerOffer = async (offerId) => {
   const offer = partnerState.offers.find((item) => String(item.id) === String(offerId));
   if (!offer) {
@@ -1686,6 +1743,7 @@ clientDashboard.addEventListener('click', async (event) => {
   const loadOffersButton = event.target.closest('[data-client-load-offers]');
   const verifyPartnerButton = event.target.closest('[data-client-verify-partner]');
   const verifyOfferButton = event.target.closest('[data-client-verify-offer]');
+  const createVkCodeButton = event.target.closest('[data-client-create-vk-code]');
 
   if (logout) {
     clearClientToken();
@@ -1697,6 +1755,11 @@ clientDashboard.addEventListener('click', async (event) => {
   if (tabButton) {
     clientState.activeTab = tabButton.dataset.clientTab;
     await loadActiveClientTabData();
+    return;
+  }
+
+  if (createVkCodeButton) {
+    await createClientVkLinkCode();
     return;
   }
 

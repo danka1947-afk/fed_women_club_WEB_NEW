@@ -257,3 +257,27 @@ def test_frontend_contains_client_endpoint_strings_and_separate_token() -> None:
     assert "womenclub_client_token" in source
     assert "womenClubAdminAccessToken" in source
     assert "womenclub_partner_token" in source
+
+
+def test_frontend_contains_client_vk_link_code_ui() -> None:
+    source = _frontend_main()
+
+    for expected in (
+        "Привязка VK",
+        "Создать код для VK",
+        "/api/v1/clients/me/vk-link-codes",
+        "Привязать",
+    ):
+        assert expected in source
+
+    assert "womenclub_client_token" in source
+    assert "womenClubAdminAccessToken" in source
+    assert "womenclub_partner_token" in source
+
+    for public_copy in (
+        "Женский клуб",
+        "Федеральный клуб привилегий для девушек",
+        "Новосибирск",
+        "Череповец",
+    ):
+        assert public_copy in source
