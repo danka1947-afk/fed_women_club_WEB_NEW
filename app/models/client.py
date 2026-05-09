@@ -1,11 +1,34 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from datetime import datetime
+
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, func
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from app.db.base import Base
 
 
-@dataclass(slots=True)
-class ClientProfile:
-    id: int | None
-    user_id: int
-    city_code: str
-    selected_city_id: int | None = None
+class ClientProfile(Base):
+    __tablename__ = "client_profiles"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, unique=True)
+    selected_city_id: Mapped[int | None] = mapped_column(ForeignKey("cities.id"), nullable=True)
+    full_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    vk_user_id: Mapped[str | None] = mapped_column(String(255), nullable=True, unique=True, index=True)
+    source: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+    user: Mapped["User"] = relationship("User", back_populates="client_profile")
+    selected_city: Mapped["City | None"] = relationship("City", back_populates="client_profiles")
+    payment_requests: Mapped[list["PaymentRequest"]] = relationship("PaymentRequest", back_populates="client")
+    subscriptions: Mapped[list["Subscription"]] = relationship("Subscription", back_populates="client")
+    verification_sessions: Mapped[list["PrivilegeVerificationSession"]] = relationship(
+        "PrivilegeVerificationSession",
+        back_populates="client",
+    )
