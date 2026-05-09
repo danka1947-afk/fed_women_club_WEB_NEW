@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
+import secrets
+import string
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -10,12 +14,15 @@ from app.models.city import City
 from app.models.client import ClientProfile
 from app.models.partner import Partner, PartnerOffer
 from app.models.payment import Subscription
+from app.models.verification import PrivilegeVerificationSession, PrivilegeVerificationStatus
 from app.models.user import User
 from app.schemas.client import (
+    ClientCreateVerificationRequest,
     ClientPartnerCatalogItem,
     ClientPartnerOfferRead,
     ClientProfileRead,
     ClientProfileUpdate,
+    ClientVerificationRead,
     SubscriptionRead,
 )
 
@@ -23,6 +30,9 @@ router = APIRouter(prefix="/clients", tags=["clients"])
 
 CITY_NOT_FOUND_DETAIL = "City not found"
 PARTNER_NOT_FOUND_DETAIL = "Partner not found"
+OFFER_NOT_FOUND_DETAIL = "Offer not found"
+VERIFICATION_TTL_SECONDS = 5 * 60
+VERIFICATION_CODE_ALPHABET = string.digits
 
 
 @router.get("/me", response_model=ClientProfileRead)
@@ -104,6 +114,56 @@ def list_client_catalog_partners(
         statement = statement.where(Partner.name.ilike(search))
 
     return [_partner_to_catalog_item(partner, city_name) for partner, city_name in db.execute(statement).all()]
+
+@router.post("/partners/{partner_id}/verify", response_model=ClientVerificationRead)
+def create_client_partner_verification(
+    partner_id: int,
+    payload: ClientCreateVerificationRequest,
+    current_user: User = Depends(require_client),
+    db: Session = Depends(get_db),
+) -> ClientVerificationRead:
+    profile = _get_or_create_client_profile(db, current_user.id)
+    partner, _city_name = _get_active_partner_row_or_404(db, partner_id)
+    offer = _get_active_partner_offer_or_404(db, partner.id, payload.offer_id) if payload.offer_id is not None else None
+
+    now = datetime.now(timezone.utc)
+    session = PrivilegeVerificationSession(
+        client_id=profile.id,
+        partner_id=partner.id,
+        offer_id=offer.id if offer is not None else None,
+        code=_generate_verification_code(),
+        status=PrivilegeVerificationStatus.active.value,
+        source=_normalize_optional_text(payload.source) or "web",
+        expires_at=now + timedelta(seconds=VERIFICATION_TTL_SECONDS),
+        created_at=now,
+    )
+    db.add(session)
+    db.commit()
+    db.refresh(session)
+    return _client_verification_to_read(session, partner.name, offer.title if offer is not None else None)
+
+
+@router.get("/me/verifications", response_model=list[ClientVerificationRead])
+def list_client_verifications(
+    status: str | None = None,
+    current_user: User = Depends(require_client),
+    db: Session = Depends(get_db),
+) -> list[ClientVerificationRead]:
+    profile = _get_or_create_client_profile(db, current_user.id)
+    statement = (
+        select(PrivilegeVerificationSession, Partner.name.label("partner_name"), PartnerOffer.title.label("offer_title"))
+        .join(Partner, PrivilegeVerificationSession.partner_id == Partner.id)
+        .outerjoin(PartnerOffer, PrivilegeVerificationSession.offer_id == PartnerOffer.id)
+        .where(PrivilegeVerificationSession.client_id == profile.id)
+        .order_by(PrivilegeVerificationSession.created_at.desc(), PrivilegeVerificationSession.id.desc())
+    )
+    if status is not None:
+        statement = statement.where(PrivilegeVerificationSession.status == status)
+
+    return [
+        _client_verification_to_read(session, partner_name, offer_title)
+        for session, partner_name, offer_title in db.execute(statement).all()
+    ]
 
 
 @router.get("/partners/{partner_id}", response_model=ClientPartnerCatalogItem)
@@ -203,6 +263,59 @@ def _get_active_partner_row_or_404(db: Session, partner_id: int) -> tuple[Partne
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=PARTNER_NOT_FOUND_DETAIL)
     partner, city_name = row
     return partner, city_name
+
+
+def _get_active_partner_offer_or_404(db: Session, partner_id: int, offer_id: int) -> PartnerOffer:
+    offer = db.execute(
+        select(PartnerOffer).where(
+            PartnerOffer.id == offer_id,
+            PartnerOffer.partner_id == partner_id,
+            PartnerOffer.is_active.is_(True),
+        )
+    ).scalar_one_or_none()
+    if offer is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=OFFER_NOT_FOUND_DETAIL)
+    return offer
+
+
+def _generate_verification_code(length: int = 6) -> str:
+    return "".join(secrets.choice(VERIFICATION_CODE_ALPHABET) for _ in range(length))
+
+
+def _as_aware_utc(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
+
+
+def _ttl_seconds(expires_at: datetime) -> int | None:
+    seconds = int((_as_aware_utc(expires_at) - datetime.now(timezone.utc)).total_seconds())
+    return max(seconds, 0)
+
+
+def _client_verification_to_read(
+    session: PrivilegeVerificationSession,
+    partner_name: str | None,
+    offer_title: str | None,
+) -> ClientVerificationRead:
+    return ClientVerificationRead.model_validate(
+        {
+            "id": session.id,
+            "client_id": session.client_id,
+            "partner_id": session.partner_id,
+            "partner_name": partner_name,
+            "offer_id": session.offer_id,
+            "offer_title": offer_title,
+            "code": session.code,
+            "status": session.status,
+            "source": session.source,
+            "expires_at": session.expires_at,
+            "confirmed_at": session.confirmed_at,
+            "created_at": session.created_at,
+            "ttl_seconds": _ttl_seconds(session.expires_at),
+            "subscription_required": False,
+        }
+    )
 
 
 def _partner_to_catalog_item(partner: Partner, city_name: str | None) -> ClientPartnerCatalogItem:

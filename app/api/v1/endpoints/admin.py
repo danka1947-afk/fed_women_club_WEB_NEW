@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -11,10 +12,13 @@ from app.api.deps import require_admin
 from app.core.categories import WOMEN_CLUB_CATEGORY_SLUGS, get_women_club_categories
 from app.db.session import get_db
 from app.models.city import City
+from app.models.client import ClientProfile
 from app.models.lead import LeadClick
 from app.models.partner import Partner, PartnerOffer, PartnerQrLink
 from app.models.user import AdminUser, User, UserRole
+from app.models.verification import PrivilegeVerificationSession
 from app.schemas.admin import (
+    AdminVerificationRead,
     CategoryRead,
     CityCreate,
     CityRead,
@@ -57,6 +61,42 @@ PARTNER_OFFER_TEXT_FIELDS = ("description", "benefit_text", "conditions", "image
 @router.get("/me", response_model=AdminUserRead)
 def read_admin_me(admin: AdminUser = Depends(require_admin)) -> AdminUser:
     return admin
+
+@router.get("/verifications", response_model=list[AdminVerificationRead])
+def list_admin_verifications(
+    partner_id: int | None = None,
+    client_id: int | None = None,
+    status: str | None = None,
+    admin: AdminUser = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> list[AdminVerificationRead]:
+    _ = admin
+    statement = (
+        select(
+            PrivilegeVerificationSession,
+            ClientProfile.full_name.label("client_name"),
+            Partner.name.label("partner_name"),
+            City.id.label("city_id"),
+            City.name.label("city_name"),
+            PartnerOffer.title.label("offer_title"),
+        )
+        .join(ClientProfile, PrivilegeVerificationSession.client_id == ClientProfile.id)
+        .join(Partner, PrivilegeVerificationSession.partner_id == Partner.id)
+        .join(City, Partner.city_id == City.id)
+        .outerjoin(PartnerOffer, PrivilegeVerificationSession.offer_id == PartnerOffer.id)
+        .order_by(PrivilegeVerificationSession.created_at.desc(), PrivilegeVerificationSession.id.desc())
+    )
+    if partner_id is not None:
+        statement = statement.where(PrivilegeVerificationSession.partner_id == partner_id)
+    if client_id is not None:
+        statement = statement.where(PrivilegeVerificationSession.client_id == client_id)
+    if status is not None:
+        statement = statement.where(PrivilegeVerificationSession.status == status)
+
+    return [
+        _admin_verification_to_read(session, client_name, partner_name, city_id, city_name, offer_title)
+        for session, client_name, partner_name, city_id, city_name, offer_title in db.execute(statement).all()
+    ]
 
 
 @router.get("/cities", response_model=list[CityRead])
@@ -443,6 +483,47 @@ def update_admin_partner_offer(
     db.commit()
     db.refresh(offer)
     return _get_partner_offer_read_or_404(db, offer.id)
+
+
+def _as_aware_utc(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
+
+
+def _ttl_seconds(expires_at: datetime) -> int | None:
+    seconds = int((_as_aware_utc(expires_at) - datetime.now(timezone.utc)).total_seconds())
+    return max(seconds, 0)
+
+
+def _admin_verification_to_read(
+    session: PrivilegeVerificationSession,
+    client_name: str | None,
+    partner_name: str | None,
+    city_id: int | None,
+    city_name: str | None,
+    offer_title: str | None,
+) -> AdminVerificationRead:
+    return AdminVerificationRead.model_validate(
+        {
+            "id": session.id,
+            "client_id": session.client_id,
+            "client_name": client_name,
+            "partner_id": session.partner_id,
+            "partner_name": partner_name,
+            "city_id": city_id,
+            "city_name": city_name,
+            "offer_id": session.offer_id,
+            "offer_title": offer_title,
+            "code": session.code,
+            "status": session.status,
+            "source": session.source,
+            "expires_at": session.expires_at,
+            "confirmed_at": session.confirmed_at,
+            "created_at": session.created_at,
+            "ttl_seconds": _ttl_seconds(session.expires_at),
+        }
+    )
 
 
 def _qr_slug_duplicate_error() -> HTTPException:
