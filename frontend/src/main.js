@@ -178,6 +178,7 @@ document.querySelectorAll('[data-city-choice]').forEach((button) => {
 const authTokenKey = 'womenClubAdminAccessToken';
 const adminTabs = [
   { id: 'overview', label: 'Обзор' },
+  { id: 'users', label: 'Пользователи' },
   { id: 'cities', label: 'Города' },
   { id: 'categories', label: 'Категории' },
   { id: 'partners', label: 'Партнёры' },
@@ -189,6 +190,7 @@ const adminTabs = [
 const adminState = {
   activeTab: 'overview',
   user: null,
+  users: [],
   cities: [],
   categories: [],
   partners: [],
@@ -199,6 +201,7 @@ const adminState = {
   selectedPartnerIdForOffers: '',
   selectedPartnerIdForQr: '',
   panelMessage: '',
+  formMessages: {},
   overviewPartialError: false,
 };
 
@@ -223,6 +226,10 @@ const getToken = () => localStorage.getItem(authTokenKey);
 
 const setLoginMessage = (message = '') => {
   loginMessage.textContent = message;
+};
+
+const setFormMessage = (formType, message = '') => {
+  adminState.formMessages[formType] = message;
 };
 
 const setPanelMessage = (message = '', type = 'info') => {
@@ -295,6 +302,15 @@ const postJson = (path, payload) => apiFetch(path, {
   body: JSON.stringify(payload),
 });
 
+const patchJson = (path, payload) => apiFetch(path, {
+  method: 'PATCH',
+  body: JSON.stringify(payload),
+});
+
+const loadUsers = async () => {
+  adminState.users = await apiFetch('/api/v1/admin/users');
+};
+
 const loadCities = async () => {
   adminState.cities = await apiFetch('/api/v1/admin/cities');
 };
@@ -333,6 +349,7 @@ const loadQrLinks = async () => {
 
 const ensureAdminDictionaries = async () => {
   await Promise.all([
+    adminState.users.length ? Promise.resolve() : loadUsers(),
     adminState.cities.length ? Promise.resolve() : loadCities(),
     adminState.categories.length ? Promise.resolve() : loadCategories(),
     adminState.partners.length ? Promise.resolve() : loadPartners(),
@@ -364,6 +381,8 @@ const renderAdminLayout = () => {
 
 const renderAdminTabContent = () => {
   switch (adminState.activeTab) {
+    case 'users':
+      return renderUsersTab();
     case 'cities':
       return renderCitiesTab();
     case 'categories':
@@ -383,6 +402,7 @@ const renderAdminTabContent = () => {
 
 const renderOverviewTab = () => {
   const cards = [
+    ['Пользователи', adminState.users.length],
     ['Города', adminState.cities.length],
     ['Категории', adminState.categories.length],
     ['Партнёры', adminState.partners.length],
@@ -406,6 +426,42 @@ const renderOverviewTab = () => {
   `;
 };
 
+const renderUserActionButton = (user) => `
+  <button class="admin-inline-action" type="button" data-user-active-toggle="${escapeHtml(user.id)}">
+    ${user.is_active ? 'Заблокировать' : 'Активировать'}
+  </button>
+`;
+
+const renderUsersTab = () => `
+  <div class="admin-two-column admin-two-column--wide">
+    <div>
+      <div class="admin-section-heading"><h4>Пользователи</h4><p>Unified users для клиентских, партнёрских и административных кабинетов.</p></div>
+      ${renderTable(
+        ['id', 'email', 'phone', 'role', 'is_active', 'action'],
+        adminState.users.map((item) => [
+          formatValue(item.id),
+          formatValue(item.email),
+          formatValue(item.phone),
+          formatValue(item.role),
+          formatValue(formatBool(item.is_active)),
+          renderUserActionButton(item),
+        ]),
+        true,
+      )}
+    </div>
+    <form class="admin-form" data-admin-form="user">
+      <h4>Новый пользователь</h4>
+      <label>email<input name="email" type="email" autocomplete="email" /></label>
+      <label>phone<input name="phone" autocomplete="tel" /></label>
+      <label>password<input name="password" type="password" autocomplete="new-password" required /></label>
+      <label>role${renderSelect('role', [['client', 'client'], ['partner', 'partner'], ['admin', 'admin']], true, 'client')}</label>
+      <label class="checkbox-row"><input name="is_active" type="checkbox" checked /> active</label>
+      <button type="submit">Создать пользователя</button>
+      <p class="form-message" data-form-message="user">${escapeHtml(adminState.formMessages.user || '')}</p>
+    </form>
+  </div>
+`;
+
 const renderCitiesTab = () => `
   <div class="admin-two-column">
     <div>
@@ -419,7 +475,7 @@ const renderCitiesTab = () => `
       <label>sort_order<input name="sort_order" type="number" value="0" /></label>
       <label class="checkbox-row"><input name="is_active" type="checkbox" checked /> active</label>
       <button type="submit">Создать город</button>
-      <p class="form-message" data-form-message="city"></p>
+      <p class="form-message" data-form-message="city">${escapeHtml(adminState.formMessages.city || '')}</p>
     </form>
   </div>
 `;
@@ -433,11 +489,12 @@ const renderPartnersTab = () => `
   <div class="admin-two-column admin-two-column--wide">
     <div>
       <div class="admin-section-heading"><h4>Партнёры</h4><p>Базовый список партнёров клуба.</p></div>
-      ${renderTable(['name', 'city_name', 'category_slug', 'active', 'verified'], adminState.partners.map((partner) => [partner.name, partner.city_name, partner.category_slug, formatBool(partner.is_active), formatBool(partner.is_verified)]))}
+      ${renderTable(['name', 'city_name', 'category_slug', 'owner_email', 'active', 'verified'], adminState.partners.map((partner) => [partner.name, partner.city_name, partner.category_slug, partner.owner_email, formatBool(partner.is_active), formatBool(partner.is_verified)]))}
     </div>
     <form class="admin-form" data-admin-form="partner">
       <h4>Новый партнёр</h4>
       <label>city_id${renderSelect('city_id', adminState.cities.map((city) => [city.id, city.name]), true)}</label>
+      <label>owner_user_id${renderSelect('owner_user_id', adminState.users.filter((item) => item.role === 'partner').map((item) => [item.id, item.email || item.phone || `partner #${item.id}`]), false, '', 'Без владельца')}</label>
       <label>category_slug${renderSelect('category_slug', adminState.categories.map((category) => [category.slug, category.title]), false)}</label>
       <label>name<input name="name" required /></label>
       <label>description<textarea name="description" rows="3"></textarea></label>
@@ -447,7 +504,7 @@ const renderPartnersTab = () => `
       <label class="checkbox-row"><input name="is_active" type="checkbox" checked /> active</label>
       <label class="checkbox-row"><input name="is_verified" type="checkbox" /> verified</label>
       <button type="submit">Создать партнёра</button>
-      <p class="form-message" data-form-message="partner"></p>
+      <p class="form-message" data-form-message="partner">${escapeHtml(adminState.formMessages.partner || '')}</p>
     </form>
   </div>
 `;
@@ -468,7 +525,7 @@ const renderOffersTab = () => `
       <label>sort_order<input name="sort_order" type="number" value="0" /></label>
       <label class="checkbox-row"><input name="is_active" type="checkbox" checked /> active</label>
       <button type="submit">Создать предложение</button>
-      <p class="form-message" data-form-message="offer"></p>
+      <p class="form-message" data-form-message="offer">${escapeHtml(adminState.formMessages.offer || '')}</p>
     </form>
   ` : '<p class="empty-note">Сначала выберите партнёра.</p>'}
 `;
@@ -485,7 +542,7 @@ const renderQrTab = () => `
       <label>deep_link_payload optional<input name="deep_link_payload" /></label>
       <label class="checkbox-row"><input name="is_active" type="checkbox" checked /> active</label>
       <button type="submit">Создать QR</button>
-      <p class="form-message" data-form-message="qr"></p>
+      <p class="form-message" data-form-message="qr">${escapeHtml(adminState.formMessages.qr || '')}</p>
     </form>
   ` : '<p class="empty-note">Сначала выберите партнёра.</p>'}
   <h4 class="table-title">Лиды партнёров</h4>
@@ -517,9 +574,9 @@ const renderTable = (headers, rows, trustedHtml = false) => {
   `;
 };
 
-const renderSelect = (name, options, required = false, selectedValue = '') => `
+const renderSelect = (name, options, required = false, selectedValue = '', emptyLabel = null) => `
   <select name="${name}" ${required ? 'required' : ''}>
-    <option value="">${required ? 'Выберите' : 'Без категории'}</option>
+    <option value="">${emptyLabel || (required ? 'Выберите' : 'Без категории')}</option>
     ${options.map(([value, label]) => `<option value="${escapeHtml(value)}" ${String(value) === String(selectedValue) ? 'selected' : ''}>${escapeHtml(label)}</option>`).join('')}
   </select>
 `;
@@ -543,7 +600,7 @@ const showAdminDashboard = async (user) => {
 
 const loadOverview = async () => {
   adminState.overviewPartialError = false;
-  const tasks = [loadCities, loadCategories, loadPartners, loadVerifications, loadLeads];
+  const tasks = [loadUsers, loadCities, loadCategories, loadPartners, loadVerifications, loadLeads];
   const results = await Promise.allSettled(tasks.map((task) => task()));
   adminState.overviewPartialError = results.some((result) => result.status === 'rejected');
 };
@@ -555,6 +612,8 @@ const loadActiveTabData = async () => {
   try {
     if (adminState.activeTab === 'overview') {
       await loadOverview();
+    } else if (adminState.activeTab === 'users') {
+      await loadUsers();
     } else if (adminState.activeTab === 'cities') {
       await loadCities();
     } else if (adminState.activeTab === 'categories') {
@@ -600,6 +659,38 @@ const submitCity = async (form) => {
   await loadCities();
 };
 
+const submitUser = async (form) => {
+  const formData = new FormData(form);
+  await postJson('/api/v1/admin/users', {
+    email: getOptionalText(formData, 'email'),
+    phone: getOptionalText(formData, 'phone'),
+    password: String(formData.get('password') || ''),
+    role: getOptionalText(formData, 'role'),
+    is_active: formData.has('is_active'),
+  });
+  form.reset();
+  await loadUsers();
+};
+
+const toggleUserActive = async (userId) => {
+  const currentUser = adminState.users.find((item) => String(item.id) === String(userId));
+  if (!currentUser) {
+    return;
+  }
+
+  try {
+    await patchJson(`/api/v1/admin/users/${userId}`, {
+      is_active: !currentUser.is_active,
+    });
+    await loadUsers();
+    setPanelMessage(currentUser.is_active ? 'Пользователь заблокирован.' : 'Пользователь активирован.', 'success');
+  } catch (error) {
+    setPanelMessage(error.message || 'Не удалось обновить пользователя.', 'error');
+  }
+
+  renderAdminLayout();
+};
+
 const submitPartner = async (form) => {
   const formData = new FormData(form);
   await postJson('/api/v1/admin/partners', {
@@ -610,6 +701,7 @@ const submitPartner = async (form) => {
     address: getOptionalText(formData, 'address'),
     phone: getOptionalText(formData, 'phone'),
     social_url: getOptionalText(formData, 'social_url'),
+    owner_user_id: formData.get('owner_user_id') ? Number(formData.get('owner_user_id')) : null,
     is_active: formData.has('is_active'),
     is_verified: formData.has('is_verified'),
   });
@@ -654,12 +746,15 @@ const submitQr = async (form) => {
 const handleAdminFormSubmit = async (form) => {
   const formType = form.dataset.adminForm;
   const message = form.querySelector(`[data-form-message="${formType}"]`);
+  setFormMessage(formType);
   if (message) {
     message.textContent = '';
   }
 
   try {
-    if (formType === 'city') {
+    if (formType === 'user') {
+      await submitUser(form);
+    } else if (formType === 'city') {
       await submitCity(form);
     } else if (formType === 'partner') {
       await submitPartner(form);
@@ -668,10 +763,12 @@ const handleAdminFormSubmit = async (form) => {
     } else if (formType === 'qr') {
       await submitQr(form);
     }
+    setFormMessage(formType, 'Сохранено.');
     setPanelMessage('Сохранено.', 'success');
   } catch (error) {
+    setFormMessage(formType, error.message || 'Не удалось сохранить.');
     if (message) {
-      message.textContent = error.message || 'Не удалось сохранить.';
+      message.textContent = adminState.formMessages[formType];
     }
     setPanelMessage(error.message || 'Не удалось сохранить.', 'error');
   }
@@ -716,6 +813,12 @@ loginForm.addEventListener('submit', async (event) => {
 adminDashboard.addEventListener('click', (event) => {
   const tabButton = event.target.closest('[data-admin-tab]');
   const logout = event.target.closest('[data-logout-button]');
+  const userToggle = event.target.closest('[data-user-active-toggle]');
+
+  if (userToggle) {
+    toggleUserActive(userToggle.dataset.userActiveToggle);
+    return;
+  }
 
   if (logout) {
     clearToken();

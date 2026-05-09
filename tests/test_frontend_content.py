@@ -136,6 +136,7 @@ def test_frontend_contains_admin_cabinet_tabs() -> None:
 
     for tab_text in (
         "Обзор",
+        "Пользователи",
         "Города",
         "Категории",
         "Партнёры",
@@ -150,6 +151,7 @@ def test_frontend_contains_admin_cabinet_endpoint_strings() -> None:
     source = _frontend_main()
 
     for endpoint in (
+        "/api/v1/admin/users",
         "/api/v1/admin/cities",
         "/api/v1/admin/categories",
         "/api/v1/admin/partners",
@@ -157,6 +159,27 @@ def test_frontend_contains_admin_cabinet_endpoint_strings() -> None:
         "/api/v1/admin/verifications",
     ):
         assert endpoint in source
+
+
+def test_frontend_contains_admin_user_role_options() -> None:
+    source = _frontend_main()
+
+    for role in ("client", "partner", "admin"):
+        assert role in source
+
+
+def test_frontend_contains_admin_users_management_ui_strings() -> None:
+    source = _frontend_main()
+
+    for expected in (
+        "data-admin-form=\"user\"",
+        "data-user-active-toggle",
+        "Создать пользователя",
+        "owner_user_id",
+        "Без владельца",
+        "owner_email",
+    ):
+        assert expected in source
 
 
 def test_public_landing_copy_and_city_chips_remain_intact() -> None:
