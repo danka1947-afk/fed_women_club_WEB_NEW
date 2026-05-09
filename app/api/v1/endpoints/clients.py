@@ -1,6 +1,250 @@
 from __future__ import annotations
 
-from app.api.v1.router import SkeletonRouter
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from app.api.deps import require_client
+from app.db.session import get_db
+from app.models.city import City
+from app.models.client import ClientProfile
+from app.models.partner import Partner, PartnerOffer
+from app.models.payment import Subscription
+from app.models.user import User
+from app.schemas.client import (
+    ClientPartnerCatalogItem,
+    ClientPartnerOfferRead,
+    ClientProfileRead,
+    ClientProfileUpdate,
+    SubscriptionRead,
+)
+
+router = APIRouter(prefix="/clients", tags=["clients"])
+
+CITY_NOT_FOUND_DETAIL = "City not found"
+PARTNER_NOT_FOUND_DETAIL = "Partner not found"
 
 
-router = SkeletonRouter()
+@router.get("/me", response_model=ClientProfileRead)
+def read_client_me(
+    current_user: User = Depends(require_client),
+    db: Session = Depends(get_db),
+) -> ClientProfileRead:
+    profile = _get_or_create_client_profile(db, current_user.id)
+    return _client_profile_to_read(db, profile, current_user)
+
+
+@router.patch("/me", response_model=ClientProfileRead)
+def update_client_me(
+    payload: ClientProfileUpdate,
+    current_user: User = Depends(require_client),
+    db: Session = Depends(get_db),
+) -> ClientProfileRead:
+    profile = _get_or_create_client_profile(db, current_user.id)
+    update_data = payload.model_dump(exclude_unset=True)
+
+    if "full_name" in update_data:
+        profile.full_name = _normalize_optional_text(update_data["full_name"])
+    if "selected_city_id" in update_data:
+        selected_city_id = update_data["selected_city_id"]
+        if selected_city_id is None:
+            profile.selected_city_id = None
+        else:
+            _get_active_city_or_404(db, selected_city_id)
+            profile.selected_city_id = selected_city_id
+
+    db.commit()
+    db.refresh(profile)
+    return _client_profile_to_read(db, profile, current_user)
+
+
+@router.get("/me/subscription", response_model=SubscriptionRead | None)
+def read_client_subscription(
+    current_user: User = Depends(require_client),
+    db: Session = Depends(get_db),
+) -> SubscriptionRead | None:
+    profile = _get_or_create_client_profile(db, current_user.id)
+    subscription = db.execute(
+        select(Subscription)
+        .where(Subscription.client_id == profile.id)
+        .order_by(Subscription.ends_at.desc(), Subscription.id.desc())
+        .limit(1)
+    ).scalar_one_or_none()
+    if subscription is None:
+        return None
+    return SubscriptionRead.model_validate(subscription)
+
+
+@router.get("/catalog/partners", response_model=list[ClientPartnerCatalogItem])
+def list_client_catalog_partners(
+    city_id: int | None = None,
+    city_slug: str | None = None,
+    category_slug: str | None = None,
+    q: str | None = None,
+    current_user: User = Depends(require_client),
+    db: Session = Depends(get_db),
+) -> list[ClientPartnerCatalogItem]:
+    profile = _get_or_create_client_profile(db, current_user.id)
+    resolved_city_id = _resolve_catalog_city_id(db, profile, city_id, city_slug)
+    normalized_category_slug = _normalize_optional_text(category_slug)
+    normalized_query = _normalize_optional_text(q)
+
+    statement = (
+        select(Partner, City.name.label("city_name"))
+        .join(City, Partner.city_id == City.id)
+        .where(Partner.is_active.is_(True))
+        .order_by(Partner.sort_order.asc(), Partner.id.asc())
+    )
+    if resolved_city_id is not None:
+        statement = statement.where(Partner.city_id == resolved_city_id)
+    if normalized_category_slug is not None:
+        statement = statement.where(Partner.category_slug == normalized_category_slug)
+    if normalized_query is not None:
+        search = f"%{normalized_query}%"
+        statement = statement.where(Partner.name.ilike(search))
+
+    return [_partner_to_catalog_item(partner, city_name) for partner, city_name in db.execute(statement).all()]
+
+
+@router.get("/partners/{partner_id}", response_model=ClientPartnerCatalogItem)
+def read_client_partner(
+    partner_id: int,
+    current_user: User = Depends(require_client),
+    db: Session = Depends(get_db),
+) -> ClientPartnerCatalogItem:
+    del current_user
+    partner, city_name = _get_active_partner_row_or_404(db, partner_id)
+    return _partner_to_catalog_item(partner, city_name)
+
+
+@router.get("/partners/{partner_id}/offers", response_model=list[ClientPartnerOfferRead])
+def list_client_partner_offers(
+    partner_id: int,
+    current_user: User = Depends(require_client),
+    db: Session = Depends(get_db),
+) -> list[ClientPartnerOfferRead]:
+    del current_user
+    _get_active_partner_row_or_404(db, partner_id)
+    offers = db.execute(
+        select(PartnerOffer)
+        .where(PartnerOffer.partner_id == partner_id, PartnerOffer.is_active.is_(True))
+        .order_by(PartnerOffer.sort_order.asc(), PartnerOffer.id.asc())
+    ).scalars().all()
+    return [_partner_offer_to_read(offer) for offer in offers]
+
+
+def _get_or_create_client_profile(db: Session, user_id: int) -> ClientProfile:
+    profile = db.execute(select(ClientProfile).where(ClientProfile.user_id == user_id)).scalar_one_or_none()
+    if profile is not None:
+        return profile
+
+    profile = ClientProfile(user_id=user_id, is_active=True, source="web")
+    db.add(profile)
+    db.commit()
+    db.refresh(profile)
+    return profile
+
+
+def _client_profile_to_read(db: Session, profile: ClientProfile, user: User) -> ClientProfileRead:
+    selected_city_name = None
+    if profile.selected_city_id is not None:
+        selected_city_name = db.execute(select(City.name).where(City.id == profile.selected_city_id)).scalar_one_or_none()
+    return ClientProfileRead.model_validate(
+        {
+            "id": profile.id,
+            "user_id": profile.user_id,
+            "email": user.email,
+            "phone": user.phone,
+            "full_name": profile.full_name,
+            "selected_city_id": profile.selected_city_id,
+            "selected_city_name": selected_city_name,
+            "vk_user_id": profile.vk_user_id,
+            "source": profile.source,
+            "is_active": profile.is_active,
+        }
+    )
+
+
+def _get_active_city_or_404(db: Session, city_id: int) -> City:
+    city = db.execute(select(City).where(City.id == city_id, City.is_active.is_(True))).scalar_one_or_none()
+    if city is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=CITY_NOT_FOUND_DETAIL)
+    return city
+
+
+def _resolve_catalog_city_id(
+    db: Session,
+    profile: ClientProfile,
+    city_id: int | None,
+    city_slug: str | None,
+) -> int | None:
+    if city_id is not None:
+        return city_id
+
+    normalized_city_slug = _normalize_optional_text(city_slug)
+    if normalized_city_slug is not None:
+        city = db.execute(
+            select(City).where(City.slug == normalized_city_slug, City.is_active.is_(True))
+        ).scalar_one_or_none()
+        if city is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=CITY_NOT_FOUND_DETAIL)
+        return city.id
+
+    return profile.selected_city_id
+
+
+def _get_active_partner_row_or_404(db: Session, partner_id: int) -> tuple[Partner, str | None]:
+    row = db.execute(
+        select(Partner, City.name.label("city_name"))
+        .join(City, Partner.city_id == City.id)
+        .where(Partner.id == partner_id, Partner.is_active.is_(True))
+    ).one_or_none()
+    if row is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=PARTNER_NOT_FOUND_DETAIL)
+    partner, city_name = row
+    return partner, city_name
+
+
+def _partner_to_catalog_item(partner: Partner, city_name: str | None) -> ClientPartnerCatalogItem:
+    return ClientPartnerCatalogItem.model_validate(
+        {
+            "id": partner.id,
+            "city_id": partner.city_id,
+            "city_name": city_name,
+            "category_slug": partner.category_slug,
+            "name": partner.name,
+            "description": partner.description,
+            "address": partner.address,
+            "phone": partner.phone,
+            "website_url": partner.website_url,
+            "social_url": partner.social_url,
+            "working_hours": partner.working_hours,
+            "logo_url": partner.logo_url,
+            "cover_url": partner.cover_url,
+            "is_verified": partner.is_verified,
+        }
+    )
+
+
+def _partner_offer_to_read(offer: PartnerOffer) -> ClientPartnerOfferRead:
+    return ClientPartnerOfferRead.model_validate(
+        {
+            "id": offer.id,
+            "partner_id": offer.partner_id,
+            "title": offer.title,
+            "description": offer.description,
+            "benefit_text": offer.benefit_text,
+            "conditions": offer.conditions,
+            "base_price": offer.base_price,
+            "discount_percent": offer.discount_percent,
+            "image_url": offer.image_url,
+            "sort_order": offer.sort_order,
+        }
+    )
+
+
+def _normalize_optional_text(value: str | None) -> str | None:
+    if value is None:
+        return None
+    normalized = value.strip()
+    return normalized or None
