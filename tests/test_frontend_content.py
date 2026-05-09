@@ -76,14 +76,19 @@ def test_public_brand_block_is_static_not_clickable() -> None:
 
 
 def test_public_header_does_not_render_admin_panel_action() -> None:
-    assert "Панель" not in _frontend_main()
+    source = _frontend_main()
+    topbar_match = re.search(r'<div class="topbar-actions".*?</div>', source, re.S)
+
+    assert topbar_match is not None
+    assert "Панель" not in topbar_match.group(0)
 
 
 def test_city_selector_uses_static_choice_chips() -> None:
     source = _frontend_main()
+    city_selector_block = source.split('<section class="panel" aria-labelledby="login-title" id="login">')[0]
 
     for forbidden_tag in ("<select", "<option", "<details", "<summary"):
-        assert forbidden_tag not in source
+        assert forbidden_tag not in city_selector_block
 
     assert 'class="city-choice-grid"' in source
     assert "city-choice${index === 0 ? ' is-active' : ''}" in source
@@ -124,3 +129,43 @@ def test_frontend_contains_real_login_form_and_dashboard_strings() -> None:
     assert 'Вы вошли как:' in source
     assert 'Неверный логин или пароль' in source
     assert 'localStorage.setItem(authTokenKey, data.access_token)' in source
+
+
+def test_frontend_contains_admin_cabinet_tabs() -> None:
+    source = _frontend_main()
+
+    for tab_text in (
+        "Обзор",
+        "Города",
+        "Категории",
+        "Партнёры",
+        "Предложения",
+        "QR / лиды",
+        "Подтверждения",
+    ):
+        assert tab_text in source
+
+
+def test_frontend_contains_admin_cabinet_endpoint_strings() -> None:
+    source = _frontend_main()
+
+    for endpoint in (
+        "/api/v1/admin/cities",
+        "/api/v1/admin/categories",
+        "/api/v1/admin/partners",
+        "/api/v1/admin/leads/partners",
+        "/api/v1/admin/verifications",
+    ):
+        assert endpoint in source
+
+
+def test_public_landing_copy_and_city_chips_remain_intact() -> None:
+    source = _frontend_main()
+
+    for public_copy in (
+        "Женский клуб",
+        "Федеральный клуб привилегий для девушек",
+        "Новосибирск",
+        "Череповец",
+    ):
+        assert public_copy in source
