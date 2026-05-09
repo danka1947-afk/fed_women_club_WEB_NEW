@@ -130,10 +130,14 @@ root.innerHTML = `
       <section class="panel" aria-labelledby="login-title" id="login">
         <p class="section-kicker">Личный доступ</p>
         <h2 id="login-title">Вход в кабинет клуба</h2>
+        <div class="login-mode-switch" role="tablist" aria-label="Тип входа">
+          <button class="login-mode-button is-active" type="button" data-login-mode="admin" role="tab" aria-selected="true">Администратор</button>
+          <button class="login-mode-button" type="button" data-login-mode="partner" role="tab" aria-selected="false">Партнёр</button>
+        </div>
         <form class="login-form" data-login-form>
           <label>
             Телефон или email
-            <input type="email" name="email" autocomplete="email" placeholder="name@example.com" required />
+            <input type="text" name="email" autocomplete="username" placeholder="name@example.com или +79990000000" required />
           </label>
           <label>
             Пароль
@@ -147,6 +151,7 @@ root.innerHTML = `
           <p>Вы вошли как: <strong data-admin-email></strong></p>
           <button type="button" data-logout-button>Выйти</button>
         </div>
+        <div class="admin-dashboard partner-dashboard" data-partner-dashboard hidden></div>
       </section>
     </section>
 
@@ -176,6 +181,8 @@ document.querySelectorAll('[data-city-choice]').forEach((button) => {
 
 
 const authTokenKey = 'womenClubAdminAccessToken';
+const partnerTokenKey = 'womenclub_partner_token';
+let activeLoginMode = 'admin';
 const adminTabs = [
   { id: 'overview', label: 'Обзор' },
   { id: 'users', label: 'Пользователи' },
@@ -205,11 +212,32 @@ const adminState = {
   overviewPartialError: false,
 };
 
+const partnerTabs = [
+  { id: 'profile', label: 'Профиль' },
+  { id: 'offers', label: 'Предложения' },
+  { id: 'qr', label: 'QR / лиды' },
+  { id: 'verifications', label: 'Подтверждения' },
+];
+
+const partnerState = {
+  activeTab: 'profile',
+  user: null,
+  profile: null,
+  offers: [],
+  qrLinks: [],
+  leads: [],
+  verifications: [],
+  panelMessage: '',
+  formMessages: {},
+};
+
 const loginForm = document.querySelector('[data-login-form]');
+const loginModeButtons = document.querySelectorAll('[data-login-mode]');
 const loginMessage = document.querySelector('[data-login-message]');
 const adminDashboard = document.querySelector('[data-admin-dashboard]');
 const adminEmail = document.querySelector('[data-admin-email]');
 const logoutButton = document.querySelector('[data-logout-button]');
+const partnerDashboard = document.querySelector('[data-partner-dashboard]');
 
 const escapeHtml = (value) => String(value ?? '')
   .replaceAll('&', '&amp;')
@@ -223,6 +251,7 @@ const formatValue = (value) => escapeHtml(value || '—');
 const formatDate = (value) => (value ? new Date(value).toLocaleString('ru-RU') : '—');
 
 const getToken = () => localStorage.getItem(authTokenKey);
+const getPartnerToken = () => localStorage.getItem(partnerTokenKey);
 
 const setLoginMessage = (message = '') => {
   loginMessage.textContent = message;
@@ -242,11 +271,26 @@ const clearToken = () => {
   localStorage.removeItem(authTokenKey);
 };
 
+const clearPartnerToken = () => {
+  localStorage.removeItem(partnerTokenKey);
+};
+
+const setLoginMode = (mode) => {
+  activeLoginMode = mode;
+  loginModeButtons.forEach((button) => {
+    const isActive = button.dataset.loginMode === mode;
+    button.classList.toggle('is-active', isActive);
+    button.setAttribute('aria-selected', String(isActive));
+  });
+};
+
 const showLoginForm = () => {
   loginForm.hidden = false;
   adminDashboard.hidden = true;
+  partnerDashboard.hidden = true;
   adminEmail.textContent = '';
   adminState.user = null;
+  partnerState.user = null;
 };
 
 const buildErrorMessage = async (response) => {
@@ -294,6 +338,209 @@ const apiFetch = async (path, options = {}) => {
 
   return response.json();
 };
+
+
+const setPartnerPanelMessage = (message = '', type = 'info') => {
+  partnerState.panelMessage = message
+    ? `<div class="admin-status admin-status--${type}" role="status">${escapeHtml(message)}</div>`
+    : '';
+};
+
+const setPartnerFormMessage = (formType, message = '') => {
+  partnerState.formMessages[formType] = message;
+};
+
+const partnerApiFetch = async (path, options = {}) => {
+  const token = getPartnerToken();
+  const headers = new Headers(options.headers || {});
+
+  if (token) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
+
+  if (options.body && !headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json');
+  }
+
+  const response = await fetch(path, {
+    ...options,
+    headers,
+  });
+
+  if (response.status === 401 || response.status === 403) {
+    clearPartnerToken();
+    showLoginForm();
+    setLoginMode('partner');
+    throw new Error('Сессия партнёра истекла. Войдите снова.');
+  }
+
+  if (!response.ok) {
+    throw new Error(await buildErrorMessage(response));
+  }
+
+  if (response.status === 204) {
+    return null;
+  }
+
+  return response.json();
+};
+
+const partnerPatchJson = (path, payload) => partnerApiFetch(path, {
+  method: 'PATCH',
+  body: JSON.stringify(payload),
+});
+
+const partnerPostJson = (path, payload = {}) => partnerApiFetch(path, {
+  method: 'POST',
+  body: JSON.stringify(payload),
+});
+
+const requestPartnerUserMe = () => partnerApiFetch('/api/v1/auth/user-me');
+const loadPartnerProfile = async () => { partnerState.profile = await partnerApiFetch('/api/v1/partners/me'); };
+const loadPartnerOffers = async () => { partnerState.offers = await partnerApiFetch('/api/v1/partners/me/offers'); };
+const loadPartnerQrLinks = async () => { partnerState.qrLinks = await partnerApiFetch('/api/v1/partners/me/qr-links'); };
+const loadPartnerLeads = async () => { partnerState.leads = await partnerApiFetch('/api/v1/partners/me/leads'); };
+const loadPartnerVerifications = async () => { partnerState.verifications = await partnerApiFetch('/api/v1/partners/me/verifications'); };
+
+const renderPartnerLayout = () => {
+  partnerDashboard.innerHTML = `
+    <div class="admin-header-card partner-header-card">
+      <div>
+        <p class="section-kicker">Кабинет партнёра</p>
+        <h3>Кабинет партнёра</h3>
+        <p>Вы вошли как: <strong>${escapeHtml(partnerState.user?.email || partnerState.user?.phone || 'партнёр')}</strong></p>
+      </div>
+      <button type="button" data-partner-logout-button>Выйти</button>
+    </div>
+    <nav class="admin-tabs" aria-label="Разделы кабинета партнёра">
+      ${partnerTabs.map((tab) => `
+        <button class="admin-tab${partnerState.activeTab === tab.id ? ' is-active' : ''}" type="button" data-partner-tab="${tab.id}">
+          ${tab.label}
+        </button>
+      `).join('')}
+    </nav>
+    ${partnerState.panelMessage}
+    <section class="admin-tab-panel">${renderPartnerTabContent()}</section>
+  `;
+};
+
+const renderPartnerTabContent = () => {
+  if (partnerState.activeTab === 'offers') {
+    return renderPartnerOffersTab();
+  }
+  if (partnerState.activeTab === 'qr') {
+    return renderPartnerQrTab();
+  }
+  if (partnerState.activeTab === 'verifications') {
+    return renderPartnerVerificationsTab();
+  }
+  return renderPartnerProfileTab();
+};
+
+const renderPartnerProfileTab = () => {
+  const profile = partnerState.profile || {};
+  return `
+    <div class="admin-two-column admin-two-column--wide">
+      <div>
+        <div class="admin-section-heading"><h4>Профиль</h4><p>Основная информация партнёра и поля, доступные для самостоятельного обновления.</p></div>
+        <div class="partner-profile-grid">
+          ${[
+            ['Название', profile.name],
+            ['Город', profile.city_name],
+            ['Категория', profile.category_slug],
+            ['Активность', formatBool(profile.is_active)],
+            ['Верификация', formatBool(profile.is_verified)],
+            ['Описание', profile.description],
+            ['Адрес', profile.address],
+            ['Телефон', profile.phone],
+            ['Сайт', profile.website_url],
+            ['Соцсети', profile.social_url],
+            ['График', profile.working_hours],
+          ].map(([label, value]) => `<article class="summary-card"><span>${escapeHtml(label)}</span><strong>${formatValue(value)}</strong></article>`).join('')}
+        </div>
+      </div>
+      <form class="admin-form" data-partner-form="profile">
+        <h4>Обновить профиль</h4>
+        <label>description<textarea name="description" rows="4">${escapeHtml(profile.description || '')}</textarea></label>
+        <label>address<input name="address" value="${escapeHtml(profile.address || '')}" /></label>
+        <label>phone<input name="phone" autocomplete="tel" value="${escapeHtml(profile.phone || '')}" /></label>
+        <label>website_url<input name="website_url" value="${escapeHtml(profile.website_url || '')}" /></label>
+        <label>social_url<input name="social_url" value="${escapeHtml(profile.social_url || '')}" /></label>
+        <label>working_hours<input name="working_hours" value="${escapeHtml(profile.working_hours || '')}" /></label>
+        <label>logo_url<input name="logo_url" value="${escapeHtml(profile.logo_url || '')}" /></label>
+        <label>cover_url<input name="cover_url" value="${escapeHtml(profile.cover_url || '')}" /></label>
+        <button type="submit">Сохранить профиль</button>
+        <p class="form-message" data-partner-form-message="profile">${escapeHtml(partnerState.formMessages.profile || '')}</p>
+      </form>
+    </div>
+  `;
+};
+
+const renderPartnerOfferAction = (offer) => `
+  <button class="admin-inline-action" type="button" data-partner-offer-toggle="${escapeHtml(offer.id)}">
+    ${offer.is_active ? 'Скрыть' : 'Показать'}
+  </button>
+`;
+
+const renderPartnerOffersTab = () => `
+  <div class="admin-section-heading"><h4>Предложения</h4><p>Создавайте предложения и быстро скрывайте или показывайте их в каталоге.</p></div>
+  ${renderTable(
+    ['title', 'benefit_text', 'discount_percent', 'is_active', 'sort_order', 'action'],
+    partnerState.offers.map((offer) => [formatValue(offer.title), formatValue(offer.benefit_text), formatValue(offer.discount_percent), formatValue(formatBool(offer.is_active)), formatValue(offer.sort_order), renderPartnerOfferAction(offer)]),
+    true,
+  )}
+  <form class="admin-form admin-form--inline" data-partner-form="offer">
+    <h4>Новое предложение</h4>
+    <label>title<input name="title" required /></label>
+    <label>benefit_text<input name="benefit_text" /></label>
+    <label>description<textarea name="description" rows="3"></textarea></label>
+    <label>conditions<textarea name="conditions" rows="3"></textarea></label>
+    <label>base_price<input name="base_price" inputmode="decimal" /></label>
+    <label>discount_percent<input name="discount_percent" inputmode="decimal" /></label>
+    <label>image_url<input name="image_url" /></label>
+    <label>sort_order<input name="sort_order" type="number" value="0" /></label>
+    <label class="checkbox-row"><input name="is_active" type="checkbox" checked /> active</label>
+    <button type="submit">Создать предложение</button>
+    <p class="form-message" data-partner-form-message="offer">${escapeHtml(partnerState.formMessages.offer || '')}</p>
+  </form>
+`;
+
+const renderPartnerQrTab = () => `
+  <div class="admin-section-heading"><h4>QR / лиды</h4><p>QR-ссылки создаёт администратор. Партнёр видит ссылки и статистику переходов.</p></div>
+  ${renderTable(
+    ['slug', 'qr_url', 'target_url', 'is_active'],
+    partnerState.qrLinks.map((link) => [
+      formatValue(link.slug),
+      `<a href="${escapeHtml(link.qr_url)}" target="_blank" rel="noreferrer">${escapeHtml(link.qr_url)}</a>`,
+      link.target_url ? `<a href="${escapeHtml(link.target_url)}" target="_blank" rel="noreferrer">${escapeHtml(link.target_url)}</a>` : '—',
+      formatValue(formatBool(link.is_active)),
+    ]),
+    true,
+  )}
+  <h4 class="table-title">Лиды</h4>
+  ${renderTable(['qr_slug', 'total_clicks'], partnerState.leads.map((lead) => [lead.qr_slug, lead.total_clicks]))}
+`;
+
+const renderPartnerVerificationAction = (verification) => verification.status === 'active'
+  ? `<button class="admin-inline-action" type="button" data-partner-confirm-verification="${escapeHtml(verification.id)}">Подтвердить</button>`
+  : '—';
+
+const renderPartnerVerificationsTab = () => `
+  <div class="admin-section-heading"><h4>Подтверждения</h4><p>Подтверждайте активные клиентские коды до окончания срока действия.</p></div>
+  ${renderTable(
+    ['code', 'status', 'client_name/client_id', 'offer_title', 'expires_at', 'confirmed_at', 'action'],
+    partnerState.verifications.map((item) => [
+      formatValue(item.code),
+      formatValue(item.status),
+      formatValue(item.client_name || item.client_id),
+      formatValue(item.offer_title),
+      formatValue(formatDate(item.expires_at)),
+      formatValue(formatDate(item.confirmed_at)),
+      renderPartnerVerificationAction(item),
+    ]),
+    true,
+  )}
+`;
 
 const requestAdminMe = () => apiFetch('/api/v1/admin/me');
 
@@ -591,11 +838,23 @@ const renderPartnerPicker = (scope, selectedValue) => `
 const showAdminDashboard = async (user) => {
   loginForm.hidden = true;
   adminDashboard.hidden = false;
+  partnerDashboard.hidden = true;
   adminState.user = user;
   setLoginMessage();
   setPanelMessage();
   renderAdminLayout();
   await loadActiveTabData();
+};
+
+const showPartnerDashboard = async (user) => {
+  loginForm.hidden = true;
+  adminDashboard.hidden = true;
+  partnerDashboard.hidden = false;
+  partnerState.user = user;
+  setLoginMessage();
+  setPartnerPanelMessage();
+  renderPartnerLayout();
+  await loadActivePartnerTabData();
 };
 
 const loadOverview = async () => {
@@ -640,6 +899,109 @@ const loadActiveTabData = async () => {
   }
 
   renderAdminLayout();
+};
+
+
+const loadActivePartnerTabData = async () => {
+  setPartnerPanelMessage();
+  renderPartnerLayout();
+
+  try {
+    if (partnerState.activeTab === 'profile') {
+      await loadPartnerProfile();
+    } else if (partnerState.activeTab === 'offers') {
+      await loadPartnerOffers();
+    } else if (partnerState.activeTab === 'qr') {
+      await Promise.all([loadPartnerQrLinks(), loadPartnerLeads()]);
+    } else if (partnerState.activeTab === 'verifications') {
+      await loadPartnerVerifications();
+    }
+  } catch (error) {
+    setPartnerPanelMessage(error.message || 'Не удалось загрузить данные.', 'error');
+  }
+
+  renderPartnerLayout();
+};
+
+const submitPartnerProfile = async (form) => {
+  const formData = new FormData(form);
+  await partnerPatchJson('/api/v1/partners/me', {
+    description: getOptionalText(formData, 'description'),
+    address: getOptionalText(formData, 'address'),
+    phone: getOptionalText(formData, 'phone'),
+    website_url: getOptionalText(formData, 'website_url'),
+    social_url: getOptionalText(formData, 'social_url'),
+    working_hours: getOptionalText(formData, 'working_hours'),
+    logo_url: getOptionalText(formData, 'logo_url'),
+    cover_url: getOptionalText(formData, 'cover_url'),
+  });
+  await loadPartnerProfile();
+};
+
+const submitPartnerOffer = async (form) => {
+  const formData = new FormData(form);
+  await partnerPostJson('/api/v1/partners/me/offers', {
+    title: getOptionalText(formData, 'title'),
+    benefit_text: getOptionalText(formData, 'benefit_text'),
+    description: getOptionalText(formData, 'description'),
+    conditions: getOptionalText(formData, 'conditions'),
+    base_price: decimalOrNull(formData, 'base_price'),
+    discount_percent: decimalOrNull(formData, 'discount_percent'),
+    image_url: getOptionalText(formData, 'image_url'),
+    is_active: formData.has('is_active'),
+    sort_order: Number(formData.get('sort_order') || 0),
+  });
+  form.reset();
+  await loadPartnerOffers();
+};
+
+const handlePartnerFormSubmit = async (form) => {
+  const formType = form.dataset.partnerForm;
+  setPartnerFormMessage(formType);
+
+  try {
+    if (formType === 'profile') {
+      await submitPartnerProfile(form);
+    } else if (formType === 'offer') {
+      await submitPartnerOffer(form);
+    }
+    setPartnerFormMessage(formType, 'Сохранено.');
+    setPartnerPanelMessage('Сохранено.', 'success');
+  } catch (error) {
+    setPartnerFormMessage(formType, error.message || 'Не удалось сохранить.');
+    setPartnerPanelMessage(error.message || 'Не удалось сохранить.', 'error');
+  }
+
+  renderPartnerLayout();
+};
+
+const togglePartnerOffer = async (offerId) => {
+  const offer = partnerState.offers.find((item) => String(item.id) === String(offerId));
+  if (!offer) {
+    return;
+  }
+
+  try {
+    await partnerPatchJson(`/api/v1/partners/me/offers/${offerId}`, { is_active: !offer.is_active });
+    await loadPartnerOffers();
+    setPartnerPanelMessage(offer.is_active ? 'Предложение скрыто.' : 'Предложение опубликовано.', 'success');
+  } catch (error) {
+    setPartnerPanelMessage(error.message || 'Не удалось обновить предложение.', 'error');
+  }
+
+  renderPartnerLayout();
+};
+
+const confirmPartnerVerification = async (verificationId) => {
+  try {
+    await partnerPostJson(`/api/v1/partners/me/verifications/${verificationId}/confirm`);
+    await loadPartnerVerifications();
+    setPartnerPanelMessage('Подтверждение выполнено.', 'success');
+  } catch (error) {
+    setPartnerPanelMessage(error.message || 'Не удалось подтвердить код.', 'error');
+  }
+
+  renderPartnerLayout();
 };
 
 const getOptionalText = (formData, name) => {
@@ -776,23 +1138,57 @@ const handleAdminFormSubmit = async (form) => {
   renderAdminLayout();
 };
 
+loginModeButtons.forEach((button) => {
+  button.addEventListener('click', () => {
+    setLoginMode(button.dataset.loginMode);
+    setLoginMessage();
+  });
+});
+
 loginForm.addEventListener('submit', async (event) => {
   event.preventDefault();
   setLoginMessage();
 
   const formData = new FormData(loginForm);
-  const payload = {
-    email: String(formData.get('email') || '').trim(),
-    password: String(formData.get('password') || ''),
-  };
+  const loginValue = String(formData.get('email') || '').trim();
+  const password = String(formData.get('password') || '');
 
   try {
+    if (activeLoginMode === 'partner') {
+      const response = await fetch('/api/v1/auth/user-login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ login: loginValue, password }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Login failed');
+      }
+
+      const data = await response.json();
+      localStorage.setItem(partnerTokenKey, data.access_token);
+
+      if (data.user?.role !== 'partner') {
+        clearPartnerToken();
+        showLoginForm();
+        setLoginMode('partner');
+        setLoginMessage('Этот вход доступен только партнёрам');
+        return;
+      }
+
+      await showPartnerDashboard(data.user);
+      loginForm.reset();
+      return;
+    }
+
     const response = await fetch('/api/v1/auth/login', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({ email: loginValue, password }),
     });
 
     if (!response.ok) {
@@ -804,8 +1200,15 @@ loginForm.addEventListener('submit', async (event) => {
     await showAdminDashboard(data.user);
     loginForm.reset();
   } catch (error) {
-    clearToken();
-    showLoginForm();
+    if (activeLoginMode === 'partner') {
+      clearPartnerToken();
+      showLoginForm();
+      setLoginMode('partner');
+    } else {
+      clearToken();
+      showLoginForm();
+      setLoginMode('admin');
+    }
     setLoginMessage('Неверный логин или пароль');
   }
 });
@@ -856,10 +1259,71 @@ adminDashboard.addEventListener('submit', (event) => {
   handleAdminFormSubmit(form);
 });
 
+
+partnerDashboard.addEventListener('click', (event) => {
+  const tabButton = event.target.closest('[data-partner-tab]');
+  const logout = event.target.closest('[data-partner-logout-button]');
+  const offerToggle = event.target.closest('[data-partner-offer-toggle]');
+  const confirmButton = event.target.closest('[data-partner-confirm-verification]');
+
+  if (offerToggle) {
+    togglePartnerOffer(offerToggle.dataset.partnerOfferToggle);
+    return;
+  }
+
+  if (confirmButton) {
+    confirmPartnerVerification(confirmButton.dataset.partnerConfirmVerification);
+    return;
+  }
+
+  if (logout) {
+    clearPartnerToken();
+    showLoginForm();
+    setLoginMode('partner');
+    return;
+  }
+
+  if (tabButton) {
+    partnerState.activeTab = tabButton.dataset.partnerTab;
+    loadActivePartnerTabData();
+  }
+});
+
+partnerDashboard.addEventListener('submit', (event) => {
+  const form = event.target.closest('[data-partner-form]');
+  if (!form) {
+    return;
+  }
+  event.preventDefault();
+  handlePartnerFormSubmit(form);
+});
+
+const restorePartnerSession = async () => {
+  const token = getPartnerToken();
+  if (!token) {
+    showLoginForm();
+    return;
+  }
+
+  try {
+    const user = await requestPartnerUserMe();
+    if (user.role !== 'partner') {
+      clearPartnerToken();
+      showLoginForm();
+      return;
+    }
+    setLoginMode('partner');
+    await showPartnerDashboard(user);
+  } catch (error) {
+    clearPartnerToken();
+    showLoginForm();
+  }
+};
+
 const restoreAdminSession = async () => {
   const token = getToken();
   if (!token) {
-    showLoginForm();
+    await restorePartnerSession();
     return;
   }
 
@@ -868,7 +1332,7 @@ const restoreAdminSession = async () => {
     await showAdminDashboard(user);
   } catch (error) {
     clearToken();
-    showLoginForm();
+    await restorePartnerSession();
   }
 };
 
