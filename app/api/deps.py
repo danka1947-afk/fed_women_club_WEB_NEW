@@ -7,6 +7,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.core.security import decode_access_token
 from app.db.session import get_db
 from app.models.user import AdminUser, User, UserRole
@@ -27,6 +28,18 @@ def _unauthorized() -> HTTPException:
         detail="Not authenticated",
         headers={"WWW-Authenticate": "Bearer"},
     )
+
+
+def require_bot_api_token(
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+) -> None:
+    unauthorized = _unauthorized()
+    if not settings.BOT_API_TOKEN:
+        raise unauthorized
+    if credentials is None or credentials.scheme.lower() != "bearer":
+        raise unauthorized
+    if credentials.credentials != settings.BOT_API_TOKEN:
+        raise unauthorized
 
 
 def get_current_admin(

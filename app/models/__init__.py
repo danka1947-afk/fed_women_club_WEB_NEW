@@ -1,5 +1,5 @@
 from app.models.city import City
-from app.models.client import ClientProfile
+from app.models.client import ClientProfile, VkLinkCode
 from app.models.lead import LeadClick
 from app.models.partner import Partner, PartnerOffer, PartnerQrLink
 from app.models.payment import PaymentReceipt, PaymentRequest, PaymentRequestStatus, Subscription, SubscriptionStatus
@@ -10,6 +10,7 @@ __all__ = [
     "AdminUser",
     "City",
     "ClientProfile",
+    "VkLinkCode",
     "LeadClick",
     "Partner",
     "PartnerOffer",
