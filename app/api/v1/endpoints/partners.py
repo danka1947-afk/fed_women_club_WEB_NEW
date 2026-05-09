@@ -1,6 +1,235 @@
 from __future__ import annotations
 
-from app.api.v1.router import SkeletonRouter
+from decimal import Decimal
+
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from app.api.deps import require_partner
+from app.db.session import get_db
+from app.models.city import City
+from app.models.partner import Partner, PartnerOffer
+from app.models.user import User
+from app.schemas.partner import (
+    PartnerOfferCreate,
+    PartnerOfferRead,
+    PartnerOfferUpdate,
+    PartnerProfileRead,
+    PartnerProfileUpdate,
+)
+
+router = APIRouter(prefix="/partners", tags=["partners"])
+
+PARTNER_PROFILE_TEXT_FIELDS = (
+    "description",
+    "address",
+    "phone",
+    "website_url",
+    "social_url",
+    "working_hours",
+    "logo_url",
+    "cover_url",
+)
+PARTNER_OFFER_TEXT_FIELDS = ("description", "benefit_text", "conditions", "image_url")
+PARTNER_NOT_FOUND_DETAIL = "Partner profile for current user was not found"
 
 
-router = SkeletonRouter()
+@router.get("/me", response_model=PartnerProfileRead)
+def read_partner_me(
+    current_user: User = Depends(require_partner),
+    db: Session = Depends(get_db),
+) -> PartnerProfileRead:
+    partner = _get_current_partner_or_404(db, current_user.id)
+    return _get_partner_profile_read(db, partner.id)
+
+
+@router.patch("/me", response_model=PartnerProfileRead)
+def update_partner_me(
+    payload: PartnerProfileUpdate,
+    current_user: User = Depends(require_partner),
+    db: Session = Depends(get_db),
+) -> PartnerProfileRead:
+    partner = _get_current_partner_or_404(db, current_user.id)
+    update_data = payload.model_dump(exclude_unset=True)
+
+    for field in PARTNER_PROFILE_TEXT_FIELDS:
+        if field in update_data:
+            setattr(partner, field, _normalize_optional_text(update_data[field]))
+
+    db.commit()
+    db.refresh(partner)
+    return _get_partner_profile_read(db, partner.id)
+
+
+@router.get("/me/offers", response_model=list[PartnerOfferRead])
+def list_partner_offers(
+    is_active: bool | None = None,
+    current_user: User = Depends(require_partner),
+    db: Session = Depends(get_db),
+) -> list[PartnerOfferRead]:
+    partner = _get_current_partner_or_404(db, current_user.id)
+    statement = (
+        select(PartnerOffer)
+        .where(PartnerOffer.partner_id == partner.id)
+        .order_by(PartnerOffer.sort_order.asc(), PartnerOffer.id.asc())
+    )
+    if is_active is not None:
+        statement = statement.where(PartnerOffer.is_active == is_active)
+
+    return [_partner_offer_to_read(offer) for offer in db.execute(statement).scalars().all()]
+
+
+@router.post("/me/offers", response_model=PartnerOfferRead)
+def create_partner_offer(
+    payload: PartnerOfferCreate,
+    current_user: User = Depends(require_partner),
+    db: Session = Depends(get_db),
+) -> PartnerOfferRead:
+    partner = _get_current_partner_or_404(db, current_user.id)
+    _validate_offer_amounts(payload.base_price, payload.discount_percent)
+
+    offer = PartnerOffer(
+        partner_id=partner.id,
+        title=_strip_offer_title(payload.title),
+        base_price=payload.base_price,
+        discount_percent=payload.discount_percent,
+        is_active=payload.is_active,
+        sort_order=payload.sort_order,
+    )
+    for field in PARTNER_OFFER_TEXT_FIELDS:
+        setattr(offer, field, _normalize_optional_text(getattr(payload, field)))
+
+    db.add(offer)
+    db.commit()
+    db.refresh(offer)
+    return _partner_offer_to_read(offer)
+
+
+@router.patch("/me/offers/{offer_id}", response_model=PartnerOfferRead)
+def update_partner_offer(
+    offer_id: int,
+    payload: PartnerOfferUpdate,
+    current_user: User = Depends(require_partner),
+    db: Session = Depends(get_db),
+) -> PartnerOfferRead:
+    partner = _get_current_partner_or_404(db, current_user.id)
+    offer = _get_owned_offer_or_404(db, partner.id, offer_id)
+    update_data = payload.model_dump(exclude_unset=True)
+    _validate_offer_amounts(update_data.get("base_price"), update_data.get("discount_percent"))
+
+    if "title" in update_data:
+        offer.title = _strip_offer_title(update_data["title"])
+    for field in PARTNER_OFFER_TEXT_FIELDS:
+        if field in update_data:
+            setattr(offer, field, _normalize_optional_text(update_data[field]))
+    for field in ("base_price", "discount_percent", "is_active", "sort_order"):
+        if field in update_data:
+            setattr(offer, field, update_data[field])
+
+    db.commit()
+    db.refresh(offer)
+    return _partner_offer_to_read(offer)
+
+
+def _get_current_partner_or_404(db: Session, owner_user_id: int) -> Partner:
+    partner = db.execute(select(Partner).where(Partner.owner_user_id == owner_user_id)).scalars().first()
+    if partner is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=PARTNER_NOT_FOUND_DETAIL)
+    return partner
+
+
+def _get_partner_profile_read(db: Session, partner_id: int) -> PartnerProfileRead:
+    row = db.execute(
+        select(Partner, City.name.label("city_name"))
+        .join(City, Partner.city_id == City.id)
+        .where(Partner.id == partner_id)
+    ).one_or_none()
+    if row is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=PARTNER_NOT_FOUND_DETAIL)
+    partner, city_name = row
+    return PartnerProfileRead.model_validate(
+        {
+            "id": partner.id,
+            "city_id": partner.city_id,
+            "city_name": city_name,
+            "owner_user_id": partner.owner_user_id,
+            "category_slug": partner.category_slug,
+            "name": partner.name,
+            "description": partner.description,
+            "address": partner.address,
+            "phone": partner.phone,
+            "website_url": partner.website_url,
+            "social_url": partner.social_url,
+            "working_hours": partner.working_hours,
+            "logo_url": partner.logo_url,
+            "cover_url": partner.cover_url,
+            "is_active": partner.is_active,
+            "is_verified": partner.is_verified,
+        }
+    )
+
+
+def _get_owned_offer_or_404(db: Session, partner_id: int, offer_id: int) -> PartnerOffer:
+    offer = db.execute(
+        select(PartnerOffer).where(
+            PartnerOffer.id == offer_id,
+            PartnerOffer.partner_id == partner_id,
+        )
+    ).scalar_one_or_none()
+    if offer is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Offer not found")
+    return offer
+
+
+def _strip_offer_title(value: str | None) -> str:
+    normalized = value.strip() if value is not None else ""
+    if not normalized:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Offer title must not be empty",
+        )
+    return normalized
+
+
+def _normalize_optional_text(value: str | None) -> str | None:
+    if value is None:
+        return None
+    normalized = value.strip()
+    return normalized or None
+
+
+def _validate_offer_amounts(
+    base_price: Decimal | None = None,
+    discount_percent: Decimal | None = None,
+) -> None:
+    if base_price is not None and base_price < Decimal("0"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="base_price must be greater than or equal to 0",
+        )
+    if discount_percent is not None and (
+        discount_percent < Decimal("0") or discount_percent > Decimal("100")
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="discount_percent must be between 0 and 100",
+        )
+
+
+def _partner_offer_to_read(offer: PartnerOffer) -> PartnerOfferRead:
+    return PartnerOfferRead.model_validate(
+        {
+            "id": offer.id,
+            "partner_id": offer.partner_id,
+            "title": offer.title,
+            "description": offer.description,
+            "benefit_text": offer.benefit_text,
+            "conditions": offer.conditions,
+            "base_price": offer.base_price,
+            "discount_percent": offer.discount_percent,
+            "image_url": offer.image_url,
+            "is_active": offer.is_active,
+            "sort_order": offer.sort_order,
+        }
+    )
