@@ -31,12 +31,25 @@ html {
 }
 
 body {
+  position: relative;
   min-width: 320px;
   margin: 0;
   overflow-x: hidden;
   background:
     radial-gradient(circle at top left, rgba(246, 216, 210, 0.8), transparent 34rem),
     linear-gradient(135deg, var(--color-background), var(--color-background-soft));
+}
+
+body:not(.is-dashboard)::before {
+  position: fixed;
+  z-index: 0;
+  inset: 0;
+  content: "";
+  pointer-events: none;
+  background-image: url("/assets/lotus-bg.png");
+  background-size: cover;
+  background-position: center center;
+  background-repeat: no-repeat;
 }
 
 a {
@@ -80,23 +93,11 @@ a {
   border-radius: var(--radius-lg);
 }
 
-.hero::before,
 .hero::after {
   position: absolute;
   border-radius: 999px;
   content: "";
   pointer-events: none;
-}
-
-body:not(.is-dashboard) .hero::before {
-  inset: 0;
-  z-index: 0;
-  border-radius: inherit;
-  background-image: url("/assets/lotus-bg.png");
-  background-size: cover;
-  background-position: center top;
-  background-repeat: no-repeat;
-  opacity: 1;
 }
 
 .hero > * {
