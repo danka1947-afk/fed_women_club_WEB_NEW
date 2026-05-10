@@ -218,6 +218,7 @@ const adminState = {
   selectedPartnerIdForOffers: '',
   selectedPartnerIdForQr: '',
   selectedPartnerIdForEdit: '',
+  selectedOfferIdForEdit: '',
   panelMessage: '',
   formMessages: {},
   overviewPartialError: false,
@@ -1002,9 +1003,13 @@ const loadVerifications = async () => {
 const loadOffers = async () => {
   if (!adminState.selectedPartnerIdForOffers) {
     adminState.offers = [];
+    adminState.selectedOfferIdForEdit = '';
     return;
   }
   adminState.offers = await apiFetch(`/api/v1/admin/partners/${adminState.selectedPartnerIdForOffers}/offers`);
+  if (adminState.selectedOfferIdForEdit && !adminState.offers.some((offer) => String(offer.id) === String(adminState.selectedOfferIdForEdit))) {
+    adminState.selectedOfferIdForEdit = '';
+  }
 };
 
 const loadQrLinks = async () => {
@@ -1232,25 +1237,61 @@ const renderPartnersTab = () => `
   </div>
 `;
 
+const renderAdminOfferAction = (offer) => `
+  <button class="admin-inline-action" type="button" data-admin-offer-edit="${escapeHtml(offer.id)}">Редактировать</button>
+`;
+
+const renderOfferEditForm = () => {
+  const offer = adminState.offers.find((item) => String(item.id) === String(adminState.selectedOfferIdForEdit));
+  if (!offer) {
+    return '';
+  }
+
+  return `
+    <form class="admin-form admin-form--inline" data-admin-form="offerEdit" data-offer-id="${escapeHtml(offer.id)}">
+      <h4>Редактировать предложение</h4>
+      <label>Название<input name="title" required value="${escapeHtml(offer.title || '')}" /></label>
+      <label>Скидка / выгода<input name="benefit_text" value="${escapeHtml(offer.benefit_text || '')}" /></label>
+      <label>Описание<textarea name="description" rows="3">${escapeHtml(offer.description || '')}</textarea></label>
+      <label>Условия<textarea name="conditions" rows="3">${escapeHtml(offer.conditions || '')}</textarea></label>
+      <label>Порядок сортировки<input name="sort_order" type="number" value="${escapeHtml(offer.sort_order || 0)}" /></label>
+      <label class="checkbox-row"><input name="is_active" type="checkbox" ${offer.is_active ? 'checked' : ''} /> Активно</label>
+      <div class="admin-form-actions">
+        <button type="submit">Сохранить изменения</button>
+        <button class="admin-inline-action" type="button" data-admin-offer-edit-cancel>Отмена</button>
+      </div>
+      <p class="form-message" data-form-message="offerEdit">${escapeHtml(adminState.formMessages.offerEdit || '')}</p>
+    </form>
+  `;
+};
+
+const renderOfferCreateForm = () => `
+  <form class="admin-form admin-form--inline" data-admin-form="offer">
+    <h4>Новое предложение</h4>
+    <label>Название предложения<input name="title" required /></label>
+    <label>Краткая выгода<input name="benefit_text" /></label>
+    <label>Описание<textarea name="description" rows="3"></textarea></label>
+    <label>Условия<textarea name="conditions" rows="3"></textarea></label>
+    <label>Базовая цена<input name="base_price" type="number" step="0.01" /></label>
+    <p class="form-message">Цена со скидкой рассчитывается по базовой цене и проценту скидки.</p>
+    <label>Скидка, %<input name="discount_percent" type="number" step="0.01" /></label>
+    <label>Порядок сортировки<input name="sort_order" type="number" value="0" /></label>
+    <label class="checkbox-row"><input name="is_active" type="checkbox" checked /> Активен</label>
+    <button type="submit">Создать предложение</button>
+    <p class="form-message" data-form-message="offer">${escapeHtml(adminState.formMessages.offer || '')}</p>
+  </form>
+`;
+
 const renderOffersTab = () => `
   <div class="admin-section-heading"><h4>Предложения</h4><p>Выберите партнёра, чтобы увидеть и создать предложения.</p></div>
   <label class="admin-select-label">Партнёр${renderPartnerPicker('offers', adminState.selectedPartnerIdForOffers)}</label>
   ${adminState.selectedPartnerIdForOffers ? `
-    ${renderTable(['Название предложения', 'Описание', 'Базовая цена', 'Скидка, %', 'Активно', 'Сортировка'], adminState.offers.map((offer) => [offer.title, offer.benefit_text, offer.base_price, offer.discount_percent, formatBool(offer.is_active), offer.sort_order]))}
-    <form class="admin-form admin-form--inline" data-admin-form="offer">
-      <h4>Новое предложение</h4>
-      <label>Название предложения<input name="title" required /></label>
-      <label>Краткая выгода<input name="benefit_text" /></label>
-      <label>Описание<textarea name="description" rows="3"></textarea></label>
-      <label>Условия<textarea name="conditions" rows="3"></textarea></label>
-      <label>Базовая цена<input name="base_price" type="number" step="0.01" /></label>
-      <p class="form-message">Цена со скидкой рассчитывается по базовой цене и проценту скидки.</p>
-      <label>Скидка, %<input name="discount_percent" type="number" step="0.01" /></label>
-      <label>Порядок сортировки<input name="sort_order" type="number" value="0" /></label>
-      <label class="checkbox-row"><input name="is_active" type="checkbox" checked /> Активен</label>
-      <button type="submit">Создать предложение</button>
-      <p class="form-message" data-form-message="offer">${escapeHtml(adminState.formMessages.offer || '')}</p>
-    </form>
+    ${renderTable(
+      ['Название предложения', 'Описание', 'Базовая цена', 'Скидка, %', 'Активно', 'Сортировка', 'Действие'],
+      adminState.offers.map((offer) => [formatValue(offer.title), formatValue(offer.benefit_text), formatValue(offer.base_price), formatValue(offer.discount_percent), formatValue(formatBool(offer.is_active)), formatValue(offer.sort_order), renderAdminOfferAction(offer)]),
+      true,
+    )}
+    ${adminState.selectedOfferIdForEdit ? renderOfferEditForm() : renderOfferCreateForm()}
   ` : '<p class="empty-note">Сначала выберите партнёра.</p>'}
 `;
 
@@ -1679,19 +1720,30 @@ const decimalOrNull = (formData, name) => {
   return value || null;
 };
 
+const buildOfferTextPayload = (formData) => ({
+  title: getOptionalText(formData, 'title'),
+  benefit_text: getOptionalText(formData, 'benefit_text'),
+  description: getOptionalText(formData, 'description'),
+  conditions: getOptionalText(formData, 'conditions'),
+  sort_order: Number(formData.get('sort_order') || 0),
+  is_active: formData.has('is_active'),
+});
+
 const submitOffer = async (form) => {
   const formData = new FormData(form);
   await postJson(`/api/v1/admin/partners/${adminState.selectedPartnerIdForOffers}/offers`, {
-    title: getOptionalText(formData, 'title'),
-    benefit_text: getOptionalText(formData, 'benefit_text'),
-    description: getOptionalText(formData, 'description'),
-    conditions: getOptionalText(formData, 'conditions'),
+    ...buildOfferTextPayload(formData),
     base_price: decimalOrNull(formData, 'base_price'),
     discount_percent: decimalOrNull(formData, 'discount_percent'),
-    sort_order: Number(formData.get('sort_order') || 0),
-    is_active: formData.has('is_active'),
   });
   form.reset();
+  await loadOffers();
+};
+
+const submitOfferEdit = async (form) => {
+  const offerId = form.dataset.offerId;
+  const formData = new FormData(form);
+  await patchJson(`/api/v1/admin/offers/${offerId}`, buildOfferTextPayload(formData));
   await loadOffers();
 };
 
@@ -1727,6 +1779,8 @@ const handleAdminFormSubmit = async (form) => {
       await submitPartnerEdit(form);
     } else if (formType === 'offer') {
       await submitOffer(form);
+    } else if (formType === 'offerEdit') {
+      await submitOfferEdit(form);
     } else if (formType === 'qr') {
       await submitQr(form);
     }
@@ -1865,6 +1919,22 @@ root.addEventListener('click', async (event) => {
     return;
   }
 
+  const offerEditButton = event.target.closest('[data-admin-offer-edit]');
+  if (offerEditButton) {
+    adminState.selectedOfferIdForEdit = offerEditButton.dataset.adminOfferEdit;
+    setFormMessage('offerEdit');
+    renderAdminLayout();
+    return;
+  }
+
+  const offerEditCancel = event.target.closest('[data-admin-offer-edit-cancel]');
+  if (offerEditCancel) {
+    adminState.selectedOfferIdForEdit = '';
+    setFormMessage('offerEdit');
+    renderAdminLayout();
+    return;
+  }
+
   const adminLogout = event.target.closest('[data-logout-button]');
   if (adminLogout) {
     clearToken();
@@ -1960,6 +2030,8 @@ root.addEventListener('change', (event) => {
 
   if (picker.dataset.partnerPicker === 'offers') {
     adminState.selectedPartnerIdForOffers = picker.value;
+    adminState.selectedOfferIdForEdit = '';
+    setFormMessage('offerEdit');
   } else if (picker.dataset.partnerPicker === 'qr') {
     adminState.selectedPartnerIdForQr = picker.value;
   }
