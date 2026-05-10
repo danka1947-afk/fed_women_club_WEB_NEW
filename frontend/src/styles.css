@@ -10,9 +10,9 @@
   --color-border: rgba(201, 130, 120, 0.25);
   --shadow-soft: 0 24px 70px rgba(143, 81, 75, 0.13);
   --shadow-card: 0 18px 48px rgba(201, 130, 120, 0.15);
-  --lotus-botanical-composition: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20700%20520%22%20fill%3D%22none%22%20stroke%3D%22%239c7f78%22%20stroke-width%3D%222.1%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%0A%3Cpath%20d%3D%22M122%20505%20C121%20420%20135%20335%20181%20260%20C205%20220%20233%20193%20268%20174%22%2F%3E%0A%3Cpath%20d%3D%22M231%20508%20C220%20421%20226%20337%20267%20259%20C291%20214%20326%20180%20366%20150%22%2F%3E%0A%3Cpath%20d%3D%22M430%20514%20C401%20431%20392%20353%20415%20282%20C430%20235%20458%20197%20501%20166%22%2F%3E%0A%3Cpath%20d%3D%22M268%20174%20C251%20127%20260%2077%20296%2037%20C330%2078%20334%20128%20310%20174%22%2F%3E%0A%3Cpath%20d%3D%22M296%2037%20C293%2086%20293%20127%20293%20177%22%20opacity%3D%22.65%22%2F%3E%0A%3Cpath%20d%3D%22M268%20174%20C222%20142%20190%20101%20184%2049%20C234%2061%20269%20105%20283%20174%22%2F%3E%0A%3Cpath%20d%3D%22M184%2049%20C218%2087%20249%20127%20283%20174%22%20opacity%3D%22.55%22%2F%3E%0A%3Cpath%20d%3D%22M310%20174%20C360%20145%20397%20103%20407%2052%20C354%2060%20318%20103%20301%20174%22%2F%3E%0A%3Cpath%20d%3D%22M407%2052%20C369%2090%20336%20128%20301%20174%22%20opacity%3D%22.55%22%2F%3E%0A%3Cpath%20d%3D%22M254%20184%20C203%20179%20157%20155%20126%20114%20C179%20104%20233%20126%20273%20174%22%2F%3E%0A%3Cpath%20d%3D%22M333%20182%20C386%20176%20436%20150%20469%20108%20C413%20101%20354%20126%20316%20174%22%2F%3E%0A%3Cpath%20d%3D%22M246%20205%20C192%20212%20139%20200%2094%20166%20C150%20140%20217%20153%20273%20185%22%2F%3E%0A%3Cpath%20d%3D%22M340%20204%20C399%20210%20457%20195%20505%20157%20C443%20136%20378%20153%20317%20185%22%2F%3E%0A%3Cpath%20d%3D%22M220%20229%20C265%20253%20322%20252%20369%20225%20C331%20199%20262%20199%20220%20229%22%2F%3E%0A%3Cpath%20d%3D%22M203%20218%20C235%20268%20326%20287%20393%20216%22%2F%3E%0A%3Cpath%20d%3D%22M143%20239%20C210%20288%20369%20302%20454%20230%22%2F%3E%0A%3Cpath%20d%3D%22M210%20250%20C192%20257%20173%20266%20154%20278%22%2F%3E%0A%3Cpath%20d%3D%22M367%20250%20C388%20258%20410%20269%20433%20283%22%2F%3E%0A%3Cpath%20d%3D%22M95%20361%20C146%20331%20211%20331%20259%20361%20C207%20391%20144%20389%2095%20361%22%2F%3E%0A%3Cpath%20d%3D%22M128%20361%20C165%20354%20201%20354%20238%20361%22%20opacity%3D%22.45%22%2F%3E%0A%3Cpath%20d%3D%22M501%20166%20C490%20130%20499%2093%20529%2062%20C560%2096%20563%20134%20546%20168%22%2F%3E%0A%3Cpath%20d%3D%22M529%2062%20C528%2098%20528%20133%20527%20169%22%20opacity%3D%22.55%22%2F%3E%0A%3Cpath%20d%3D%22M501%20166%20C466%20145%20442%20113%20437%2075%20C477%2083%20505%20118%20517%20166%22%2F%3E%0A%3Cpath%20d%3D%22M546%20168%20C585%20149%20613%20116%20621%2078%20C578%2083%20552%20118%20538%20168%22%2F%3E%0A%3Cpath%20d%3D%22M489%20185%20C456%20187%20424%20176%20399%20152%20C436%20138%20477%20148%20510%20174%22%2F%3E%0A%3Cpath%20d%3D%22M557%20185%20C594%20187%20632%20173%20660%20146%20C618%20136%20581%20148%20539%20174%22%2F%3E%0A%3Cpath%20d%3D%22M478%20205%20C515%20231%20569%20229%20608%20201%22%2F%3E%0A%3Cpath%20d%3D%22M452%20223%20C505%20257%20601%20250%20647%20215%22%2F%3E%0A%3Cpath%20d%3D%22M493%20322%20C539%20300%20596%20303%20638%20332%20C592%20358%20535%20354%20493%20322%22%2F%3E%0A%3Cpath%20d%3D%22M515%20324%20C548%20318%20584%20320%20618%20331%22%20opacity%3D%22.45%22%2F%3E%0A%3Cpath%20d%3D%22M55%20438%20C82%20402%20123%20384%20174%20385%22%20opacity%3D%22.55%22%2F%3E%0A%3Cpath%20d%3D%22M522%20432%20C564%20394%20610%20378%20668%20384%22%20opacity%3D%22.55%22%2F%3E%0A%3C%2Fsvg%3E");
-  --lotus-botanical-line-art: var(--lotus-botanical-composition);
-  --lotus-line-art: var(--lotus-botanical-composition);
+  --lotus-left-composition: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20420%20520%22%20fill%3D%22none%22%20stroke%3D%22%236f625e%22%20stroke-width%3D%221.35%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cg%20opacity%3D%220.92%22%3E%3Cpath%20d%3D%22M214%20512%20C207%20430%20212%20344%20238%20264%20C248%20232%20263%20203%20286%20174%22%2F%3E%3Cpath%20d%3D%22M154%20516%20C146%20451%20145%20389%20162%20331%20C173%20294%20193%20267%20218%20246%22%2F%3E%3Cpath%20d%3D%22M286%20174%20C274%20135%20282%2091%20314%2055%20C345%2091%20350%20136%20329%20176%22%2F%3E%3Cpath%20d%3D%22M314%2055%20C313%2094%20312%20134%20310%20177%22%20opacity%3D%220.58%22%2F%3E%3Cpath%20d%3D%22M286%20174%20C251%20154%20226%20123%20218%2084%20C257%2091%20286%20124%20301%20174%22%2F%3E%3Cpath%20d%3D%22M218%2084%20C248%20118%20273%20145%20301%20174%22%20opacity%3D%220.48%22%2F%3E%3Cpath%20d%3D%22M329%20176%20C369%20158%20398%20125%20406%2084%20C364%2091%20336%20124%20319%20175%22%2F%3E%3Cpath%20d%3D%22M406%2084%20C372%20118%20346%20145%20319%20175%22%20opacity%3D%220.48%22%2F%3E%3Cpath%20d%3D%22M277%20188%20C236%20185%20200%20166%20174%20134%20C222%20126%20263%20143%20296%20178%22%2F%3E%3Cpath%20d%3D%22M338%20188%20C376%20184%20405%20166%20414%20145%20C374%20137%20340%20151%20321%20179%22%2F%3E%3Cpath%20d%3D%22M269%20207%20C226%20214%20187%20203%20154%20176%20C204%20154%20255%20162%20294%20190%22%2F%3E%3Cpath%20d%3D%22M344%20207%20C378%20211%20405%20202%20420%20183%20C382%20163%20344%20168%20323%20190%22%2F%3E%3Cpath%20d%3D%22M252%20224%20C288%20249%20334%20248%20371%20222%20C336%20203%20287%20203%20252%20224%22%2F%3E%3Cpath%20d%3D%22M238%20215%20C272%20260%20346%20270%20390%20213%22%20opacity%3D%220.72%22%2F%3E%3Cpath%20d%3D%22M190%20238%20C238%20282%20342%20291%20414%20226%22%20opacity%3D%220.48%22%2F%3E%3Cpath%20d%3D%22M218%20246%20C205%20217%20213%20183%20239%20158%20C267%20184%20277%20218%20263%20249%22%2F%3E%3Cpath%20d%3D%22M239%20158%20C238%20188%20238%20218%20239%20250%22%20opacity%3D%220.55%22%2F%3E%3Cpath%20d%3D%22M218%20246%20C189%20230%20169%20205%20162%20174%20C194%20181%20217%20207%20228%20248%22%2F%3E%3Cpath%20d%3D%22M263%20249%20C294%20236%20316%20211%20325%20180%20C291%20184%20268%20209%20253%20249%22%2F%3E%3Cpath%20d%3D%22M198%20268%20C234%20289%20279%20287%20312%20264%20C276%20248%20232%20248%20198%20268%22%2F%3E%3Cpath%20d%3D%22M178%20283%20C219%20316%20289%20315%20333%20280%22%20opacity%3D%220.5%22%2F%3E%3Cpath%20d%3D%22M176%20390%20C203%20374%20237%20374%20265%20392%22%20opacity%3D%220.45%22%2F%3E%3Cpath%20d%3D%22M106%20440%20C130%20420%20161%20414%20193%20422%22%20opacity%3D%220.38%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E");
+  --lotus-right-composition: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20420%20360%22%20fill%3D%22none%22%20stroke%3D%22%236f625e%22%20stroke-width%3D%221.25%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cg%20opacity%3D%220.9%22%3E%3Cpath%20d%3D%22M234%20221%20C280%20252%20330%20293%20396%20346%22%2F%3E%3Cpath%20d%3D%22M234%20221%20C248%20197%20273%20179%20307%20170%22%2F%3E%3Cpath%20d%3D%22M234%20221%20C198%20201%20174%20169%20169%20126%20C207%20136%20234%20169%20246%20220%22%2F%3E%3Cpath%20d%3D%22M169%20126%20C199%20158%20224%20189%20246%20220%22%20opacity%3D%220.5%22%2F%3E%3Cpath%20d%3D%22M246%20220%20C258%20174%20286%20139%20328%20124%20C323%20168%20292%20202%20246%20220%22%2F%3E%3Cpath%20d%3D%22M328%20124%20C296%20157%20270%20188%20246%20220%22%20opacity%3D%220.5%22%2F%3E%3Cpath%20d%3D%22M217%20213%20C176%20213%20140%20195%20112%20164%20C159%20153%20202%20168%20232%20204%22%2F%3E%3Cpath%20d%3D%22M112%20164%20C151%20177%20190%20190%20232%20204%22%20opacity%3D%220.42%22%2F%3E%3Cpath%20d%3D%22M260%20211%20C304%20207%20341%20187%20368%20154%20C321%20146%20282%20164%20247%20204%22%2F%3E%3Cpath%20d%3D%22M368%20154%20C329%20176%20291%20193%20247%20204%22%20opacity%3D%220.42%22%2F%3E%3Cpath%20d%3D%22M205%20236%20C163%20244%20125%20233%2092%20205%20C142%20183%20194%20191%20231%20219%22%2F%3E%3Cpath%20d%3D%22M276%20235%20C319%20241%20361%20229%20392%20199%20C340%20180%20291%20190%20250%20219%22%2F%3E%3Cpath%20d%3D%22M185%20251%20C226%20280%20282%20278%20324%20248%20C284%20226%20228%20226%20185%20251%22%2F%3E%3Cpath%20d%3D%22M160%20246%20C207%20301%20300%20308%20353%20244%22%20opacity%3D%220.58%22%2F%3E%3Cpath%20d%3D%22M132%20267%20C201%20319%20316%20319%20388%20259%22%20opacity%3D%220.42%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E");
+  --lotus-swirl-line: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20520%20120%22%20fill%3D%22none%22%20stroke%3D%22%237a6a65%22%20stroke-width%3D%221.15%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M8%2076%20C78%2028%20155%2034%20209%2069%20C244%2092%20222%20121%20189%20103%20C158%2086%20179%2044%20241%2037%20C314%2029%20364%2070%20424%2065%20C464%2062%20494%2043%20512%2018%22%20opacity%3D%220.82%22%2F%3E%3Cpath%20d%3D%22M424%2065%20C446%2070%20466%2080%20480%2096%22%20opacity%3D%220.44%22%2F%3E%3C%2Fsvg%3E");
   --radius-lg: 32px;
   --radius-md: 22px;
   --radius-sm: 14px;
@@ -50,7 +50,7 @@ body.is-dashboard::after,
   position: fixed;
   z-index: 0;
   display: block;
-  background-image: var(--lotus-line-art);
+  background-image: var(--lotus-left-composition);
   background-repeat: no-repeat;
   background-position: center;
   background-size: contain;
@@ -73,10 +73,21 @@ body.is-dashboard::after,
 .lotus-decor {
   position: absolute;
   display: block;
-  background-image: var(--lotus-line-art);
   background-repeat: no-repeat;
   background-position: center;
   background-size: contain;
+}
+
+.lotus-decor--left {
+  background-image: var(--lotus-left-composition);
+}
+
+.lotus-decor--right {
+  background-image: var(--lotus-right-composition);
+}
+
+.lotus-decor--swirl {
+  background-image: var(--lotus-swirl-line);
 }
 
 a {
@@ -102,45 +113,29 @@ a {
 }
 
 .lotus-layer--public .lotus-decor--left {
-  top: 22%;
-  left: clamp(-260px, -12vw, -110px);
-  width: clamp(520px, 38vw, 820px);
-  aspect-ratio: 700 / 520;
-  opacity: 0.22;
-  transform: rotate(2deg);
+  top: 16%;
+  left: clamp(-90px, -4vw, -30px);
+  width: clamp(300px, 25vw, 480px);
+  aspect-ratio: 420 / 520;
+  opacity: 0.24;
+  transform: rotate(1deg);
 }
 
 .lotus-layer--public .lotus-decor--right {
-  top: 22%;
-  right: clamp(-260px, -12vw, -110px);
-  width: clamp(520px, 38vw, 820px);
-  aspect-ratio: 700 / 520;
-  opacity: 0.2;
-  transform: scaleX(-1) rotate(-4deg);
+  top: 10%;
+  right: clamp(-80px, -3vw, -20px);
+  width: clamp(280px, 24vw, 440px);
+  aspect-ratio: 420 / 360;
+  opacity: 0.22;
+  transform: rotate(-8deg);
 }
 
-.lotus-layer--public .lotus-decor--bottom-left {
-  display: none;
-}
-
-.lotus-layer--public .lotus-decor--bottom-right {
-  display: none;
-  right: clamp(-128px, -4vw, -44px);
-  bottom: -142px;
-  width: clamp(240px, 19vw, 350px);
-  height: clamp(186px, 17vw, 272px);
-  opacity: 0.05;
-  transform: scaleX(-1) rotate(12deg);
-}
-
-.lotus-layer--public .lotus-decor--top-soft {
-  display: none;
-  top: -180px;
-  right: clamp(-110px, -4vw, -36px);
-  width: clamp(240px, 18vw, 330px);
-  height: clamp(186px, 16vw, 256px);
-  opacity: 0.04;
-  transform: rotate(-5deg);
+.lotus-layer--public .lotus-decor--swirl {
+  right: 14%;
+  bottom: 28%;
+  width: clamp(260px, 26vw, 520px);
+  aspect-ratio: 520 / 120;
+  opacity: 0.18;
 }
 
 .hero,
@@ -626,17 +621,15 @@ h2 {
   }
 
   .app-shell::after,
-  .lotus-layer--public .lotus-decor--bottom-left,
-  .lotus-layer--public .lotus-decor--bottom-right,
-  .lotus-layer--public .lotus-decor--top-soft {
+  .lotus-layer--public .lotus-decor--swirl {
     display: none;
   }
 
   .lotus-layer--public .lotus-decor--left {
     top: 220px;
     left: -206px;
-    width: 330px;
-    height: 344px;
+    width: 260px;
+    aspect-ratio: 420 / 520;
     opacity: 0.055;
   }
 
@@ -1508,45 +1501,29 @@ body.is-dashboard::after {
 }
 
 .lotus-layer--dashboard .lotus-decor--left {
-  top: 22%;
-  left: clamp(-260px, -12vw, -120px);
-  width: clamp(500px, 34vw, 760px);
-  aspect-ratio: 700 / 520;
-  opacity: 0.16;
-  transform: rotate(2deg);
+  top: 18%;
+  left: clamp(-170px, -9vw, -96px);
+  width: clamp(300px, 22vw, 430px);
+  aspect-ratio: 420 / 520;
+  opacity: 0.13;
+  transform: rotate(1deg);
 }
 
 .lotus-layer--dashboard .lotus-decor--right {
-  top: 22%;
-  right: clamp(-260px, -12vw, -120px);
-  width: clamp(500px, 34vw, 760px);
-  aspect-ratio: 700 / 520;
-  opacity: 0.15;
-  transform: scaleX(-1);
+  top: 12%;
+  right: clamp(-170px, -8vw, -88px);
+  width: clamp(280px, 21vw, 410px);
+  aspect-ratio: 420 / 360;
+  opacity: 0.12;
+  transform: rotate(-8deg);
 }
 
-.lotus-layer--dashboard .lotus-decor--bottom-left {
-  display: none;
-}
-
-.lotus-layer--dashboard .lotus-decor--bottom-right {
-  display: none;
-  right: clamp(-132px, -4vw, -44px);
-  bottom: -150px;
-  width: clamp(240px, 18vw, 340px);
-  height: clamp(186px, 16vw, 264px);
-  opacity: 0.045;
-  transform: scaleX(-1) rotate(12deg);
-}
-
-.lotus-layer--dashboard .lotus-decor--top-soft {
-  display: none;
-  top: -190px;
-  left: 44vw;
-  width: clamp(240px, 18vw, 330px);
-  height: clamp(186px, 16vw, 256px);
-  opacity: 0.035;
-  transform: rotate(-4deg);
+.lotus-layer--dashboard .lotus-decor--swirl {
+  right: 8%;
+  bottom: 16%;
+  width: clamp(240px, 22vw, 420px);
+  aspect-ratio: 520 / 120;
+  opacity: 0.1;
 }
 
 .dashboard-topbar,
@@ -1909,9 +1886,7 @@ body.is-dashboard::after {
   }
 
   body.is-dashboard::before,
-  .lotus-layer--dashboard .lotus-decor--bottom-left,
-  .lotus-layer--dashboard .lotus-decor--bottom-right,
-  .lotus-layer--dashboard .lotus-decor--top-soft {
+  .lotus-layer--dashboard .lotus-decor--swirl {
     display: none;
   }
 
@@ -1924,8 +1899,8 @@ body.is-dashboard::after {
   .lotus-layer--dashboard .lotus-decor--left {
     top: 184px;
     left: -212px;
-    width: 340px;
-    height: 354px;
+    width: 260px;
+    aspect-ratio: 420 / 520;
     opacity: 0.05;
   }
 
