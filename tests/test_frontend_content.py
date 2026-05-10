@@ -155,32 +155,37 @@ def test_frontend_contains_dashboard_shell_classes() -> None:
     assert "min-width: 0;" in styles
 
 
-def test_frontend_contains_lotus_line_art_background() -> None:
+def test_frontend_contains_reference_lotus_svg_background() -> None:
     source = _frontend_main()
     styles = _frontend_styles()
 
-    assert "--lotus-left-composition" in styles
-    assert "--lotus-right-composition" in styles
-    assert "--lotus-swirl-line" in styles
-    assert "viewBox%3D%220%200%20420%20520%22" in styles
-    assert "viewBox%3D%220%200%20420%20360%22" in styles
+    assert "--lotus-reference-background" in styles
+    assert "viewBox%3D%220%200%201200%20700%22" in styles
+    assert "feGaussianBlur" in styles
+    assert "watercolor" in styles
     assert "stroke-linecap%3D%22round%22" in styles
     assert "stroke-linejoin%3D%22round%22" in styles
     assert "lotus-layer" in source
-    assert "lotus-decor" in source
-    assert "lotus-decor--left" in source
-    assert "lotus-decor--right" in source
+    assert "reference-lotus-layer" in source
     assert "lotus-layer--public" in source
     assert "lotus-layer--dashboard" in source
     assert "dashboard-shell" in source
 
-    for removed_class in (
+    for removed_lotus_asset in (
+        "--lotus-left-composition",
+        "--lotus-right-composition",
+        "--lotus-swirl-line",
+        "--lotus-botanical-composition",
+        "--lotus-line-art",
+        "lotus-decor",
+        "lotus-decor--left",
+        "lotus-decor--right",
         "lotus-decor--bottom-left",
         "lotus-decor--bottom-right",
         "lotus-decor--top-soft",
     ):
-        assert removed_class not in source
-        assert removed_class not in styles
+        assert removed_lotus_asset not in source
+        assert removed_lotus_asset not in styles
 
     for expected in (
         "Женский клуб",

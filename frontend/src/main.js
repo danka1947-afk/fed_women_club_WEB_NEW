@@ -46,11 +46,7 @@ const renderPublicApp = () => {
   document.body.classList.remove('is-dashboard');
   root.innerHTML = `
   <main class="app-shell">
-    <div class="lotus-layer lotus-layer--public" aria-hidden="true">
-      <span class="lotus-decor lotus-decor--left"></span>
-      <span class="lotus-decor lotus-decor--right"></span>
-      <span class="lotus-decor lotus-decor--swirl"></span>
-    </div>
+    <div class="lotus-layer lotus-layer--public reference-lotus-layer" aria-hidden="true"></div>
     <header class="hero" aria-labelledby="hero-title">
       <nav class="topbar" aria-label="Основная навигация">
         <div class="brand" aria-label="Женский клуб">
@@ -405,11 +401,7 @@ const renderDashboardApp = (role) => {
   document.body.classList.add('is-dashboard');
   root.innerHTML = `
     <div class="dashboard-shell" data-dashboard-role="${role}">
-      <div class="lotus-layer lotus-layer--dashboard" aria-hidden="true">
-        <span class="lotus-decor lotus-decor--left"></span>
-        <span class="lotus-decor lotus-decor--right"></span>
-        <span class="lotus-decor lotus-decor--swirl"></span>
-      </div>
+      <div class="lotus-layer lotus-layer--dashboard reference-lotus-layer" aria-hidden="true"></div>
       <header class="dashboard-topbar">
         <div class="dashboard-brand" aria-label="Женский клуб">
           <span class="brand-mark" aria-hidden="true">ЖК</span>
