@@ -57,114 +57,138 @@ body {
   position: absolute;
   width: var(--petal-width, 12px);
   height: var(--petal-height, 16px);
-  border-radius: 78% 22% 70% 30% / 74% 36% 64% 26%;
+  border-radius: 82% 18% 72% 28% / 78% 32% 68% 22%;
   background:
-    radial-gradient(circle at 33% 24%, rgba(255, 230, 236, 0.78), transparent 30%),
-    linear-gradient(142deg, var(--petal-core, rgba(255, 230, 236, 0.9)) 0%, var(--petal-mid, rgba(244, 196, 206, 0.82)) 48%, var(--petal-edge, rgba(228, 170, 184, 0.56)) 100%);
-  box-shadow: 0 10px 28px rgba(201, 130, 150, 0.12);
-  opacity: 0.24;
+    radial-gradient(ellipse at 36% 20%, rgba(255, 231, 238, 0.58), transparent 30%),
+    linear-gradient(156deg, transparent 42%, var(--petal-vein, rgba(174, 73, 98, 0.28)) 45%, transparent 50%),
+    radial-gradient(ellipse at 58% 74%, var(--petal-base, rgba(233, 150, 173, 0.5)), transparent 42%),
+    linear-gradient(142deg, var(--petal-core, rgba(247, 182, 200, 0.95)) 0%, var(--petal-mid, rgba(244, 167, 185, 0.9)) 52%, var(--petal-edge, rgba(233, 150, 173, 0.8)) 100%);
+  box-shadow:
+    inset -2px -5px 8px rgba(174, 73, 98, 0.1),
+    inset 2px 3px 7px rgba(255, 246, 249, 0.42),
+    0 10px 28px rgba(201, 130, 150, 0.12);
+  opacity: 0.58;
   transform: rotate(var(--petal-rotate, 18deg)) skew(-7deg, 3deg) scaleX(var(--petal-scale-x, 0.92));
   transform-origin: 58% 76%;
 }
 
+.sakura-petal::before,
 .sakura-petal::after {
   position: absolute;
-  top: 17%;
-  left: 53%;
-  width: 1px;
-  height: 58%;
-  border-radius: 999px;
-  background: linear-gradient(rgba(177, 94, 111, 0.18), rgba(177, 94, 111, 0.02));
   content: "";
-  transform: rotate(13deg);
+  pointer-events: none;
+}
+
+.sakura-petal::before {
+  inset: 12% 18% 16% 20%;
+  border-radius: inherit;
+  background:
+    linear-gradient(146deg, transparent 38%, rgba(173, 72, 98, 0.16) 43%, transparent 50%),
+    radial-gradient(ellipse at 42% 82%, rgba(255, 245, 248, 0.32), transparent 48%);
+}
+
+.sakura-petal::after {
+  top: 18%;
+  left: 51%;
+  width: 1px;
+  height: 64%;
+  border-radius: 999px;
+  background: linear-gradient(rgba(154, 60, 84, 0.36), rgba(154, 60, 84, 0.04));
+  transform: rotate(11deg);
 }
 
 .sakura-petal:nth-child(3n + 1) {
-  --petal-core: rgba(255, 230, 236, 0.92);
-  --petal-mid: rgba(244, 196, 206, 0.86);
-  --petal-edge: rgba(228, 170, 184, 0.58);
+  --petal-core: rgba(247, 182, 200, 0.96);
+  --petal-mid: rgba(244, 167, 185, 0.93);
+  --petal-edge: rgba(233, 150, 173, 0.82);
+  --petal-base: rgba(233, 150, 173, 0.52);
+  --petal-vein: rgba(154, 60, 84, 0.24);
 }
 
 .sakura-petal:nth-child(3n + 2) {
-  --petal-core: rgba(255, 230, 236, 0.86);
-  --petal-mid: rgba(236, 182, 194, 0.84);
-  --petal-edge: rgba(228, 170, 184, 0.6);
+  --petal-core: rgba(242, 191, 208, 0.96);
+  --petal-mid: rgba(247, 182, 200, 0.92);
+  --petal-edge: rgba(244, 167, 185, 0.84);
+  --petal-base: rgba(233, 150, 173, 0.48);
+  --petal-vein: rgba(154, 60, 84, 0.22);
 }
 
 .sakura-petal:nth-child(3n) {
-  --petal-core: rgba(255, 230, 236, 0.88);
-  --petal-mid: rgba(244, 196, 206, 0.78);
-  --petal-edge: rgba(236, 182, 194, 0.58);
+  --petal-core: rgba(244, 167, 185, 0.95);
+  --petal-mid: rgba(242, 191, 208, 0.9);
+  --petal-edge: rgba(233, 150, 173, 0.8);
+  --petal-base: rgba(233, 150, 173, 0.5);
+  --petal-vein: rgba(154, 60, 84, 0.23);
 }
 
-.sakura-petal--1 { top: 3%; left: 3%; --petal-width: 26px; --petal-height: 32px; opacity: 0.38; --petal-rotate: -24deg; --petal-scale-x: 0.90; filter: blur(0.8px); }
-.sakura-petal--2 { top: 6%; left: 11%; --petal-width: 18px; --petal-height: 22px; opacity: 0.3; --petal-rotate: 38deg; --petal-scale-x: 0.94; }
-.sakura-petal--3 { top: 11%; left: 5%; --petal-width: 10px; --petal-height: 14px; opacity: 0.22; --petal-rotate: 72deg; --petal-scale-x: 0.98; }
-.sakura-petal--4 { top: 16%; left: 16%; --petal-width: 24px; --petal-height: 31px; opacity: 0.34; --petal-rotate: -58deg; --petal-scale-x: 1.02; filter: blur(0.4px); }
-.sakura-petal--5 { top: 22%; left: 7%; --petal-width: 14px; --petal-height: 19px; opacity: 0.28; --petal-rotate: 18deg; --petal-scale-x: 0.86; }
-.sakura-petal--6 { top: 28%; left: 20%; --petal-width: 9px; --petal-height: 13px; opacity: 0.2; --petal-rotate: 103deg; --petal-scale-x: 0.90; }
-.sakura-petal--7 { top: 35%; left: 4%; --petal-width: 16px; --petal-height: 20px; opacity: 0.26; --petal-rotate: -36deg; --petal-scale-x: 0.94; }
-.sakura-petal--8 { top: 44%; left: 15%; --petal-width: 11px; --petal-height: 15px; opacity: 0.18; --petal-rotate: 55deg; --petal-scale-x: 0.98; }
-.sakura-petal--9 { top: 53%; left: 6%; --petal-width: 22px; --petal-height: 29px; opacity: 0.31; --petal-rotate: -78deg; --petal-scale-x: 1.02; filter: blur(0.4px); }
-.sakura-petal--10 { top: 2%; left: 22%; --petal-width: 8px; --petal-height: 12px; opacity: 0.18; --petal-rotate: 15deg; --petal-scale-x: 0.86; }
-.sakura-petal--11 { top: 13%; left: 23%; --petal-width: 12px; --petal-height: 16px; opacity: 0.24; --petal-rotate: 88deg; --petal-scale-x: 0.90; }
-.sakura-petal--12 { top: 25%; left: 12%; --petal-width: 32px; --petal-height: 40px; opacity: 0.36; --petal-rotate: -18deg; --petal-scale-x: 0.94; filter: blur(0.8px); }
-.sakura-petal--13 { top: 38%; left: 22%; --petal-width: 15px; --petal-height: 20px; opacity: 0.29; --petal-rotate: 47deg; --petal-scale-x: 0.98; }
-.sakura-petal--14 { top: 48%; left: 2%; --petal-width: 10px; --petal-height: 14px; opacity: 0.2; --petal-rotate: -64deg; --petal-scale-x: 1.02; }
-.sakura-petal--15 { top: 61%; left: 16%; --petal-width: 19px; --petal-height: 24px; opacity: 0.25; --petal-rotate: 112deg; --petal-scale-x: 0.86; }
-.sakura-petal--16 { top: 69%; left: 6%; --petal-width: 9px; --petal-height: 12px; opacity: 0.16; --petal-rotate: -91deg; --petal-scale-x: 0.90; }
-.sakura-petal--17 { top: 73%; left: 21%; --petal-width: 14px; --petal-height: 18px; opacity: 0.23; --petal-rotate: 31deg; --petal-scale-x: 0.94; }
-.sakura-petal--18 { top: 4%; right: 4%; --petal-width: 28px; --petal-height: 36px; opacity: 0.4; --petal-rotate: 31deg; --petal-scale-x: 0.98; filter: blur(0.8px); }
-.sakura-petal--19 { top: 8%; right: 13%; --petal-width: 10px; --petal-height: 14px; opacity: 0.23; --petal-rotate: -44deg; --petal-scale-x: 1.02; }
-.sakura-petal--20 { top: 15%; right: 5%; --petal-width: 16px; --petal-height: 21px; opacity: 0.3; --petal-rotate: 82deg; --petal-scale-x: 0.86; }
-.sakura-petal--21 { top: 21%; right: 18%; --petal-width: 8px; --petal-height: 12px; opacity: 0.19; --petal-rotate: -12deg; --petal-scale-x: 0.90; }
-.sakura-petal--22 { top: 31%; right: 7%; --petal-width: 24px; --petal-height: 31px; opacity: 0.35; --petal-rotate: -67deg; --petal-scale-x: 0.94; filter: blur(0.4px); }
-.sakura-petal--23 { top: 42%; right: 17%; --petal-width: 12px; --petal-height: 16px; opacity: 0.22; --petal-rotate: 48deg; --petal-scale-x: 0.98; }
-.sakura-petal--24 { top: 53%; right: 4%; --petal-width: 18px; --petal-height: 23px; opacity: 0.29; --petal-rotate: 112deg; --petal-scale-x: 1.02; }
-.sakura-petal--25 { top: 64%; right: 13%; --petal-width: 10px; --petal-height: 15px; opacity: 0.21; --petal-rotate: -25deg; --petal-scale-x: 0.86; }
-.sakura-petal--26 { top: 73%; right: 6%; --petal-width: 15px; --petal-height: 20px; opacity: 0.24; --petal-rotate: 63deg; --petal-scale-x: 0.90; }
-.sakura-petal--27 { top: 2%; right: 23%; --petal-width: 9px; --petal-height: 13px; opacity: 0.17; --petal-rotate: -55deg; --petal-scale-x: 0.94; }
-.sakura-petal--28 { top: 13%; right: 24%; --petal-width: 14px; --petal-height: 18px; opacity: 0.27; --petal-rotate: -28deg; --petal-scale-x: 0.98; }
-.sakura-petal--29 { top: 27%; right: 23%; --petal-width: 22px; --petal-height: 29px; opacity: 0.32; --petal-rotate: 42deg; --petal-scale-x: 1.02; filter: blur(0.4px); }
-.sakura-petal--30 { top: 39%; right: 2%; --petal-width: 11px; --petal-height: 15px; opacity: 0.22; --petal-rotate: -39deg; --petal-scale-x: 0.86; }
-.sakura-petal--31 { top: 50%; right: 20%; --petal-width: 17px; --petal-height: 22px; opacity: 0.28; --petal-rotate: 21deg; --petal-scale-x: 0.90; }
-.sakura-petal--32 { top: 61%; right: 22%; --petal-width: 8px; --petal-height: 12px; opacity: 0.16; --petal-rotate: -64deg; --petal-scale-x: 0.94; }
-.sakura-petal--33 { top: 70%; right: 19%; --petal-width: 20px; --petal-height: 25px; opacity: 0.3; --petal-rotate: 76deg; --petal-scale-x: 0.98; }
-.sakura-petal--34 { top: 76%; right: 2%; --petal-width: 12px; --petal-height: 16px; opacity: 0.2; --petal-rotate: -102deg; --petal-scale-x: 1.02; }
-.sakura-petal--35 { bottom: 4%; left: 3%; --petal-width: 30px; --petal-height: 38px; opacity: 0.37; --petal-rotate: 24deg; --petal-scale-x: 0.86; filter: blur(0.8px); }
-.sakura-petal--36 { bottom: 9%; left: 12%; --petal-width: 15px; --petal-height: 20px; opacity: 0.29; --petal-rotate: -38deg; --petal-scale-x: 0.90; }
-.sakura-petal--37 { bottom: 15%; left: 5%; --petal-width: 9px; --petal-height: 13px; opacity: 0.18; --petal-rotate: 64deg; --petal-scale-x: 0.94; }
-.sakura-petal--38 { bottom: 23%; left: 17%; --petal-width: 24px; --petal-height: 32px; opacity: 0.33; --petal-rotate: -72deg; --petal-scale-x: 0.98; filter: blur(0.4px); }
-.sakura-petal--39 { bottom: 31%; left: 7%; --petal-width: 12px; --petal-height: 16px; opacity: 0.24; --petal-rotate: 16deg; --petal-scale-x: 1.02; }
-.sakura-petal--40 { bottom: 39%; left: 22%; --petal-width: 18px; --petal-height: 23px; opacity: 0.27; --petal-rotate: 98deg; --petal-scale-x: 0.86; }
-.sakura-petal--41 { bottom: 49%; left: 4%; --petal-width: 10px; --petal-height: 14px; opacity: 0.21; --petal-rotate: -51deg; --petal-scale-x: 0.90; }
-.sakura-petal--42 { bottom: 60%; left: 18%; --petal-width: 14px; --petal-height: 19px; opacity: 0.26; --petal-rotate: 43deg; --petal-scale-x: 0.94; }
-.sakura-petal--43 { bottom: 2%; left: 23%; --petal-width: 8px; --petal-height: 12px; opacity: 0.17; --petal-rotate: 78deg; --petal-scale-x: 0.98; }
-.sakura-petal--44 { bottom: 13%; left: 24%; --petal-width: 16px; --petal-height: 20px; opacity: 0.3; --petal-rotate: -18deg; --petal-scale-x: 1.02; }
-.sakura-petal--45 { bottom: 26%; left: 2%; --petal-width: 26px; --petal-height: 34px; opacity: 0.39; --petal-rotate: 57deg; --petal-scale-x: 0.86; filter: blur(0.8px); }
-.sakura-petal--46 { bottom: 37%; left: 13%; --petal-width: 11px; --petal-height: 15px; opacity: 0.22; --petal-rotate: -85deg; --petal-scale-x: 0.90; }
-.sakura-petal--47 { bottom: 47%; left: 24%; --petal-width: 19px; --petal-height: 24px; opacity: 0.28; --petal-rotate: 28deg; --petal-scale-x: 0.94; }
-.sakura-petal--48 { bottom: 56%; left: 8%; --petal-width: 8px; --petal-height: 12px; opacity: 0.16; --petal-rotate: 116deg; --petal-scale-x: 0.98; }
-.sakura-petal--49 { bottom: 68%; left: 15%; --petal-width: 14px; --petal-height: 18px; opacity: 0.24; --petal-rotate: -33deg; --petal-scale-x: 1.02; }
-.sakura-petal--50 { bottom: 77%; left: 4%; --petal-width: 20px; --petal-height: 26px; opacity: 0.3; --petal-rotate: 69deg; --petal-scale-x: 0.86; filter: blur(0.4px); }
-.sakura-petal--51 { bottom: 82%; left: 20%; --petal-width: 10px; --petal-height: 14px; opacity: 0.18; --petal-rotate: -12deg; --petal-scale-x: 0.90; }
-.sakura-petal--52 { bottom: 3%; right: 4%; --petal-width: 34px; --petal-height: 42px; opacity: 0.41; --petal-rotate: -31deg; --petal-scale-x: 0.94; filter: blur(0.8px); }
-.sakura-petal--53 { bottom: 8%; right: 14%; --petal-width: 11px; --petal-height: 15px; opacity: 0.22; --petal-rotate: 55deg; --petal-scale-x: 0.98; }
-.sakura-petal--54 { bottom: 16%; right: 6%; --petal-width: 17px; --petal-height: 22px; opacity: 0.3; --petal-rotate: -77deg; --petal-scale-x: 1.02; }
-.sakura-petal--55 { bottom: 24%; right: 20%; --petal-width: 9px; --petal-height: 13px; opacity: 0.18; --petal-rotate: 19deg; --petal-scale-x: 0.86; }
-.sakura-petal--56 { bottom: 33%; right: 8%; --petal-width: 23px; --petal-height: 30px; opacity: 0.34; --petal-rotate: 86deg; --petal-scale-x: 0.90; filter: blur(0.4px); }
-.sakura-petal--57 { bottom: 43%; right: 17%; --petal-width: 14px; --petal-height: 19px; opacity: 0.26; --petal-rotate: -44deg; --petal-scale-x: 0.94; }
-.sakura-petal--58 { bottom: 52%; right: 4%; --petal-width: 10px; --petal-height: 14px; opacity: 0.2; --petal-rotate: 103deg; --petal-scale-x: 0.98; }
-.sakura-petal--59 { bottom: 62%; right: 21%; --petal-width: 18px; --petal-height: 23px; opacity: 0.28; --petal-rotate: -16deg; --petal-scale-x: 1.02; }
-.sakura-petal--60 { bottom: 72%; right: 7%; --petal-width: 13px; --petal-height: 18px; opacity: 0.25; --petal-rotate: 49deg; --petal-scale-x: 0.86; }
-.sakura-petal--61 { bottom: 2%; right: 24%; --petal-width: 8px; --petal-height: 12px; opacity: 0.16; --petal-rotate: -93deg; --petal-scale-x: 0.90; }
-.sakura-petal--62 { bottom: 13%; right: 25%; --petal-width: 15px; --petal-height: 20px; opacity: 0.29; --petal-rotate: 35deg; --petal-scale-x: 0.94; }
-.sakura-petal--63 { bottom: 27%; right: 2%; --petal-width: 28px; --petal-height: 36px; opacity: 0.38; --petal-rotate: -62deg; --petal-scale-x: 0.98; filter: blur(0.8px); }
-.sakura-petal--64 { bottom: 38%; right: 23%; --petal-width: 12px; --petal-height: 16px; opacity: 0.23; --petal-rotate: 73deg; --petal-scale-x: 1.02; }
-.sakura-petal--65 { bottom: 49%; right: 14%; --petal-width: 20px; --petal-height: 26px; opacity: 0.31; --petal-rotate: -28deg; --petal-scale-x: 0.86; filter: blur(0.4px); }
-.sakura-petal--66 { bottom: 58%; right: 24%; --petal-width: 9px; --petal-height: 12px; opacity: 0.18; --petal-rotate: 117deg; --petal-scale-x: 0.90; }
-.sakura-petal--67 { bottom: 70%; right: 18%; --petal-width: 16px; --petal-height: 21px; opacity: 0.27; --petal-rotate: -53deg; --petal-scale-x: 0.94; }
-.sakura-petal--68 { bottom: 80%; right: 3%; --petal-width: 10px; --petal-height: 14px; opacity: 0.2; --petal-rotate: 14deg; --petal-scale-x: 0.98; }
+.sakura-petal--1 { top: 3%; left: 3%; --petal-width: 26px; --petal-height: 32px; opacity: 0.65; --petal-rotate: -24deg; --petal-scale-x: 0.90; filter: blur(0.25px); }
+.sakura-petal--2 { top: 6%; left: 11%; --petal-width: 18px; --petal-height: 22px; opacity: 0.61; --petal-rotate: 38deg; --petal-scale-x: 0.94; }
+.sakura-petal--3 { top: 11%; left: 5%; --petal-width: 10px; --petal-height: 14px; opacity: 0.53; --petal-rotate: 72deg; --petal-scale-x: 0.98; }
+.sakura-petal--4 { top: 16%; left: 16%; --petal-width: 24px; --petal-height: 31px; opacity: 0.61; --petal-rotate: -58deg; --petal-scale-x: 1.02; filter: blur(0.12px); }
+.sakura-petal--5 { top: 22%; left: 7%; --petal-width: 14px; --petal-height: 19px; opacity: 0.59; --petal-rotate: 18deg; --petal-scale-x: 0.86; }
+.sakura-petal--6 { top: 28%; left: 20%; --petal-width: 9px; --petal-height: 13px; opacity: 0.51; --petal-rotate: 103deg; --petal-scale-x: 0.90; }
+.sakura-petal--7 { top: 35%; left: 4%; --petal-width: 16px; --petal-height: 20px; opacity: 0.57; --petal-rotate: -36deg; --petal-scale-x: 0.94; }
+.sakura-petal--8 { top: 44%; left: 15%; --petal-width: 11px; --petal-height: 15px; opacity: 0.49; --petal-rotate: 55deg; --petal-scale-x: 0.98; }
+.sakura-petal--9 { top: 53%; left: 6%; --petal-width: 22px; --petal-height: 29px; opacity: 0.58; --petal-rotate: -78deg; --petal-scale-x: 1.02; filter: blur(0.12px); }
+.sakura-petal--10 { top: 2%; left: 22%; --petal-width: 8px; --petal-height: 12px; opacity: 0.49; --petal-rotate: 15deg; --petal-scale-x: 0.86; }
+.sakura-petal--11 { top: 13%; left: 23%; --petal-width: 12px; --petal-height: 16px; opacity: 0.55; --petal-rotate: 88deg; --petal-scale-x: 0.90; }
+.sakura-petal--12 { top: 25%; left: 12%; --petal-width: 32px; --petal-height: 40px; opacity: 0.63; --petal-rotate: -18deg; --petal-scale-x: 0.94; filter: blur(0.25px); }
+.sakura-petal--13 { top: 38%; left: 22%; --petal-width: 15px; --petal-height: 20px; opacity: 0.6; --petal-rotate: 47deg; --petal-scale-x: 0.98; }
+.sakura-petal--14 { top: 48%; left: 2%; --petal-width: 10px; --petal-height: 14px; opacity: 0.51; --petal-rotate: -64deg; --petal-scale-x: 1.02; }
+.sakura-petal--15 { top: 61%; left: 16%; --petal-width: 19px; --petal-height: 24px; opacity: 0.56; --petal-rotate: 112deg; --petal-scale-x: 0.86; }
+.sakura-petal--16 { top: 69%; left: 6%; --petal-width: 9px; --petal-height: 12px; opacity: 0.47; --petal-rotate: -91deg; --petal-scale-x: 0.90; }
+.sakura-petal--17 { top: 73%; left: 21%; --petal-width: 14px; --petal-height: 18px; opacity: 0.54; --petal-rotate: 31deg; --petal-scale-x: 0.94; }
+.sakura-petal--18 { top: 4%; right: 4%; --petal-width: 28px; --petal-height: 36px; opacity: 0.67; --petal-rotate: 31deg; --petal-scale-x: 0.98; filter: blur(0.25px); }
+.sakura-petal--19 { top: 8%; right: 13%; --petal-width: 10px; --petal-height: 14px; opacity: 0.54; --petal-rotate: -44deg; --petal-scale-x: 1.02; }
+.sakura-petal--20 { top: 15%; right: 5%; --petal-width: 16px; --petal-height: 21px; opacity: 0.61; --petal-rotate: 82deg; --petal-scale-x: 0.86; }
+.sakura-petal--21 { top: 21%; right: 18%; --petal-width: 8px; --petal-height: 12px; opacity: 0.5; --petal-rotate: -12deg; --petal-scale-x: 0.90; }
+.sakura-petal--22 { top: 31%; right: 7%; --petal-width: 24px; --petal-height: 31px; opacity: 0.62; --petal-rotate: -67deg; --petal-scale-x: 0.94; filter: blur(0.12px); }
+.sakura-petal--23 { top: 42%; right: 17%; --petal-width: 12px; --petal-height: 16px; opacity: 0.53; --petal-rotate: 48deg; --petal-scale-x: 0.98; }
+.sakura-petal--24 { top: 53%; right: 4%; --petal-width: 18px; --petal-height: 23px; opacity: 0.6; --petal-rotate: 112deg; --petal-scale-x: 1.02; }
+.sakura-petal--25 { top: 64%; right: 13%; --petal-width: 10px; --petal-height: 15px; opacity: 0.52; --petal-rotate: -25deg; --petal-scale-x: 0.86; }
+.sakura-petal--26 { top: 73%; right: 6%; --petal-width: 15px; --petal-height: 20px; opacity: 0.55; --petal-rotate: 63deg; --petal-scale-x: 0.90; }
+.sakura-petal--27 { top: 2%; right: 23%; --petal-width: 9px; --petal-height: 13px; opacity: 0.48; --petal-rotate: -55deg; --petal-scale-x: 0.94; }
+.sakura-petal--28 { top: 13%; right: 24%; --petal-width: 14px; --petal-height: 18px; opacity: 0.58; --petal-rotate: -28deg; --petal-scale-x: 0.98; }
+.sakura-petal--29 { top: 27%; right: 23%; --petal-width: 22px; --petal-height: 29px; opacity: 0.59; --petal-rotate: 42deg; --petal-scale-x: 1.02; filter: blur(0.12px); }
+.sakura-petal--30 { top: 39%; right: 2%; --petal-width: 11px; --petal-height: 15px; opacity: 0.53; --petal-rotate: -39deg; --petal-scale-x: 0.86; }
+.sakura-petal--31 { top: 50%; right: 20%; --petal-width: 17px; --petal-height: 22px; opacity: 0.59; --petal-rotate: 21deg; --petal-scale-x: 0.90; }
+.sakura-petal--32 { top: 61%; right: 22%; --petal-width: 8px; --petal-height: 12px; opacity: 0.47; --petal-rotate: -64deg; --petal-scale-x: 0.94; }
+.sakura-petal--33 { top: 70%; right: 19%; --petal-width: 20px; --petal-height: 25px; opacity: 0.61; --petal-rotate: 76deg; --petal-scale-x: 0.98; }
+.sakura-petal--34 { top: 76%; right: 2%; --petal-width: 12px; --petal-height: 16px; opacity: 0.51; --petal-rotate: -102deg; --petal-scale-x: 1.02; }
+.sakura-petal--35 { bottom: 4%; left: 3%; --petal-width: 30px; --petal-height: 38px; opacity: 0.64; --petal-rotate: 24deg; --petal-scale-x: 0.86; filter: blur(0.25px); }
+.sakura-petal--36 { bottom: 9%; left: 12%; --petal-width: 15px; --petal-height: 20px; opacity: 0.6; --petal-rotate: -38deg; --petal-scale-x: 0.90; }
+.sakura-petal--37 { bottom: 15%; left: 5%; --petal-width: 9px; --petal-height: 13px; opacity: 0.49; --petal-rotate: 64deg; --petal-scale-x: 0.94; }
+.sakura-petal--38 { bottom: 23%; left: 17%; --petal-width: 24px; --petal-height: 32px; opacity: 0.6; --petal-rotate: -72deg; --petal-scale-x: 0.98; filter: blur(0.12px); }
+.sakura-petal--39 { bottom: 31%; left: 7%; --petal-width: 12px; --petal-height: 16px; opacity: 0.55; --petal-rotate: 16deg; --petal-scale-x: 1.02; }
+.sakura-petal--40 { bottom: 39%; left: 22%; --petal-width: 18px; --petal-height: 23px; opacity: 0.58; --petal-rotate: 98deg; --petal-scale-x: 0.86; }
+.sakura-petal--41 { bottom: 49%; left: 4%; --petal-width: 10px; --petal-height: 14px; opacity: 0.52; --petal-rotate: -51deg; --petal-scale-x: 0.90; }
+.sakura-petal--42 { bottom: 60%; left: 18%; --petal-width: 14px; --petal-height: 19px; opacity: 0.57; --petal-rotate: 43deg; --petal-scale-x: 0.94; }
+.sakura-petal--43 { bottom: 2%; left: 23%; --petal-width: 8px; --petal-height: 12px; opacity: 0.48; --petal-rotate: 78deg; --petal-scale-x: 0.98; }
+.sakura-petal--44 { bottom: 13%; left: 24%; --petal-width: 16px; --petal-height: 20px; opacity: 0.61; --petal-rotate: -18deg; --petal-scale-x: 1.02; }
+.sakura-petal--45 { bottom: 26%; left: 2%; --petal-width: 26px; --petal-height: 34px; opacity: 0.66; --petal-rotate: 57deg; --petal-scale-x: 0.86; filter: blur(0.25px); }
+.sakura-petal--46 { bottom: 37%; left: 13%; --petal-width: 11px; --petal-height: 15px; opacity: 0.53; --petal-rotate: -85deg; --petal-scale-x: 0.90; }
+.sakura-petal--47 { bottom: 47%; left: 24%; --petal-width: 19px; --petal-height: 24px; opacity: 0.59; --petal-rotate: 28deg; --petal-scale-x: 0.94; }
+.sakura-petal--48 { bottom: 56%; left: 8%; --petal-width: 8px; --petal-height: 12px; opacity: 0.47; --petal-rotate: 116deg; --petal-scale-x: 0.98; }
+.sakura-petal--49 { bottom: 68%; left: 15%; --petal-width: 14px; --petal-height: 18px; opacity: 0.55; --petal-rotate: -33deg; --petal-scale-x: 1.02; }
+.sakura-petal--50 { bottom: 77%; left: 4%; --petal-width: 20px; --petal-height: 26px; opacity: 0.61; --petal-rotate: 69deg; --petal-scale-x: 0.86; filter: blur(0.12px); }
+.sakura-petal--51 { bottom: 82%; left: 20%; --petal-width: 10px; --petal-height: 14px; opacity: 0.49; --petal-rotate: -12deg; --petal-scale-x: 0.90; }
+.sakura-petal--52 { bottom: 3%; right: 4%; --petal-width: 34px; --petal-height: 42px; opacity: 0.68; --petal-rotate: -31deg; --petal-scale-x: 0.94; filter: blur(0.25px); }
+.sakura-petal--53 { bottom: 8%; right: 14%; --petal-width: 11px; --petal-height: 15px; opacity: 0.53; --petal-rotate: 55deg; --petal-scale-x: 0.98; }
+.sakura-petal--54 { bottom: 16%; right: 6%; --petal-width: 17px; --petal-height: 22px; opacity: 0.61; --petal-rotate: -77deg; --petal-scale-x: 1.02; }
+.sakura-petal--55 { bottom: 24%; right: 20%; --petal-width: 9px; --petal-height: 13px; opacity: 0.49; --petal-rotate: 19deg; --petal-scale-x: 0.86; }
+.sakura-petal--56 { bottom: 33%; right: 8%; --petal-width: 23px; --petal-height: 30px; opacity: 0.61; --petal-rotate: 86deg; --petal-scale-x: 0.90; filter: blur(0.12px); }
+.sakura-petal--57 { bottom: 43%; right: 17%; --petal-width: 14px; --petal-height: 19px; opacity: 0.57; --petal-rotate: -44deg; --petal-scale-x: 0.94; }
+.sakura-petal--58 { bottom: 52%; right: 4%; --petal-width: 10px; --petal-height: 14px; opacity: 0.51; --petal-rotate: 103deg; --petal-scale-x: 0.98; }
+.sakura-petal--59 { bottom: 62%; right: 21%; --petal-width: 18px; --petal-height: 23px; opacity: 0.59; --petal-rotate: -16deg; --petal-scale-x: 1.02; }
+.sakura-petal--60 { bottom: 72%; right: 7%; --petal-width: 13px; --petal-height: 18px; opacity: 0.56; --petal-rotate: 49deg; --petal-scale-x: 0.86; }
+.sakura-petal--61 { bottom: 2%; right: 24%; --petal-width: 8px; --petal-height: 12px; opacity: 0.47; --petal-rotate: -93deg; --petal-scale-x: 0.90; }
+.sakura-petal--62 { bottom: 13%; right: 25%; --petal-width: 15px; --petal-height: 20px; opacity: 0.6; --petal-rotate: 35deg; --petal-scale-x: 0.94; }
+.sakura-petal--63 { bottom: 27%; right: 2%; --petal-width: 28px; --petal-height: 36px; opacity: 0.65; --petal-rotate: -62deg; --petal-scale-x: 0.98; filter: blur(0.25px); }
+.sakura-petal--64 { bottom: 38%; right: 23%; --petal-width: 12px; --petal-height: 16px; opacity: 0.54; --petal-rotate: 73deg; --petal-scale-x: 1.02; }
+.sakura-petal--65 { bottom: 49%; right: 14%; --petal-width: 20px; --petal-height: 26px; opacity: 0.62; --petal-rotate: -28deg; --petal-scale-x: 0.86; filter: blur(0.12px); }
+.sakura-petal--66 { bottom: 58%; right: 24%; --petal-width: 9px; --petal-height: 12px; opacity: 0.49; --petal-rotate: 117deg; --petal-scale-x: 0.90; }
+.sakura-petal--67 { bottom: 70%; right: 18%; --petal-width: 16px; --petal-height: 21px; opacity: 0.58; --petal-rotate: -53deg; --petal-scale-x: 0.94; }
+.sakura-petal--68 { bottom: 80%; right: 3%; --petal-width: 10px; --petal-height: 14px; opacity: 0.51; --petal-rotate: 14deg; --petal-scale-x: 0.98; }
 
 
 a {
