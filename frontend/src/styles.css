@@ -88,17 +88,26 @@ a {
   pointer-events: none;
 }
 
-.hero::before {
-  top: 84px;
-  right: -96px;
-  width: 320px;
-  height: 320px;
-  background: rgba(246, 216, 210, 0.58);
+body:not(.is-dashboard) .hero::before {
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  background-image: url("/assets/lotus-bg.png");
+  background-size: cover;
+  background-position: center top;
+  background-repeat: no-repeat;
+  opacity: 1;
+}
+
+.hero > * {
+  position: relative;
+  z-index: 1;
 }
 
 .hero::after {
   right: 128px;
   bottom: -120px;
+  z-index: 0;
   width: 260px;
   height: 260px;
   border: 1px solid rgba(201, 130, 120, 0.28);
