@@ -46,7 +46,6 @@ const renderPublicApp = () => {
   document.body.classList.remove('is-dashboard');
   root.innerHTML = `
   <main class="app-shell">
-    <div class="reference-lotus-layer reference-lotus-layer--public" aria-hidden="true"></div>
     <header class="hero" aria-labelledby="hero-title">
       <nav class="topbar" aria-label="Основная навигация">
         <div class="brand" aria-label="Женский клуб">
@@ -401,7 +400,6 @@ const renderDashboardApp = (role) => {
   document.body.classList.add('is-dashboard');
   root.innerHTML = `
     <div class="dashboard-shell" data-dashboard-role="${role}">
-      <div class="reference-lotus-layer reference-lotus-layer--dashboard" aria-hidden="true"></div>
       <header class="dashboard-topbar">
         <div class="dashboard-brand" aria-label="Женский клуб">
           <span class="brand-mark" aria-hidden="true">ЖК</span>
