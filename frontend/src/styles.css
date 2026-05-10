@@ -40,17 +40,6 @@ body {
     linear-gradient(135deg, var(--color-background), var(--color-background-soft));
 }
 
-body:not(.is-dashboard)::before {
-  position: fixed;
-  z-index: 0;
-  inset: 0;
-  content: "";
-  pointer-events: none;
-  background-image: url("/assets/lotus-bg.png");
-  background-size: cover;
-  background-position: center center;
-  background-repeat: no-repeat;
-}
 
 a {
   color: inherit;

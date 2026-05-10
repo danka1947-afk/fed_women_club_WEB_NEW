@@ -176,15 +176,9 @@ def test_frontend_removes_broken_lotus_background() -> None:
         assert removed_lotus_marker not in styles
 
     assert ".hero::before" not in styles
-    assert "body:not(.is-dashboard)::before" in styles
-    assert 'background-image: url("/assets/lotus-bg.png");' in styles
-    assert "position: fixed;" in styles
-    assert "inset: 0;" in styles
-    assert "pointer-events: none;" in styles
-    assert "z-index: 0;" in styles
-    assert "background-size: cover;" in styles
-    assert "background-position: center center;" in styles
-    assert "background-repeat: no-repeat;" in styles
+    assert "body:not(.is-dashboard)::before" not in styles
+    assert "/assets/lotus-bg.png" not in source
+    assert "/assets/lotus-bg.png" not in styles
 
     for expected in (
         "Женский клуб",
