@@ -208,6 +208,43 @@ body {
 .sakura-petal--67 { bottom: 70%; right: 18%; --petal-width: 16px; --petal-height: 21px; opacity: 0.58; --petal-rotate: -53deg; --petal-scale-x: 0.94; }
 .sakura-petal--68 { bottom: 80%; right: 3%; --petal-width: 10px; --petal-height: 14px; opacity: 0.51; --petal-rotate: 14deg; --petal-scale-x: 0.98; }
 
+.sakura-petal--center {
+  top: var(--fall-start-y, -16%);
+  bottom: auto;
+  left: var(--center-left, 50%);
+  width: var(--petal-width, 9px);
+  height: var(--petal-height, 13px);
+  opacity: var(--center-opacity, 0.3);
+  animation-name: sakuraFall;
+  animation-duration: var(--fall-duration, 40s);
+  animation-delay: var(--fall-delay, 0s);
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  animation-fill-mode: both;
+  will-change: transform;
+}
+
+.sakura-petal--center-1 { --center-left: 35%; --petal-width: 8px; --petal-height: 12px; --center-opacity: 0.26; --petal-rotate: -18deg; --petal-scale-x: 0.88; --fall-start-y: -18%; --fall-duration: 44s; --fall-delay: -4s; --fall-drift-mid: 0.9vw; --fall-drift: 2.1vw; --fall-sway-rotate: 8deg; --fall-rotate: 24deg; }
+.sakura-petal--center-2 { --center-left: 39%; --petal-width: 10px; --petal-height: 14px; --center-opacity: 0.32; --petal-rotate: 36deg; --petal-scale-x: 0.92; --fall-start-y: -12%; --fall-duration: 48s; --fall-delay: -18s; --fall-drift-mid: -0.7vw; --fall-drift: -1.8vw; --fall-sway-rotate: -7deg; --fall-rotate: -22deg; }
+.sakura-petal--center-3 { --center-left: 43%; --petal-width: 7px; --petal-height: 11px; --center-opacity: 0.24; --petal-rotate: 74deg; --petal-scale-x: 0.96; --fall-start-y: -20%; --fall-duration: 42s; --fall-delay: -31s; --fall-drift-mid: 0.6vw; --fall-drift: 1.5vw; --fall-sway-rotate: 9deg; --fall-rotate: 27deg; }
+.sakura-petal--center-4 { --center-left: 47%; --petal-width: 11px; --petal-height: 15px; --center-opacity: 0.34; --petal-rotate: -52deg; --petal-scale-x: 0.9; --fall-start-y: -15%; --fall-duration: 52s; --fall-delay: -9s; --fall-drift-mid: -1.0vw; --fall-drift: -2.4vw; --fall-sway-rotate: -8deg; --fall-rotate: -25deg; }
+.sakura-petal--center-5 { --center-left: 51%; --petal-width: 8px; --petal-height: 12px; --center-opacity: 0.28; --petal-rotate: 12deg; --petal-scale-x: 0.86; --fall-start-y: -17%; --fall-duration: 46s; --fall-delay: -24s; --fall-drift-mid: 0.8vw; --fall-drift: 2.0vw; --fall-sway-rotate: 7deg; --fall-rotate: 20deg; }
+.sakura-petal--center-6 { --center-left: 56%; --petal-width: 12px; --petal-height: 16px; --center-opacity: 0.36; --petal-rotate: 92deg; --petal-scale-x: 0.94; --fall-start-y: -13%; --fall-duration: 55s; --fall-delay: -37s; --fall-drift-mid: -0.8vw; --fall-drift: -2.1vw; --fall-sway-rotate: -6deg; --fall-rotate: -21deg; }
+.sakura-petal--center-7 { --center-left: 61%; --petal-width: 9px; --petal-height: 13px; --center-opacity: 0.3; --petal-rotate: -33deg; --petal-scale-x: 0.9; --fall-start-y: -19%; --fall-duration: 49s; --fall-delay: -14s; --fall-drift-mid: 0.7vw; --fall-drift: 1.7vw; --fall-sway-rotate: 8deg; --fall-rotate: 23deg; }
+.sakura-petal--center-8 { --center-left: 65%; --petal-width: 7px; --petal-height: 10px; --center-opacity: 0.22; --petal-rotate: 58deg; --petal-scale-x: 0.98; --fall-start-y: -14%; --fall-duration: 43s; --fall-delay: -28s; --fall-drift-mid: -0.6vw; --fall-drift: -1.4vw; --fall-sway-rotate: -9deg; --fall-rotate: -26deg; }
+.sakura-petal--center-9 { --center-left: 37%; --petal-width: 11px; --petal-height: 15px; --center-opacity: 0.33; --petal-rotate: -76deg; --petal-scale-x: 0.92; --fall-start-y: -21%; --fall-duration: 58s; --fall-delay: -43s; --fall-drift-mid: 1.0vw; --fall-drift: 2.3vw; --fall-sway-rotate: 6deg; --fall-rotate: 19deg; }
+.sakura-petal--center-10 { --center-left: 41%; --petal-width: 8px; --petal-height: 12px; --center-opacity: 0.25; --petal-rotate: 24deg; --petal-scale-x: 0.88; --fall-start-y: -16%; --fall-duration: 45s; --fall-delay: -34s; --fall-drift-mid: -0.7vw; --fall-drift: -1.6vw; --fall-sway-rotate: -7deg; --fall-rotate: -23deg; }
+.sakura-petal--center-11 { --center-left: 45%; --petal-width: 10px; --petal-height: 14px; --center-opacity: 0.31; --petal-rotate: 108deg; --petal-scale-x: 0.95; --fall-start-y: -18%; --fall-duration: 50s; --fall-delay: -2s; --fall-drift-mid: 0.9vw; --fall-drift: 1.9vw; --fall-sway-rotate: 7deg; --fall-rotate: 22deg; }
+.sakura-petal--center-12 { --center-left: 49%; --petal-width: 7px; --petal-height: 11px; --center-opacity: 0.23; --petal-rotate: -14deg; --petal-scale-x: 0.9; --fall-start-y: -12%; --fall-duration: 41s; --fall-delay: -21s; --fall-drift-mid: -0.5vw; --fall-drift: -1.3vw; --fall-sway-rotate: -8deg; --fall-rotate: -24deg; }
+.sakura-petal--center-13 { --center-left: 53%; --petal-width: 12px; --petal-height: 16px; --center-opacity: 0.38; --petal-rotate: 44deg; --petal-scale-x: 0.94; --fall-start-y: -22%; --fall-duration: 60s; --fall-delay: -49s; --fall-drift-mid: 1.1vw; --fall-drift: 2.5vw; --fall-sway-rotate: 6deg; --fall-rotate: 18deg; }
+.sakura-petal--center-14 { --center-left: 57%; --petal-width: 9px; --petal-height: 13px; --center-opacity: 0.29; --petal-rotate: -48deg; --petal-scale-x: 0.87; --fall-start-y: -15%; --fall-duration: 47s; --fall-delay: -12s; --fall-drift-mid: -0.9vw; --fall-drift: -2.0vw; --fall-sway-rotate: -7deg; --fall-rotate: -21deg; }
+.sakura-petal--center-15 { --center-left: 62%; --petal-width: 10px; --petal-height: 14px; --center-opacity: 0.32; --petal-rotate: 84deg; --petal-scale-x: 0.93; --fall-start-y: -19%; --fall-duration: 53s; --fall-delay: -27s; --fall-drift-mid: 0.8vw; --fall-drift: 1.8vw; --fall-sway-rotate: 7deg; --fall-rotate: 23deg; }
+.sakura-petal--center-16 { --center-left: 64%; --petal-width: 8px; --petal-height: 12px; --center-opacity: 0.27; --petal-rotate: -96deg; --petal-scale-x: 0.91; --fall-start-y: -13%; --fall-duration: 44s; --fall-delay: -39s; --fall-drift-mid: -0.7vw; --fall-drift: -1.7vw; --fall-sway-rotate: -8deg; --fall-rotate: -25deg; }
+.sakura-petal--center-17 { --center-left: 36%; --petal-width: 7px; --petal-height: 11px; --center-opacity: 0.22; --petal-rotate: 64deg; --petal-scale-x: 0.96; --fall-start-y: -17%; --fall-duration: 42s; --fall-delay: -16s; --fall-drift-mid: 0.5vw; --fall-drift: 1.2vw; --fall-sway-rotate: 6deg; --fall-rotate: 20deg; }
+.sakura-petal--center-18 { --center-left: 44%; --petal-width: 9px; --petal-height: 13px; --center-opacity: 0.28; --petal-rotate: -28deg; --petal-scale-x: 0.89; --fall-start-y: -20%; --fall-duration: 51s; --fall-delay: -45s; --fall-drift-mid: -0.8vw; --fall-drift: -1.9vw; --fall-sway-rotate: -6deg; --fall-rotate: -18deg; }
+.sakura-petal--center-19 { --center-left: 58%; --petal-width: 11px; --petal-height: 15px; --center-opacity: 0.35; --petal-rotate: 18deg; --petal-scale-x: 0.92; --fall-start-y: -18%; --fall-duration: 56s; --fall-delay: -30s; --fall-drift-mid: 0.9vw; --fall-drift: 2.2vw; --fall-sway-rotate: 7deg; --fall-rotate: 21deg; }
+.sakura-petal--center-20 { --center-left: 63%; --petal-width: 8px; --petal-height: 12px; --center-opacity: 0.26; --petal-rotate: -58deg; --petal-scale-x: 0.9; --fall-start-y: -14%; --fall-duration: 46s; --fall-delay: -6s; --fall-drift-mid: -0.6vw; --fall-drift: -1.5vw; --fall-sway-rotate: -7deg; --fall-rotate: -22deg; }
+
 .sakura-petal--1,
 .sakura-petal--2,
 .sakura-petal--3,
@@ -336,12 +373,20 @@ a {
   z-index: 1;
 }
 
-.hero,
-.panel {
-  border: 1px solid var(--color-border);
-  background: rgba(255, 255, 255, 0.78);
+body:not(.is-dashboard) .hero {
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  background: rgba(255, 250, 247, 0.78);
   box-shadow: var(--shadow-soft);
-  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(10px) saturate(1.05);
+  backdrop-filter: blur(10px) saturate(1.05);
+}
+
+body:not(.is-dashboard) .panel {
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  background: rgba(255, 250, 247, 0.78);
+  box-shadow: var(--shadow-soft);
+  -webkit-backdrop-filter: blur(10px) saturate(1.05);
+  backdrop-filter: blur(10px) saturate(1.05);
 }
 
 .hero {
@@ -535,12 +580,14 @@ h2 {
   position: relative;
   min-height: 390px;
   padding: 34px;
-  border: 1px solid rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.58);
   border-radius: 38px;
   background:
-    linear-gradient(150deg, rgba(255, 255, 255, 0.92), rgba(246, 216, 210, 0.62)),
-    radial-gradient(circle at top right, rgba(201, 130, 120, 0.24), transparent 13rem);
+    linear-gradient(150deg, rgba(255, 250, 247, 0.78), rgba(255, 255, 255, 0.7)),
+    radial-gradient(circle at top right, rgba(201, 130, 120, 0.18), transparent 13rem);
   box-shadow: var(--shadow-card);
+  -webkit-backdrop-filter: blur(10px) saturate(1.05);
+  backdrop-filter: blur(10px) saturate(1.05);
 }
 
 .decor-line {
@@ -581,9 +628,11 @@ h2 {
 .feature-card {
   min-height: 210px;
   padding: 24px;
-  border: 1px solid var(--color-border);
-  background: var(--color-surface);
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  background: rgba(255, 250, 247, 0.76);
   box-shadow: 0 14px 34px rgba(143, 81, 75, 0.08);
+  -webkit-backdrop-filter: blur(10px) saturate(1.05);
+  backdrop-filter: blur(10px) saturate(1.05);
 }
 
 .feature-card span {
@@ -620,12 +669,14 @@ h2 {
   overflow: hidden;
   margin-top: 22px;
   padding: 18px;
-  border: 1px solid rgba(201, 130, 120, 0.28);
+  border: 1px solid rgba(255, 255, 255, 0.58);
   border-radius: 26px;
   background:
-    linear-gradient(145deg, rgba(255, 255, 255, 0.9), rgba(255, 247, 245, 0.94)),
-    radial-gradient(circle at top right, rgba(246, 216, 210, 0.72), transparent 12rem);
+    linear-gradient(145deg, rgba(255, 250, 247, 0.74), rgba(255, 255, 255, 0.68)),
+    radial-gradient(circle at top right, rgba(246, 216, 210, 0.42), transparent 12rem);
   box-shadow: 0 18px 42px rgba(143, 81, 75, 0.11);
+  -webkit-backdrop-filter: blur(10px) saturate(1.05);
+  backdrop-filter: blur(10px) saturate(1.05);
 }
 
 .city-select-card::before {
