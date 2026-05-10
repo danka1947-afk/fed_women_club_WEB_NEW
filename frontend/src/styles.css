@@ -121,6 +121,24 @@ body {
   --petal-vein: rgba(154, 60, 84, 0.23);
 }
 
+@keyframes sakuraFall {
+  0% {
+    transform: translate3d(0, -12vh, 0) rotate(var(--petal-rotate, 18deg)) skew(-7deg, 3deg) scaleX(var(--petal-scale-x, 0.92));
+  }
+
+  38% {
+    transform: translate3d(var(--fall-drift-mid, 1.2vw), 42vh, 0) rotate(calc(var(--petal-rotate, 18deg) + var(--fall-sway-rotate, 10deg))) skew(-7deg, 3deg) scaleX(var(--petal-scale-x, 0.92));
+  }
+
+  72% {
+    transform: translate3d(var(--fall-drift-late, var(--fall-drift, 2vw)), 82vh, 0) rotate(calc(var(--petal-rotate, 18deg) + var(--fall-rotate-late, var(--fall-rotate, 24deg)))) skew(-7deg, 3deg) scaleX(var(--petal-scale-x, 0.92));
+  }
+
+  100% {
+    transform: translate3d(var(--fall-drift, 2vw), 112vh, 0) rotate(calc(var(--petal-rotate, 18deg) + var(--fall-rotate, 24deg))) skew(-7deg, 3deg) scaleX(var(--petal-scale-x, 0.92));
+  }
+}
+
 .sakura-petal--1 { top: 3%; left: 3%; --petal-width: 26px; --petal-height: 32px; opacity: 0.65; --petal-rotate: -24deg; --petal-scale-x: 0.90; filter: blur(0.25px); }
 .sakura-petal--2 { top: 6%; left: 11%; --petal-width: 18px; --petal-height: 22px; opacity: 0.61; --petal-rotate: 38deg; --petal-scale-x: 0.94; }
 .sakura-petal--3 { top: 11%; left: 5%; --petal-width: 10px; --petal-height: 14px; opacity: 0.53; --petal-rotate: 72deg; --petal-scale-x: 0.98; }
@@ -189,6 +207,108 @@ body {
 .sakura-petal--66 { bottom: 58%; right: 24%; --petal-width: 9px; --petal-height: 12px; opacity: 0.49; --petal-rotate: 117deg; --petal-scale-x: 0.90; }
 .sakura-petal--67 { bottom: 70%; right: 18%; --petal-width: 16px; --petal-height: 21px; opacity: 0.58; --petal-rotate: -53deg; --petal-scale-x: 0.94; }
 .sakura-petal--68 { bottom: 80%; right: 3%; --petal-width: 10px; --petal-height: 14px; opacity: 0.51; --petal-rotate: 14deg; --petal-scale-x: 0.98; }
+
+.sakura-petal--1,
+.sakura-petal--2,
+.sakura-petal--3,
+.sakura-petal--4,
+.sakura-petal--5,
+.sakura-petal--6,
+.sakura-petal--7,
+.sakura-petal--8,
+.sakura-petal--9,
+.sakura-petal--10,
+.sakura-petal--12,
+.sakura-petal--14,
+.sakura-petal--16,
+.sakura-petal--18,
+.sakura-petal--19,
+.sakura-petal--20,
+.sakura-petal--21,
+.sakura-petal--22,
+.sakura-petal--23,
+.sakura-petal--24,
+.sakura-petal--25,
+.sakura-petal--26,
+.sakura-petal--27,
+.sakura-petal--29,
+.sakura-petal--31,
+.sakura-petal--33,
+.sakura-petal--35,
+.sakura-petal--37,
+.sakura-petal--39,
+.sakura-petal--41,
+.sakura-petal--43,
+.sakura-petal--45,
+.sakura-petal--48,
+.sakura-petal--50,
+.sakura-petal--52,
+.sakura-petal--54,
+.sakura-petal--56,
+.sakura-petal--58,
+.sakura-petal--60,
+.sakura-petal--63,
+.sakura-petal--65,
+.sakura-petal--67 {
+  top: var(--fall-start-y, -10%);
+  bottom: auto;
+  animation-name: sakuraFall;
+  animation-duration: var(--fall-duration, 32s);
+  animation-delay: var(--fall-delay, 0s);
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  animation-fill-mode: both;
+  will-change: transform;
+}
+
+.sakura-petal--1 { --fall-start-y: -11%; --fall-duration: 43s; --fall-delay: -7s; --fall-drift-mid: 1.6vw; --fall-drift: 3.1vw; --fall-sway-rotate: 8deg; --fall-rotate: 24deg; }
+.sakura-petal--2 { --fall-start-y: -8%; --fall-duration: 34s; --fall-delay: -22s; --fall-drift-mid: -0.9vw; --fall-drift: -2.2vw; --fall-sway-rotate: -9deg; --fall-rotate: -20deg; }
+.sakura-petal--3 { --fall-start-y: -13%; --fall-duration: 24s; --fall-delay: -11s; --fall-drift-mid: 1.1vw; --fall-drift: 2.6vw; --fall-sway-rotate: 12deg; --fall-rotate: 31deg; }
+.sakura-petal--4 { --fall-start-y: -10%; --fall-duration: 41s; --fall-delay: -31s; --fall-drift-mid: -1.4vw; --fall-drift: -3.4vw; --fall-sway-rotate: -7deg; --fall-rotate: -26deg; }
+.sakura-petal--5 { --fall-start-y: -12%; --fall-duration: 29s; --fall-delay: -4s; --fall-drift-mid: 0.8vw; --fall-drift: 2.1vw; --fall-sway-rotate: 10deg; --fall-rotate: 28deg; }
+.sakura-petal--6 { --fall-start-y: -7%; --fall-duration: 22s; --fall-delay: -16s; --fall-drift-mid: -1.0vw; --fall-drift: -2.8vw; --fall-sway-rotate: -11deg; --fall-rotate: -33deg; }
+.sakura-petal--7 { --fall-start-y: -14%; --fall-duration: 31s; --fall-delay: -25s; --fall-drift-mid: 1.4vw; --fall-drift: 3.0vw; --fall-sway-rotate: 7deg; --fall-rotate: 22deg; }
+.sakura-petal--8 { --fall-start-y: -9%; --fall-duration: 25s; --fall-delay: -2s; --fall-drift-mid: -0.7vw; --fall-drift: -1.9vw; --fall-sway-rotate: -8deg; --fall-rotate: -24deg; }
+.sakura-petal--9 { --fall-start-y: -12%; --fall-duration: 39s; --fall-delay: -18s; --fall-drift-mid: 1.0vw; --fall-drift: 2.4vw; --fall-sway-rotate: 9deg; --fall-rotate: 26deg; }
+.sakura-petal--10 { --fall-start-y: -6%; --fall-duration: 21s; --fall-delay: -13s; --fall-drift-mid: -0.8vw; --fall-drift: -2.1vw; --fall-sway-rotate: -10deg; --fall-rotate: -29deg; }
+.sakura-petal--12 { --fall-start-y: -15%; --fall-duration: 45s; --fall-delay: -35s; --fall-drift-mid: -1.2vw; --fall-drift: -3.0vw; --fall-sway-rotate: 6deg; --fall-rotate: 21deg; }
+.sakura-petal--14 { --fall-start-y: -10%; --fall-duration: 23s; --fall-delay: -8s; --fall-drift-mid: 0.9vw; --fall-drift: 2.5vw; --fall-sway-rotate: 11deg; --fall-rotate: 32deg; }
+.sakura-petal--16 { --fall-start-y: -8%; --fall-duration: 20s; --fall-delay: -17s; --fall-drift-mid: -0.8vw; --fall-drift: -2.4vw; --fall-sway-rotate: -12deg; --fall-rotate: -35deg; }
+.sakura-petal--18 { --fall-start-y: -12%; --fall-duration: 44s; --fall-delay: -29s; --fall-drift-mid: -1.5vw; --fall-drift: -3.3vw; --fall-sway-rotate: -8deg; --fall-rotate: -24deg; }
+.sakura-petal--19 { --fall-start-y: -7%; --fall-duration: 24s; --fall-delay: -6s; --fall-drift-mid: 0.9vw; --fall-drift: 2.1vw; --fall-sway-rotate: 10deg; --fall-rotate: 30deg; }
+.sakura-petal--20 { --fall-start-y: -11%; --fall-duration: 33s; --fall-delay: -21s; --fall-drift-mid: -1.0vw; --fall-drift: -2.7vw; --fall-sway-rotate: -9deg; --fall-rotate: -25deg; }
+.sakura-petal--21 { --fall-start-y: -6%; --fall-duration: 19s; --fall-delay: -12s; --fall-drift-mid: 1.2vw; --fall-drift: 2.9vw; --fall-sway-rotate: 12deg; --fall-rotate: 34deg; }
+.sakura-petal--22 { --fall-start-y: -13%; --fall-duration: 42s; --fall-delay: -37s; --fall-drift-mid: -1.4vw; --fall-drift: -3.2vw; --fall-sway-rotate: -7deg; --fall-rotate: -22deg; }
+.sakura-petal--23 { --fall-start-y: -10%; --fall-duration: 27s; --fall-delay: -15s; --fall-drift-mid: 0.8vw; --fall-drift: 2.2vw; --fall-sway-rotate: 9deg; --fall-rotate: 27deg; }
+.sakura-petal--24 { --fall-start-y: -14%; --fall-duration: 35s; --fall-delay: -27s; --fall-drift-mid: -1.1vw; --fall-drift: -2.6vw; --fall-sway-rotate: -10deg; --fall-rotate: -28deg; }
+.sakura-petal--25 { --fall-start-y: -9%; --fall-duration: 23s; --fall-delay: -3s; --fall-drift-mid: 1.0vw; --fall-drift: 2.7vw; --fall-sway-rotate: 11deg; --fall-rotate: 31deg; }
+.sakura-petal--26 { --fall-start-y: -8%; --fall-duration: 30s; --fall-delay: -19s; --fall-drift-mid: -0.9vw; --fall-drift: -2.2vw; --fall-sway-rotate: -8deg; --fall-rotate: -24deg; }
+.sakura-petal--27 { --fall-start-y: -6%; --fall-duration: 22s; --fall-delay: -10s; --fall-drift-mid: 0.7vw; --fall-drift: 1.8vw; --fall-sway-rotate: 10deg; --fall-rotate: 29deg; }
+.sakura-petal--29 { --fall-start-y: -12%; --fall-duration: 40s; --fall-delay: -32s; --fall-drift-mid: -1.2vw; --fall-drift: -3.1vw; --fall-sway-rotate: -6deg; --fall-rotate: -23deg; }
+.sakura-petal--31 { --fall-start-y: -11%; --fall-duration: 32s; --fall-delay: -24s; --fall-drift-mid: 0.9vw; --fall-drift: 2.0vw; --fall-sway-rotate: 8deg; --fall-rotate: 26deg; }
+.sakura-petal--33 { --fall-start-y: -13%; --fall-duration: 38s; --fall-delay: -14s; --fall-drift-mid: -1.1vw; --fall-drift: -2.8vw; --fall-sway-rotate: -9deg; --fall-rotate: -27deg; }
+.sakura-petal--35 { --fall-start-y: -14%; --fall-duration: 45s; --fall-delay: -39s; --fall-drift-mid: 1.2vw; --fall-drift: 3.0vw; --fall-sway-rotate: 7deg; --fall-rotate: 22deg; }
+.sakura-petal--37 { --fall-start-y: -8%; --fall-duration: 21s; --fall-delay: -5s; --fall-drift-mid: -0.9vw; --fall-drift: -2.5vw; --fall-sway-rotate: -11deg; --fall-rotate: -31deg; }
+.sakura-petal--39 { --fall-start-y: -10%; --fall-duration: 26s; --fall-delay: -18s; --fall-drift-mid: 1.0vw; --fall-drift: 2.6vw; --fall-sway-rotate: 10deg; --fall-rotate: 28deg; }
+.sakura-petal--41 { --fall-start-y: -7%; --fall-duration: 24s; --fall-delay: -9s; --fall-drift-mid: -0.7vw; --fall-drift: -2.0vw; --fall-sway-rotate: -9deg; --fall-rotate: -26deg; }
+.sakura-petal--43 { --fall-start-y: -6%; --fall-duration: 18s; --fall-delay: -15s; --fall-drift-mid: 0.8vw; --fall-drift: 2.3vw; --fall-sway-rotate: 12deg; --fall-rotate: 34deg; }
+.sakura-petal--45 { --fall-start-y: -13%; --fall-duration: 44s; --fall-delay: -28s; --fall-drift-mid: -1.3vw; --fall-drift: -3.0vw; --fall-sway-rotate: -7deg; --fall-rotate: -24deg; }
+.sakura-petal--48 { --fall-start-y: -7%; --fall-duration: 20s; --fall-delay: -1s; --fall-drift-mid: 1.0vw; --fall-drift: 2.7vw; --fall-sway-rotate: 11deg; --fall-rotate: 32deg; }
+.sakura-petal--50 { --fall-start-y: -11%; --fall-duration: 36s; --fall-delay: -23s; --fall-drift-mid: -1.1vw; --fall-drift: -2.7vw; --fall-sway-rotate: -8deg; --fall-rotate: -25deg; }
+.sakura-petal--52 { --fall-start-y: -15%; --fall-duration: 45s; --fall-delay: -41s; --fall-drift-mid: -1.5vw; --fall-drift: -3.4vw; --fall-sway-rotate: -6deg; --fall-rotate: -22deg; }
+.sakura-petal--54 { --fall-start-y: -11%; --fall-duration: 34s; --fall-delay: -20s; --fall-drift-mid: 1.0vw; --fall-drift: 2.4vw; --fall-sway-rotate: 9deg; --fall-rotate: 26deg; }
+.sakura-petal--56 { --fall-start-y: -13%; --fall-duration: 41s; --fall-delay: -33s; --fall-drift-mid: -1.2vw; --fall-drift: -3.0vw; --fall-sway-rotate: -8deg; --fall-rotate: -24deg; }
+.sakura-petal--58 { --fall-start-y: -8%; --fall-duration: 23s; --fall-delay: -7s; --fall-drift-mid: 0.8vw; --fall-drift: 2.2vw; --fall-sway-rotate: 10deg; --fall-rotate: 30deg; }
+.sakura-petal--60 { --fall-start-y: -9%; --fall-duration: 28s; --fall-delay: -16s; --fall-drift-mid: -0.9vw; --fall-drift: -2.4vw; --fall-sway-rotate: -9deg; --fall-rotate: -27deg; }
+.sakura-petal--63 { --fall-start-y: -14%; --fall-duration: 43s; --fall-delay: -30s; --fall-drift-mid: 1.2vw; --fall-drift: 3.1vw; --fall-sway-rotate: 7deg; --fall-rotate: 23deg; }
+.sakura-petal--65 { --fall-start-y: -12%; --fall-duration: 37s; --fall-delay: -26s; --fall-drift-mid: -1.0vw; --fall-drift: -2.5vw; --fall-sway-rotate: -8deg; --fall-rotate: -24deg; }
+.sakura-petal--67 { --fall-start-y: -10%; --fall-duration: 31s; --fall-delay: -12s; --fall-drift-mid: 0.9vw; --fall-drift: 2.1vw; --fall-sway-rotate: 9deg; --fall-rotate: 27deg; }
+
+@media (prefers-reduced-motion: reduce) {
+  .sakura-petal {
+    animation: none !important;
+  }
+}
 
 
 a {

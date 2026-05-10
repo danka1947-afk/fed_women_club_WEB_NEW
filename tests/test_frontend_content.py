@@ -87,6 +87,14 @@ def test_public_frontend_contains_css_only_sakura_layer() -> None:
 
     assert "--petal-vein" in styles
     assert "filter: blur(0.25px);" in styles
+    assert "@keyframes sakuraFall" in styles
+    assert "translate3d(" in styles
+    assert "animation-duration:" in styles
+    assert "animation-delay:" in styles
+    assert "--fall-duration:" in styles
+    assert "--fall-delay:" in styles
+    assert "prefers-reduced-motion: reduce" in styles
+    assert "animation: none !important;" in styles
     assert "position: fixed;" in styles
     assert "pointer-events: none;" in styles
     assert "z-index: 0;" in styles
