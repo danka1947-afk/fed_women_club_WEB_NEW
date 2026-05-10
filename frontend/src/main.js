@@ -217,6 +217,7 @@ const adminState = {
   verifications: [],
   selectedPartnerIdForOffers: '',
   selectedPartnerIdForQr: '',
+  selectedPartnerIdForEdit: '',
   panelMessage: '',
   formMessages: {},
   overviewPartialError: false,
@@ -1160,12 +1161,58 @@ const renderCategoriesTab = () => `
   ${renderTable(['Категория', 'Слаг', 'Сортировка'], adminState.categories.map((category) => [category.title, category.slug, category.sort_order]))}
 `;
 
+const renderAdminPartnerAction = (partner) => `
+  <button class="admin-inline-action" type="button" data-admin-partner-edit="${escapeHtml(partner.id)}">Редактировать</button>
+`;
+
+const renderPartnerEditForm = () => {
+  const partner = adminState.partners.find((item) => String(item.id) === String(adminState.selectedPartnerIdForEdit));
+  if (!partner) {
+    return '';
+  }
+
+  return `
+    <form class="admin-form" data-admin-form="partnerEdit" data-partner-id="${escapeHtml(partner.id)}">
+      <h4>Редактировать партнёра</h4>
+      <label>Город${renderSelect('city_id', adminState.cities.map((city) => [city.id, city.name]), true, partner.city_id)}</label>
+      <label>Категория${renderSelect('category_slug', adminState.categories.map((category) => [category.slug, category.title]), false, partner.category_slug)}</label>
+      <label>Владелец${renderSelect('owner_user_id', adminState.users.filter((item) => item.role === 'partner').map((item) => [item.id, item.email || item.phone || `Партнёр #${item.id}`]), false, partner.owner_user_id || '', 'Без владельца')}</label>
+      <label>Название<input name="name" required value="${escapeHtml(partner.name || '')}" /></label>
+      <label>Описание<textarea name="description" rows="3">${escapeHtml(partner.description || '')}</textarea></label>
+      <label>Адрес<input name="address" value="${escapeHtml(partner.address || '')}" /></label>
+      <label>Телефон<input name="phone" value="${escapeHtml(partner.phone || '')}" /></label>
+      <label>Сайт<input name="website_url" value="${escapeHtml(partner.website_url || '')}" /></label>
+      <label>Соцсеть<input name="social_url" value="${escapeHtml(partner.social_url || '')}" /></label>
+      <label class="checkbox-row"><input name="is_active" type="checkbox" ${partner.is_active ? 'checked' : ''} /> Активен</label>
+      <label class="checkbox-row"><input name="is_verified" type="checkbox" ${partner.is_verified ? 'checked' : ''} /> Проверен</label>
+      <div class="admin-form-actions">
+        <button type="submit">Сохранить изменения</button>
+        <button class="admin-inline-action" type="button" data-admin-partner-edit-cancel>Отмена</button>
+      </div>
+      <p class="form-message" data-form-message="partnerEdit">${escapeHtml(adminState.formMessages.partnerEdit || '')}</p>
+    </form>
+  `;
+};
+
 const renderPartnersTab = () => `
   <div class="admin-two-column admin-two-column--wide">
     <div>
       <div class="admin-section-heading"><h4>Партнёры</h4><p>Базовый список партнёров клуба.</p></div>
-      ${renderTable(['Партнёр', 'Город', 'Категория', 'Владелец', 'Активен', 'Проверен'], adminState.partners.map((partner) => [partner.name, partner.city_name, partner.category_slug, partner.owner_email, formatBool(partner.is_active), partner.is_verified ? 'Проверен' : 'Не проверен']))}
+      ${renderTable(
+        ['Партнёр', 'Город', 'Категория', 'Владелец', 'Активен', 'Проверен', 'Действие'],
+        adminState.partners.map((partner) => [
+          formatValue(partner.name),
+          formatValue(partner.city_name),
+          formatValue(partner.category_slug),
+          formatValue(partner.owner_email),
+          formatValue(formatBool(partner.is_active)),
+          formatValue(partner.is_verified ? 'Проверен' : 'Не проверен'),
+          renderAdminPartnerAction(partner),
+        ]),
+        true,
+      )}
     </div>
+    ${adminState.selectedPartnerIdForEdit ? renderPartnerEditForm() : `
     <form class="admin-form" data-admin-form="partner">
       <h4>Новый партнёр</h4>
       <label>Город${renderSelect('city_id', adminState.cities.map((city) => [city.id, city.name]), true)}</label>
@@ -1181,6 +1228,7 @@ const renderPartnersTab = () => `
       <button type="submit">Создать партнёра</button>
       <p class="form-message" data-form-message="partner">${escapeHtml(adminState.formMessages.partner || '')}</p>
     </form>
+    `}
   </div>
 `;
 
@@ -1587,6 +1635,20 @@ const toggleUserActive = async (userId) => {
   renderAdminLayout();
 };
 
+const buildPartnerPayload = (formData) => ({
+  city_id: Number(formData.get('city_id')),
+  category_slug: getOptionalText(formData, 'category_slug'),
+  owner_user_id: formData.get('owner_user_id') ? Number(formData.get('owner_user_id')) : null,
+  name: getOptionalText(formData, 'name'),
+  description: getOptionalText(formData, 'description'),
+  address: getOptionalText(formData, 'address'),
+  phone: getOptionalText(formData, 'phone'),
+  website_url: getOptionalText(formData, 'website_url'),
+  social_url: getOptionalText(formData, 'social_url'),
+  is_active: formData.has('is_active'),
+  is_verified: formData.has('is_verified'),
+});
+
 const submitPartner = async (form) => {
   const formData = new FormData(form);
   await postJson('/api/v1/admin/partners', {
@@ -1602,6 +1664,13 @@ const submitPartner = async (form) => {
     is_verified: formData.has('is_verified'),
   });
   form.reset();
+  await loadPartners();
+};
+
+const submitPartnerEdit = async (form) => {
+  const partnerId = form.dataset.partnerId;
+  const formData = new FormData(form);
+  await patchJson(`/api/v1/admin/partners/${partnerId}`, buildPartnerPayload(formData));
   await loadPartners();
 };
 
@@ -1654,6 +1723,8 @@ const handleAdminFormSubmit = async (form) => {
       await submitCity(form);
     } else if (formType === 'partner') {
       await submitPartner(form);
+    } else if (formType === 'partnerEdit') {
+      await submitPartnerEdit(form);
     } else if (formType === 'offer') {
       await submitOffer(form);
     } else if (formType === 'qr') {
@@ -1661,6 +1732,7 @@ const handleAdminFormSubmit = async (form) => {
     }
     setFormMessage(formType, 'Сохранено.');
     setPanelMessage('Сохранено.', 'success');
+    renderAdminLayout();
   } catch (error) {
     setFormMessage(formType, error.message || 'Не удалось сохранить.');
     if (message) {
@@ -1774,6 +1846,22 @@ root.addEventListener('click', async (event) => {
   const userToggle = event.target.closest('[data-user-active-toggle]');
   if (userToggle) {
     toggleUserActive(userToggle.dataset.userActiveToggle);
+    return;
+  }
+
+  const partnerEditButton = event.target.closest('[data-admin-partner-edit]');
+  if (partnerEditButton) {
+    adminState.selectedPartnerIdForEdit = partnerEditButton.dataset.adminPartnerEdit;
+    setFormMessage('partnerEdit');
+    renderAdminLayout();
+    return;
+  }
+
+  const partnerEditCancel = event.target.closest('[data-admin-partner-edit-cancel]');
+  if (partnerEditCancel) {
+    adminState.selectedPartnerIdForEdit = '';
+    setFormMessage('partnerEdit');
+    renderAdminLayout();
     return;
   }
 

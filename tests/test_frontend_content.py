@@ -411,6 +411,49 @@ def test_public_landing_copy_and_city_chips_remain_intact() -> None:
 
 
 
+def test_frontend_contains_admin_partner_edit_ui() -> None:
+    source = _frontend_main()
+
+    for expected in (
+        "Редактировать партнёра",
+        "Редактировать",
+        "/api/v1/admin/partners/",
+        "Город",
+        "Категория",
+        "Владелец",
+        "Без владельца",
+        "Название",
+        "Описание",
+        "Адрес",
+        "Телефон",
+        "Сайт",
+        "Соцсеть",
+        "Активен",
+        "Проверен",
+    ):
+        assert expected in source
+
+
+def test_frontend_keeps_landing_and_dashboard_markers_with_partner_edit() -> None:
+    source = _frontend_main()
+    styles = _frontend_styles()
+
+    for expected in (
+        "Женский клуб",
+        "Федеральный клуб привилегий для девушек",
+        "Новосибирск",
+        "Череповец",
+        "dashboard-shell",
+        "dashboard-topbar",
+        "dashboard-sidebar",
+        "dashboard-main",
+        "womenClubAdminAccessToken",
+        "womenclub_partner_token",
+        "womenclub_client_token",
+    ):
+        assert expected in source or expected in styles
+
+
 def test_frontend_login_modes_remain_available() -> None:
     source = _frontend_main()
 
