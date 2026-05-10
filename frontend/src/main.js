@@ -42,38 +42,16 @@ const featureCards = [
   },
 ];
 
+
+const sakuraPetalMarkup = Array.from({ length: 68 }, (_, index) => (
+  `<span class="sakura-petal sakura-petal--${index + 1}"></span>`
+)).join('');
+
 const renderPublicApp = () => {
   document.body.classList.remove('is-dashboard');
   root.innerHTML = `
   <div class="sakura-layer" aria-hidden="true">
-    <span class="sakura-petal sakura-petal--1"></span>
-    <span class="sakura-petal sakura-petal--2"></span>
-    <span class="sakura-petal sakura-petal--3"></span>
-    <span class="sakura-petal sakura-petal--4"></span>
-    <span class="sakura-petal sakura-petal--5"></span>
-    <span class="sakura-petal sakura-petal--6"></span>
-    <span class="sakura-petal sakura-petal--7"></span>
-    <span class="sakura-petal sakura-petal--8"></span>
-    <span class="sakura-petal sakura-petal--9"></span>
-    <span class="sakura-petal sakura-petal--10"></span>
-    <span class="sakura-petal sakura-petal--11"></span>
-    <span class="sakura-petal sakura-petal--12"></span>
-    <span class="sakura-petal sakura-petal--13"></span>
-    <span class="sakura-petal sakura-petal--14"></span>
-    <span class="sakura-petal sakura-petal--15"></span>
-    <span class="sakura-petal sakura-petal--16"></span>
-    <span class="sakura-petal sakura-petal--17"></span>
-    <span class="sakura-petal sakura-petal--18"></span>
-    <span class="sakura-petal sakura-petal--19"></span>
-    <span class="sakura-petal sakura-petal--20"></span>
-    <span class="sakura-petal sakura-petal--21"></span>
-    <span class="sakura-petal sakura-petal--22"></span>
-    <span class="sakura-petal sakura-petal--23"></span>
-    <span class="sakura-petal sakura-petal--24"></span>
-    <span class="sakura-petal sakura-petal--25"></span>
-    <span class="sakura-petal sakura-petal--26"></span>
-    <span class="sakura-petal sakura-petal--27"></span>
-    <span class="sakura-petal sakura-petal--28"></span>
+    ${sakuraPetalMarkup}
   </div>
   <main class="app-shell">
     <header class="hero" aria-labelledby="hero-title">
