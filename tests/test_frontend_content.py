@@ -6,6 +6,8 @@ FRONTEND_DIR = REPO_ROOT / "frontend"
 FRONTEND_INDEX = FRONTEND_DIR / "index.html"
 FRONTEND_MAIN = FRONTEND_DIR / "src" / "main.js"
 FRONTEND_STYLES = FRONTEND_DIR / "src" / "styles.css"
+ADMIN_ENDPOINTS = REPO_ROOT / "app" / "api" / "v1" / "endpoints" / "admin.py"
+ADMIN_SCHEMAS = REPO_ROOT / "app" / "schemas" / "admin.py"
 
 EXPECTED_TITLE = "Женский клуб — федеральный клуб привилегий для девушек"
 FORBIDDEN_PUBLIC_COPY = (
@@ -30,6 +32,14 @@ def _frontend_main() -> str:
 
 def _frontend_styles() -> str:
     return FRONTEND_STYLES.read_text(encoding="utf-8")
+
+
+def _admin_endpoints() -> str:
+    return ADMIN_ENDPOINTS.read_text(encoding="utf-8")
+
+
+def _admin_schemas() -> str:
+    return ADMIN_SCHEMAS.read_text(encoding="utf-8")
 
 
 def _frontend_public_sources() -> str:
@@ -375,6 +385,30 @@ def test_frontend_contains_admin_cabinet_endpoint_strings() -> None:
         "/api/v1/admin/verifications",
     ):
         assert endpoint in source
+
+
+def test_admin_categories_are_read_only_when_mutation_routes_are_missing() -> None:
+    endpoints = _admin_endpoints()
+    schemas = _admin_schemas()
+    source = _frontend_main()
+
+    assert '@router.get("/categories", response_model=list[CategoryRead])' in endpoints
+    assert '@router.post("/categories"' not in endpoints
+    assert '@router.patch("/categories/{category_id}"' not in endpoints
+    assert '@router.delete("/categories/{category_id}"' not in endpoints
+    assert 'class CategoryCreate' not in schemas
+    assert 'class CategoryUpdate' not in schemas
+
+    assert "/api/v1/admin/categories" in source
+    for forbidden_marker in (
+        "Новая категория",
+        "Редактировать категорию",
+        "data-admin-category-edit",
+        "data-admin-category-active-toggle",
+        "patchJson(`/api/v1/admin/categories/${categoryId}`",
+        "postJson('/api/v1/admin/categories'",
+    ):
+        assert forbidden_marker not in source
 
 
 def test_frontend_contains_admin_user_role_options() -> None:
