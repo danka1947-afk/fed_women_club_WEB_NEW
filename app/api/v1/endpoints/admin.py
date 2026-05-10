@@ -9,9 +9,10 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.api.deps import require_admin
-from app.core.categories import WOMEN_CLUB_CATEGORY_SLUGS, get_women_club_categories
+from app.core.categories import WOMEN_CLUB_CATEGORY_SLUGS
 from app.core.security import hash_password
 from app.db.session import get_db
+from app.models.category import Category
 from app.models.city import City
 from app.models.client import ClientProfile
 from app.models.lead import LeadClick
@@ -23,7 +24,9 @@ from app.schemas.admin import (
     AdminManagedUserRead,
     AdminManagedUserUpdate,
     AdminVerificationRead,
+    CategoryCreate,
     CategoryRead,
+    CategoryUpdate,
     CityCreate,
     CityRead,
     CityUpdate,
@@ -49,6 +52,7 @@ from app.services.qr_links import (
 router = APIRouter(prefix="/admin", tags=["admin"])
 
 CITY_DUPLICATE_DETAIL = "City with this slug or name already exists"
+CATEGORY_DUPLICATE_DETAIL = "Category with this slug already exists"
 USER_DUPLICATE_DETAIL = "User with this email or phone already exists"
 ALLOWED_USER_ROLES = tuple(role.value for role in UserRole)
 PARTNER_TEXT_FIELDS = (
@@ -269,9 +273,76 @@ def update_admin_city(
 
 
 @router.get("/categories", response_model=list[CategoryRead])
-def list_admin_categories(admin: AdminUser = Depends(require_admin)) -> list[dict[str, object]]:
+def list_admin_categories(
+    admin: AdminUser = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> list[Category]:
     _ = admin
-    return sorted(get_women_club_categories(), key=lambda category: category["sort_order"])
+    result = db.execute(select(Category).order_by(Category.sort_order.asc(), Category.id.asc()))
+    return list(result.scalars().all())
+
+
+@router.post("/categories", response_model=CategoryRead)
+def create_admin_category(
+    payload: CategoryCreate,
+    admin: AdminUser = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> Category:
+    _ = admin
+    name = _strip_category_required(payload.name, "name")
+    slug = _strip_category_required(payload.slug, "slug")
+    _ensure_unique_category_slug(db, slug=slug)
+
+    category = Category(
+        name=name,
+        slug=slug,
+        is_active=payload.is_active,
+        sort_order=payload.sort_order if payload.sort_order is not None else 0,
+    )
+    db.add(category)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise _category_duplicate_error() from None
+    db.refresh(category)
+    return category
+
+
+@router.patch("/categories/{category_id}", response_model=CategoryRead)
+def update_admin_category(
+    category_id: int,
+    payload: CategoryUpdate,
+    admin: AdminUser = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> Category:
+    _ = admin
+    category = db.get(Category, category_id)
+    if category is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Category not found")
+
+    update_data = payload.model_dump(exclude_unset=True)
+    next_slug = _strip_category_required(update_data["slug"], "slug") if "slug" in update_data else category.slug
+    if next_slug != category.slug:
+        _ensure_unique_category_slug(db, slug=next_slug, exclude_category_id=category.id)
+
+    for field, value in update_data.items():
+        if field == "name":
+            category.name = _strip_category_required(value, "name")
+        elif field == "slug":
+            category.slug = next_slug
+        elif field == "is_active":
+            category.is_active = value
+        elif field == "sort_order":
+            category.sort_order = value if value is not None else 0
+
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise _category_duplicate_error() from None
+    db.refresh(category)
+    return category
 
 
 @router.get("/partners", response_model=list[PartnerRead])
@@ -296,7 +367,7 @@ def list_admin_partners(
     if is_active is not None:
         statement = statement.where(Partner.is_active == is_active)
     if category_slug is not None:
-        statement = statement.where(Partner.category_slug == _normalize_category_slug(category_slug))
+        statement = statement.where(Partner.category_slug == _normalize_category_slug(db, category_slug))
     if q is not None:
         search = q.strip()
         if search:
@@ -322,7 +393,7 @@ def create_admin_partner(
     partner = Partner(
         city_id=payload.city_id,
         owner_user_id=payload.owner_user_id,
-        category_slug=_normalize_category_slug(payload.category_slug),
+        category_slug=_normalize_category_slug(db, payload.category_slug),
         name=_strip_partner_name(payload.name),
         is_active=payload.is_active,
         is_verified=payload.is_verified,
@@ -372,7 +443,7 @@ def update_admin_partner(
             _get_partner_owner(db, owner_user_id)
         partner.owner_user_id = owner_user_id
     if "category_slug" in update_data:
-        partner.category_slug = _normalize_category_slug(update_data["category_slug"])
+        partner.category_slug = _normalize_category_slug(db, update_data["category_slug"])
     if "name" in update_data:
         partner.name = _strip_partner_name(update_data["name"])
 
@@ -803,11 +874,48 @@ def _normalize_optional_text(value: str | None) -> str | None:
     return normalized or None
 
 
-def _normalize_category_slug(value: str | None) -> str | None:
+def _strip_category_required(value: str | None, field_name: str) -> str:
+    normalized = value.strip() if value is not None else ""
+    if not normalized:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Category {field_name} must not be empty",
+        )
+    return normalized
+
+
+def _ensure_unique_category_slug(
+    db: Session,
+    *,
+    slug: str,
+    exclude_category_id: int | None = None,
+) -> None:
+    statement = select(Category.id).where(Category.slug == slug)
+    if exclude_category_id is not None:
+        statement = statement.where(Category.id != exclude_category_id)
+    duplicate_id = db.execute(statement.limit(1)).scalar_one_or_none()
+    if duplicate_id is not None:
+        raise _category_duplicate_error()
+
+
+def _category_duplicate_error() -> HTTPException:
+    return HTTPException(status_code=status.HTTP_409_CONFLICT, detail=CATEGORY_DUPLICATE_DETAIL)
+
+
+def _normalize_category_slug(db: Session, value: str | None) -> str | None:
     normalized = _normalize_optional_text(value)
     if normalized is None:
         return None
-    if normalized not in WOMEN_CLUB_CATEGORY_SLUGS:
+    category_count = db.execute(select(func.count()).select_from(Category)).scalar_one()
+    if category_count == 0:
+        if normalized not in WOMEN_CLUB_CATEGORY_SLUGS:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unknown category slug")
+        return normalized
+
+    category_id = db.execute(
+        select(Category.id).where(Category.slug == normalized, Category.is_active.is_(True)).limit(1)
+    ).scalar_one_or_none()
+    if category_id is None:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unknown category slug")
     return normalized
 

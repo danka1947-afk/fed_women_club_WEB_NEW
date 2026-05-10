@@ -57,10 +57,28 @@ class AdminManagedUserUpdate(BaseModel):
 
 
 class CategoryRead(BaseModel):
+    id: int
+    name: str
     slug: str
     title: str
     is_active: bool = True
     sort_order: int
+
+    model_config = {"from_attributes": True}
+
+
+class CategoryCreate(BaseModel):
+    name: str
+    slug: str
+    is_active: bool = True
+    sort_order: int | None = None
+
+
+class CategoryUpdate(BaseModel):
+    name: str | None = None
+    slug: str | None = None
+    is_active: bool | None = None
+    sort_order: int | None = None
 
 
 class PartnerRead(BaseModel):

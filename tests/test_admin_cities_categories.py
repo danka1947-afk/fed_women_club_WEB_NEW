@@ -13,6 +13,8 @@ from app.core.security import hash_password
 from app.db.base import Base
 from app.db.session import get_db
 from app.main import app
+from app.core.categories import get_women_club_categories
+from app.models.category import Category
 from app.models.city import City
 from app.models.user import AdminUser, UserRole
 
@@ -40,6 +42,17 @@ def admin_client() -> Generator[TestClient, None, None]:
             [
                 City(name="Поздний город", slug="late-city", is_active=True, sort_order=20),
                 City(name="Ранний город", slug="early-city", is_active=True, sort_order=10),
+            ]
+        )
+        session.add_all(
+            [
+                Category(
+                    name=category["title"],
+                    slug=category["slug"],
+                    is_active=category["is_active"],
+                    sort_order=category["sort_order"],
+                )
+                for category in get_women_club_categories()
             ]
         )
         session.commit()
@@ -95,8 +108,79 @@ def test_admin_categories_returns_expected_categories(admin_client: TestClient, 
     assert [category["sort_order"] for category in data] == sorted(
         category["sort_order"] for category in data
     )
-    assert data[0] == {"slug": "krasota", "title": "Красота", "is_active": True, "sort_order": 1}
+    assert data[0]["slug"] == "krasota"
+    assert data[0]["name"] == "Красота"
+    assert data[0]["title"] == "Красота"
+    assert data[0]["is_active"] is True
+    assert data[0]["sort_order"] == 1
     assert data[-1]["slug"] == "drugoe"
+
+
+def test_admin_category_create_success(admin_client: TestClient, admin_token: str) -> None:
+    response = admin_client.post(
+        "/api/v1/admin/categories",
+        headers=_auth_headers(admin_token),
+        json={"name": "  Новая категория  ", "slug": "  new-category  ", "is_active": True, "sort_order": 42},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["id"]
+    assert data["name"] == "Новая категория"
+    assert data["title"] == "Новая категория"
+    assert data["slug"] == "new-category"
+    assert data["is_active"] is True
+    assert data["sort_order"] == 42
+
+    list_response = admin_client.get("/api/v1/admin/categories", headers=_auth_headers(admin_token))
+    assert "new-category" in [category["slug"] for category in list_response.json()]
+
+
+def test_admin_category_create_duplicate_slug_returns_409(admin_client: TestClient, admin_token: str) -> None:
+    response = admin_client.post(
+        "/api/v1/admin/categories",
+        headers=_auth_headers(admin_token),
+        json={"name": "Дубликат", "slug": "krasota"},
+    )
+
+    assert response.status_code == 409
+    assert response.json()["detail"] == "Category with this slug already exists"
+
+
+def test_admin_category_patch_updates_name_slug_and_active_flag(admin_client: TestClient, admin_token: str) -> None:
+    categories_response = admin_client.get("/api/v1/admin/categories", headers=_auth_headers(admin_token))
+    category_id = categories_response.json()[0]["id"]
+
+    response = admin_client.patch(
+        f"/api/v1/admin/categories/{category_id}",
+        headers=_auth_headers(admin_token),
+        json={
+            "name": "  Обновленная категория  ",
+            "slug": "  updated-category  ",
+            "is_active": False,
+            "sort_order": 77,
+        },
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["id"] == category_id
+    assert data["name"] == "Обновленная категория"
+    assert data["title"] == "Обновленная категория"
+    assert data["slug"] == "updated-category"
+    assert data["is_active"] is False
+    assert data["sort_order"] == 77
+
+
+def test_admin_category_patch_missing_category_returns_404(admin_client: TestClient, admin_token: str) -> None:
+    response = admin_client.patch(
+        "/api/v1/admin/categories/9999",
+        headers=_auth_headers(admin_token),
+        json={"name": "Missing"},
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Category not found"
 
 
 def test_admin_cities_returns_cities_ordered_by_sort_order(admin_client: TestClient, admin_token: str) -> None:

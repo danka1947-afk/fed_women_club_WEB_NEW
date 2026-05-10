@@ -12,6 +12,7 @@ from sqlalchemy.pool import StaticPool
 import app.models  # noqa: F401
 from app.db.base import Base
 from app.models import (
+    Category,
     City,
     ClientProfile,
     LeadClick,
@@ -51,7 +52,7 @@ def test_migration_files_have_single_head_revision() -> None:
     referenced_revisions = {down_revision for down_revision in revisions.values() if down_revision}
     heads = sorted(set(revisions) - referenced_revisions)
 
-    assert heads == ["20260509_0005"]
+    assert heads == ["20260510_0006"]
 
 
 def test_base_metadata_includes_domain_foundation_tables() -> None:
@@ -69,6 +70,7 @@ def test_base_metadata_includes_domain_foundation_tables() -> None:
         "privilege_verification_sessions",
         "admin_users",
         "vk_link_codes",
+        "categories",
     }.issubset(Base.metadata.tables)
 
 
