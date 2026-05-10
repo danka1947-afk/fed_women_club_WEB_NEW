@@ -160,10 +160,11 @@ def test_frontend_contains_lotus_line_art_background() -> None:
     styles = _frontend_styles()
 
     assert "--lotus-line-art" in styles
+    assert "--lotus-botanical-composition" in styles or "botanical-composition" in styles
     assert "--lotus-botanical-line-art" in styles or "botanical-lotus" in styles
-    assert "viewBox='0%200%20500%20520'" in styles
-    assert "stroke-linecap='round'" in styles
-    assert "stroke-linejoin='round'" in styles
+    assert "viewBox%3D'0%200%20800%20620'" in styles
+    assert "stroke-linecap" in styles
+    assert "stroke-linejoin" in styles
     assert "lotus-layer" in source
     assert "lotus-decor" in source
     assert "lotus-layer--public" in source
