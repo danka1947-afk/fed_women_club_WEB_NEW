@@ -39,6 +39,12 @@ def _frontend_public_sources() -> str:
     )
 
 
+def _css_block(styles: str, selector: str) -> str:
+    match = re.search(rf"{re.escape(selector)}\s*{{(.*?)\n}}", styles, re.S)
+    assert match is not None
+    return match.group(1)
+
+
 def _city_options() -> list[str]:
     source = _frontend_main()
     match = re.search(r"const cities = \[(.*?)\];", source, re.S)
@@ -101,6 +107,41 @@ def test_public_frontend_contains_css_only_sakura_layer() -> None:
     assert ".app-shell" in styles
     assert "z-index: 1;" in styles
 
+def test_public_landing_cards_use_frosted_translucent_backgrounds() -> None:
+    styles = _frontend_styles()
+
+    assert "body:not(.is-dashboard) .hero" in styles
+    assert "body:not(.is-dashboard) .panel" in styles
+
+    for selector in (
+        "body:not(.is-dashboard) .hero",
+        "body:not(.is-dashboard) .panel",
+        ".hero-card",
+        ".feature-card",
+        ".city-select-card",
+    ):
+        block = _css_block(styles, selector)
+        assert "background:" in block
+        assert re.search(r"background:[^;]*(rgba|hsla)\(", block, re.S)
+        assert "backdrop-filter: blur(10px) saturate(1.05);" in block
+        assert "-webkit-backdrop-filter: blur(10px) saturate(1.05);" in block
+        assert not re.search(r"(^|\s)opacity\s*:", block)
+
+
+def test_frontend_adds_subtle_center_sakura_motion() -> None:
+    source = _frontend_main()
+    styles = _frontend_styles()
+
+    assert "Array.from({ length: 20 }" in source
+    assert "sakura-petal--center" in source
+    assert "sakura-petal--center-${index + 1}" in source
+    assert "sakura-petal--center-1" in styles
+    assert "sakura-petal--center-20" in styles
+    assert "--center-left: 35%" in styles
+    assert "--center-left: 65%" in styles
+    assert "--center-opacity: 0.22" in styles
+    assert "--center-opacity: 0.38" in styles
+    assert "will-change: transform;" in _css_block(styles, ".sakura-petal--center")
 
 def test_brand_copy_targets_girls() -> None:
     source = _frontend_main()

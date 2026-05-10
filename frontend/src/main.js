@@ -43,9 +43,15 @@ const featureCards = [
 ];
 
 
-const sakuraPetalMarkup = Array.from({ length: 68 }, (_, index) => (
+const sakuraEdgePetalMarkup = Array.from({ length: 68 }, (_, index) => (
   `<span class="sakura-petal sakura-petal--${index + 1}"></span>`
 )).join('');
+
+const sakuraCenterPetalMarkup = Array.from({ length: 20 }, (_, index) => (
+  `<span class="sakura-petal sakura-petal--center sakura-petal--center-${index + 1}"></span>`
+)).join('');
+
+const sakuraPetalMarkup = `${sakuraEdgePetalMarkup}${sakuraCenterPetalMarkup}`;
 
 const renderPublicApp = () => {
   document.body.classList.remove('is-dashboard');
