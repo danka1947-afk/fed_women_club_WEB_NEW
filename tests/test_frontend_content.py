@@ -478,6 +478,49 @@ def test_frontend_contains_admin_offer_edit_ui() -> None:
         assert removed_lotus_marker not in styles
 
 
+def test_frontend_contains_admin_qr_edit_ui() -> None:
+    source = _frontend_main()
+    styles = _frontend_styles()
+
+    for expected in (
+        "Редактировать QR-ссылку",
+        "Редактировать",
+        "/api/v1/admin/qr-links/",
+        "PATCH",
+        "Slug",
+        "Целевая ссылка",
+        "Deep-link payload",
+        "Активна",
+        "Отмена",
+        "POST",
+        "/api/v1/admin/partners/",
+        "/qr-links",
+        "Женский клуб",
+        "Федеральный клуб привилегий для девушек",
+        "Новосибирск",
+        "Череповец",
+        "dashboard-shell",
+        "dashboard-topbar",
+        "dashboard-sidebar",
+        "dashboard-main",
+        "womenClubAdminAccessToken",
+        "womenclub_partner_token",
+        "womenclub_client_token",
+    ):
+        assert expected in source or expected in styles
+
+    for removed_lotus_marker in (
+        "reference-lotus-layer",
+        "lotus-layer",
+        "lotus-decor",
+        "--user-lotus-reference-svg",
+        "--lotus-reference-background",
+        "/assets/lotus-bg.png",
+    ):
+        assert removed_lotus_marker not in source
+        assert removed_lotus_marker not in styles
+
+
 def test_frontend_keeps_landing_and_dashboard_markers_with_partner_edit() -> None:
     source = _frontend_main()
     styles = _frontend_styles()

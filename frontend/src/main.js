@@ -217,6 +217,7 @@ const adminState = {
   verifications: [],
   selectedPartnerIdForOffers: '',
   selectedPartnerIdForQr: '',
+  selectedQrLinkIdForEdit: '',
   selectedPartnerIdForEdit: '',
   selectedOfferIdForEdit: '',
   panelMessage: '',
@@ -1015,9 +1016,13 @@ const loadOffers = async () => {
 const loadQrLinks = async () => {
   if (!adminState.selectedPartnerIdForQr) {
     adminState.qrLinks = [];
+    adminState.selectedQrLinkIdForEdit = '';
     return;
   }
   adminState.qrLinks = await apiFetch(`/api/v1/admin/partners/${adminState.selectedPartnerIdForQr}/qr-links`);
+  if (adminState.selectedQrLinkIdForEdit && !adminState.qrLinks.some((link) => String(link.id) === String(adminState.selectedQrLinkIdForEdit))) {
+    adminState.selectedQrLinkIdForEdit = '';
+  }
 };
 
 const ensureAdminDictionaries = async () => {
@@ -1295,20 +1300,54 @@ const renderOffersTab = () => `
   ` : '<p class="empty-note">Сначала выберите партнёра.</p>'}
 `;
 
+const renderAdminQrAction = (link) => `
+  <button class="admin-inline-action" type="button" data-admin-qr-edit="${escapeHtml(link.id)}">Редактировать</button>
+`;
+
+const renderQrCreateForm = () => `
+  <form class="admin-form admin-form--inline" data-admin-form="qr">
+    <h4>Новая QR-ссылка</h4>
+    <label>Код ссылки<input name="slug" /></label>
+    <label>Целевая ссылка<input name="target_url" /></label>
+    <label>Deep link payload / payload<input name="deep_link_payload" /></label>
+    <label class="checkbox-row"><input name="is_active" type="checkbox" checked /> Активен</label>
+    <button type="submit">Создать QR</button>
+    <p class="form-message" data-form-message="qr">${escapeHtml(adminState.formMessages.qr || '')}</p>
+  </form>
+`;
+
+const renderQrEditForm = () => {
+  const link = adminState.qrLinks.find((item) => String(item.id) === String(adminState.selectedQrLinkIdForEdit));
+  if (!link) {
+    return '';
+  }
+
+  return `
+    <form class="admin-form admin-form--inline" data-admin-form="qrEdit" data-qr-link-id="${escapeHtml(link.id)}">
+      <h4>Редактировать QR-ссылку</h4>
+      <label>Slug<input name="slug" value="${escapeHtml(link.slug || '')}" /></label>
+      <label>Целевая ссылка<input name="target_url" value="${escapeHtml(link.target_url || '')}" /></label>
+      <label>Deep-link payload<input name="deep_link_payload" value="${escapeHtml(link.deep_link_payload || '')}" /></label>
+      <label class="checkbox-row"><input name="is_active" type="checkbox" ${link.is_active ? 'checked' : ''} /> Активна</label>
+      <div class="admin-form-actions">
+        <button type="submit">Сохранить изменения</button>
+        <button class="admin-inline-action" type="button" data-admin-qr-edit-cancel>Отмена</button>
+      </div>
+      <p class="form-message" data-form-message="qrEdit">${escapeHtml(adminState.formMessages.qrEdit || '')}</p>
+    </form>
+  `;
+};
+
 const renderQrTab = () => `
   <div class="admin-section-heading"><h4>QR / лиды</h4><p>QR-ссылки партнёров и агрегированные переходы.</p></div>
   <label class="admin-select-label">Партнёр${renderPartnerPicker('qr', adminState.selectedPartnerIdForQr)}</label>
   ${adminState.selectedPartnerIdForQr ? `
-    ${renderTable(['Код ссылки', 'QR-ссылка', 'Целевая ссылка', 'Активна'], adminState.qrLinks.map((link) => [formatValue(link.slug), link.qr_url ? `<a href="${escapeHtml(link.qr_url)}" target="_blank" rel="noreferrer">${escapeHtml(link.qr_url)}</a>` : '—', formatValue(link.target_url), formatValue(formatBool(link.is_active))]), true)}
-    <form class="admin-form admin-form--inline" data-admin-form="qr">
-      <h4>Новая QR-ссылка</h4>
-      <label>Код ссылки<input name="slug" /></label>
-      <label>Целевая ссылка<input name="target_url" /></label>
-      <label>Deep link payload / payload<input name="deep_link_payload" /></label>
-      <label class="checkbox-row"><input name="is_active" type="checkbox" checked /> Активен</label>
-      <button type="submit">Создать QR</button>
-      <p class="form-message" data-form-message="qr">${escapeHtml(adminState.formMessages.qr || '')}</p>
-    </form>
+    ${renderTable(
+      ['Код ссылки', 'QR-ссылка', 'Целевая ссылка', 'Активна', 'Действие'],
+      adminState.qrLinks.map((link) => [formatValue(link.slug), link.qr_url ? `<a href="${escapeHtml(link.qr_url)}" target="_blank" rel="noreferrer">${escapeHtml(link.qr_url)}</a>` : '—', formatValue(link.target_url), formatValue(formatBool(link.is_active)), renderAdminQrAction(link)]),
+      true,
+    )}
+    ${adminState.selectedQrLinkIdForEdit ? renderQrEditForm() : renderQrCreateForm()}
   ` : '<p class="empty-note">Сначала выберите партнёра.</p>'}
   <h4 class="table-title">Лиды партнёров</h4>
   ${renderTable(['Партнёр', 'Город', 'Код ссылки', 'Лиды / переходы'], adminState.leads.map((lead) => [lead.partner_name, lead.city_name, lead.qr_slug, lead.total_clicks]))}
@@ -1747,15 +1786,25 @@ const submitOfferEdit = async (form) => {
   await loadOffers();
 };
 
+const buildQrPayload = (formData) => ({
+  slug: getOptionalText(formData, 'slug'),
+  target_url: getOptionalText(formData, 'target_url'),
+  deep_link_payload: getOptionalText(formData, 'deep_link_payload'),
+  is_active: formData.has('is_active'),
+});
+
 const submitQr = async (form) => {
   const formData = new FormData(form);
-  await postJson(`/api/v1/admin/partners/${adminState.selectedPartnerIdForQr}/qr-links`, {
-    slug: getOptionalText(formData, 'slug'),
-    target_url: getOptionalText(formData, 'target_url'),
-    deep_link_payload: getOptionalText(formData, 'deep_link_payload'),
-    is_active: formData.has('is_active'),
-  });
+  await postJson(`/api/v1/admin/partners/${adminState.selectedPartnerIdForQr}/qr-links`, buildQrPayload(formData));
   form.reset();
+  await loadQrLinks();
+  await loadLeads();
+};
+
+const submitQrEdit = async (form) => {
+  const qrLinkId = form.dataset.qrLinkId;
+  const formData = new FormData(form);
+  await patchJson(`/api/v1/admin/qr-links/${qrLinkId}`, buildQrPayload(formData));
   await loadQrLinks();
   await loadLeads();
 };
@@ -1783,6 +1832,8 @@ const handleAdminFormSubmit = async (form) => {
       await submitOfferEdit(form);
     } else if (formType === 'qr') {
       await submitQr(form);
+    } else if (formType === 'qrEdit') {
+      await submitQrEdit(form);
     }
     setFormMessage(formType, 'Сохранено.');
     setPanelMessage('Сохранено.', 'success');
@@ -1935,6 +1986,22 @@ root.addEventListener('click', async (event) => {
     return;
   }
 
+  const qrEditButton = event.target.closest('[data-admin-qr-edit]');
+  if (qrEditButton) {
+    adminState.selectedQrLinkIdForEdit = qrEditButton.dataset.adminQrEdit;
+    setFormMessage('qrEdit');
+    renderAdminLayout();
+    return;
+  }
+
+  const qrEditCancel = event.target.closest('[data-admin-qr-edit-cancel]');
+  if (qrEditCancel) {
+    adminState.selectedQrLinkIdForEdit = '';
+    setFormMessage('qrEdit');
+    renderAdminLayout();
+    return;
+  }
+
   const adminLogout = event.target.closest('[data-logout-button]');
   if (adminLogout) {
     clearToken();
@@ -2034,6 +2101,8 @@ root.addEventListener('change', (event) => {
     setFormMessage('offerEdit');
   } else if (picker.dataset.partnerPicker === 'qr') {
     adminState.selectedPartnerIdForQr = picker.value;
+    adminState.selectedQrLinkIdForEdit = '';
+    setFormMessage('qrEdit');
   }
 
   loadActiveTabData();
