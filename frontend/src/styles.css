@@ -10,8 +10,9 @@
   --color-border: rgba(201, 130, 120, 0.25);
   --shadow-soft: 0 24px 70px rgba(143, 81, 75, 0.13);
   --shadow-card: 0 18px 48px rgba(201, 130, 120, 0.15);
-  --lotus-botanical-line-art: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20500%20520'%20fill='none'%20stroke='%23b98278'%20stroke-width='3.4'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Cpath%20d='M246%20188C222%20157%20224%20121%20253%2086C284%20122%20284%20157%20246%20188Z'/%3E%3Cpath%20d='M213%20194C180%20168%20172%20130%20194%2091C230%20120%20241%20154%20213%20194Z'/%3E%3Cpath%20d='M284%20194C319%20168%20328%20131%20305%2092C267%20121%20256%20155%20284%20194Z'/%3E%3Cpath%20d='M174%20210C134%20188%20117%20149%20132%20107C179%20129%20204%20162%20174%20210Z'/%3E%3Cpath%20d='M322%20210C362%20188%20379%20149%20364%20107C318%20129%20292%20162%20322%20210Z'/%3E%3Cpath%20d='M142%20240C101%20228%2074%20194%2082%20150C135%20160%20171%20188%20142%20240Z'/%3E%3Cpath%20d='M354%20240C395%20228%20422%20194%20414%20150C361%20160%20325%20188%20354%20240Z'/%3E%3Cpath%20d='M111%20278C154%20303%20210%20303%20247%20265C194%20247%20154%20247%20111%20278Z'/%3E%3Cpath%20d='M386%20278C343%20303%20286%20303%20250%20265C303%20247%20344%20247%20386%20278Z'/%3E%3Cpath%20d='M161%20287C190%20319%20221%20328%20248%20294C278%20328%20309%20319%20337%20287'/%3E%3Cpath%20d='M247%2096C247%20134%20247%20158%20246%20188'/%3E%3Cpath%20d='M196%20105C205%20143%20210%20168%20213%20194'/%3E%3Cpath%20d='M304%20106C294%20143%20289%20168%20284%20194'/%3E%3Cpath%20d='M134%20121C149%20158%20162%20186%20174%20210'/%3E%3Cpath%20d='M363%20121C347%20158%20334%20186%20322%20210'/%3E%3Cpath%20d='M248%20294C249%20355%20242%20422%20212%20500'/%3E%3Cpath%20d='M210%20500C239%20430%20279%20366%20338%20305'/%3E%3Cpath%20d='M338%20305C360%20274%20392%20251%20430%20239'/%3E%3Cpath%20d='M422%20236C405%20203%20413%20171%20447%20147C466%20182%20460%20214%20422%20236Z'/%3E%3Cpath%20d='M447%20147C444%20177%20438%20207%20422%20236'/%3E%3Cpath%20d='M214%20500C185%20420%20147%20353%2086%20303'/%3E%3Cpath%20d='M92%20309C56%20318%2030%20342%2019%20380C62%20388%2094%20367%20112%20330'/%3E%3Cpath%20d='M34%20375C58%20356%2081%20340%20112%20330'/%3E%3Cpath%20d='M307%20456C350%20420%20397%20406%20451%20419C414%20461%20363%20474%20307%20456Z'/%3E%3Cpath%20d='M325%20454C365%20444%20405%20432%20451%20419'/%3E%3C/svg%3E");
-  --lotus-line-art: var(--lotus-botanical-line-art);
+  --lotus-botanical-composition: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%20800%20620'%20fill%3D'none'%20stroke%3D'%238f7773'%20stroke-width%3D'1.45'%20stroke-linecap%3D'round'%20stroke-linejoin%3D'round'%3E%3Cpath%20d%3D'M245%20610C244%20548%20260%20493%20296%20441C333%20388%20353%20323%20340%20248'%2F%3E%3Cpath%20d%3D'M512%20612C501%20538%20499%20479%20521%20421C546%20356%20567%20292%20548%20222'%2F%3E%3Cpath%20d%3D'M372%20615C383%20548%20392%20492%20379%20434C366%20374%20321%20339%20276%20315'%2F%3E%3Cpath%20d%3D'M627%20581C604%20532%20584%20485%20587%20434C591%20373%20624%20333%20676%20304'%2F%3E%3Cpath%20d%3D'M311%20238C282%20205%20281%20169%20316%20126C350%20165%20349%20203%20311%20238Z'%2F%3E%3Cpath%20d%3D'M274%20249C237%20223%20226%20184%20247%20139C290%20164%20303%20205%20274%20249Z'%2F%3E%3Cpath%20d%3D'M349%20247C391%20221%20403%20181%20381%20137C336%20164%20324%20205%20349%20247Z'%2F%3E%3Cpath%20d%3D'M236%20266C191%20249%20171%20211%20180%20162C232%20176%20264%20213%20236%20266Z'%2F%3E%3Cpath%20d%3D'M387%20265C431%20245%20451%20206%20438%20159C386%20176%20356%20214%20387%20265Z'%2F%3E%3Cpath%20d%3D'M207%20301C160%20295%20130%20265%20128%20216C184%20218%20226%20249%20207%20301Z'%2F%3E%3Cpath%20d%3D'M417%20298C466%20287%20494%20255%20493%20207C439%20213%20399%20246%20417%20298Z'%2F%3E%3Cpath%20d%3D'M183%20337C229%20357%20277%20348%20313%20304C259%20292%20214%20303%20183%20337Z'%2F%3E%3Cpath%20d%3D'M443%20331C397%20355%20347%20349%20313%20304C367%20287%20411%20297%20443%20331Z'%2F%3E%3Cpath%20d%3D'M247%20345C271%20379%20300%20390%20325%20348C351%20383%20383%20376%20410%20338'%2F%3E%3Cpath%20d%3D'M309%20130C311%20170%20311%20205%20311%20238'%2F%3E%3Cpath%20d%3D'M249%20143C260%20183%20269%20217%20274%20249'%2F%3E%3Cpath%20d%3D'M380%20141C366%20180%20354%20214%20349%20247'%2F%3E%3Cpath%20d%3D'M183%20166C201%20205%20220%20240%20236%20266'%2F%3E%3Cpath%20d%3D'M437%20164C419%20204%20402%20236%20387%20265'%2F%3E%3Cpath%20d%3D'M131%20219C157%20252%20181%20280%20207%20301'%2F%3E%3Cpath%20d%3D'M491%20211C464%20246%20439%20276%20417%20298'%2F%3E%3Cpath%20d%3D'M287%20318C277%20331%20266%20339%20247%20345'%2F%3E%3Cpath%20d%3D'M341%20317C358%20331%20378%20337%20410%20338'%2F%3E%3Cpath%20d%3D'M333%20246C341%20274%20341%20297%20325%20348'%2F%3E%3Cpath%20d%3D'M531%20217C500%20194%20492%20158%20513%20119C550%20146%20560%20181%20531%20217Z'%2F%3E%3Cpath%20d%3D'M557%20220C593%20200%20604%20164%20586%20124C548%20147%20537%20183%20557%20220Z'%2F%3E%3Cpath%20d%3D'M514%20240C494%20228%20479%20207%20477%20181C507%20188%20528%20207%20531%20217'%2F%3E%3Cpath%20d%3D'M574%20241C604%20231%20624%20208%20627%20178C592%20186%20567%20204%20557%20220'%2F%3E%3Cpath%20d%3D'M517%20258C535%20278%20560%20279%20579%20254'%2F%3E%3Cpath%20d%3D'M514%20121C522%20155%20528%20187%20531%20217'%2F%3E%3Cpath%20d%3D'M586%20126C576%20157%20565%20190%20557%20220'%2F%3E%3Cpath%20d%3D'M479%20184C492%20209%20504%20228%20517%20258'%2F%3E%3Cpath%20d%3D'M625%20181C608%20206%20590%20229%20579%20254'%2F%3E%3Cpath%20d%3D'M296%20441C323%20420%20352%20411%20386%20416'%2F%3E%3Cpath%20d%3D'M521%20421C554%20405%20585%20403%20618%20416'%2F%3E%3Cpath%20d%3D'M185%20505C224%20468%20265%20450%20315%20452'%2F%3E%3Cpath%20d%3D'M184%20504C232%20500%20274%20484%20315%20452'%2F%3E%3Cpath%20d%3D'M594%20520C630%20478%20674%20458%20724%20460'%2F%3E%3Cpath%20d%3D'M594%20520C641%20513%20688%20493%20724%20460'%2F%3E%3Cpath%20d%3D'M103%20394C154%20342%20201%20319%20258%20322'%2F%3E%3Cpath%20d%3D'M610%20330C659%20281%20704%20259%20751%20262'%2F%3E%3C%2Fsvg%3E");
+  --lotus-botanical-line-art: var(--lotus-botanical-composition);
+  --lotus-line-art: var(--lotus-botanical-composition);
   --radius-lg: 32px;
   --radius-md: 22px;
   --radius-sm: 14px;
@@ -92,65 +93,67 @@ a {
 }
 
 .app-shell::before {
-  top: 18%;
-  right: clamp(-170px, -7vw, -72px);
-  width: clamp(360px, 26vw, 520px);
-  height: clamp(374px, 27vw, 540px);
-  opacity: 0.08;
+  top: 14%;
+  right: clamp(-230px, -10vw, -110px);
+  width: clamp(420px, 34vw, 760px);
+  height: clamp(326px, 30vw, 590px);
+  opacity: 0.09;
   transform: scaleX(-1) rotate(-5deg);
 }
 
 .app-shell::after {
-  bottom: -126px;
-  left: clamp(-150px, -6vw, -64px);
-  width: clamp(260px, 20vw, 360px);
-  height: clamp(270px, 21vw, 374px);
-  opacity: 0.055;
-  transform: rotate(8deg);
+  bottom: -190px;
+  left: clamp(-210px, -8vw, -86px);
+  width: clamp(320px, 24vw, 520px);
+  height: clamp(248px, 21vw, 404px);
+  opacity: 0.05;
+  transform: rotate(7deg);
 }
 
 .lotus-layer--public .lotus-decor--left {
-  top: clamp(132px, 24vh, 260px);
-  left: clamp(-160px, -6vw, -60px);
-  width: clamp(360px, 28vw, 620px);
-  height: clamp(374px, 30vw, 646px);
-  opacity: 0.21;
-  transform: rotate(4deg);
+  top: clamp(100px, 17vh, 220px);
+  left: clamp(-310px, -13vw, -150px);
+  width: clamp(420px, 34vw, 760px);
+  height: clamp(326px, 30vw, 590px);
+  opacity: 0.22;
+  transform: rotate(2deg);
 }
 
 .lotus-layer--public .lotus-decor--right {
-  top: clamp(128px, 22vh, 248px);
-  right: clamp(-160px, -6vw, -60px);
-  width: clamp(360px, 28vw, 620px);
-  height: clamp(374px, 30vw, 646px);
+  top: clamp(108px, 18vh, 230px);
+  right: clamp(-310px, -13vw, -150px);
+  width: clamp(420px, 34vw, 760px);
+  height: clamp(326px, 30vw, 590px);
   opacity: 0.2;
-  transform: scaleX(-1) rotate(5deg);
+  transform: scaleX(-1) rotate(3deg);
 }
 
 .lotus-layer--public .lotus-decor--bottom-left {
-  bottom: -134px;
-  left: clamp(-118px, -4vw, -42px);
-  width: clamp(230px, 18vw, 340px);
-  height: clamp(240px, 19vw, 354px);
-  opacity: 0.07;
-  transform: rotate(-11deg);
+  bottom: -210px;
+  left: clamp(-210px, -8vw, -86px);
+  width: clamp(320px, 24vw, 520px);
+  height: clamp(248px, 21vw, 404px);
+  opacity: 0.06;
+  transform: rotate(-8deg);
 }
 
 .lotus-layer--public .lotus-decor--bottom-right {
+  display: none;
   right: clamp(-128px, -4vw, -44px);
   bottom: -142px;
   width: clamp(240px, 19vw, 350px);
-  height: clamp(250px, 20vw, 364px);
-  opacity: 0.075;
+  height: clamp(186px, 17vw, 272px);
+  opacity: 0.05;
   transform: scaleX(-1) rotate(12deg);
 }
 
 .lotus-layer--public .lotus-decor--top-soft {
+  display: none;
   top: -180px;
   right: clamp(-110px, -4vw, -36px);
   width: clamp(240px, 18vw, 330px);
-  height: clamp(250px, 19vw, 344px);
-  opacity: 0.05;
+  height: clamp(186px, 16vw, 256px);
+  opacity: 0.04;
   transform: rotate(-5deg);
 }
 
@@ -1498,21 +1501,21 @@ body.is-dashboard {
 }
 
 body.is-dashboard::before {
-  right: -130px;
-  bottom: -150px;
-  width: clamp(320px, 32vw, 520px);
-  height: clamp(320px, 32vw, 520px);
-  opacity: 0.08;
-  transform: rotate(16deg);
+  right: -220px;
+  bottom: -190px;
+  width: clamp(380px, 30vw, 680px);
+  height: clamp(295px, 26vw, 527px);
+  opacity: 0.055;
+  transform: rotate(12deg);
 }
 
 body.is-dashboard::after {
-  bottom: 4vh;
-  left: -92px;
-  width: clamp(300px, 30vw, 430px);
-  height: clamp(300px, 30vw, 430px);
-  opacity: 0.09;
-  transform: rotate(-13deg);
+  bottom: 9vh;
+  left: -220px;
+  width: clamp(380px, 30vw, 680px);
+  height: clamp(295px, 26vw, 527px);
+  opacity: 0.07;
+  transform: rotate(-7deg);
 }
 
 .dashboard-shell {
@@ -1524,56 +1527,58 @@ body.is-dashboard::after {
 }
 
 .dashboard-shell::before {
-  top: 18%;
-  right: clamp(-170px, -7vw, -72px);
-  width: clamp(340px, 24vw, 540px);
-  height: clamp(354px, 25vw, 562px);
-  opacity: 0.07;
-  transform: scaleX(-1) rotate(-6deg);
+  top: 15%;
+  right: clamp(-250px, -10vw, -132px);
+  width: clamp(380px, 30vw, 680px);
+  height: clamp(295px, 26vw, 527px);
+  opacity: 0.045;
+  transform: scaleX(-1) rotate(-4deg);
 }
 
 .lotus-layer--dashboard .lotus-decor--left {
-  top: clamp(126px, 22vh, 246px);
-  left: clamp(-170px, -6vw, -64px);
-  width: clamp(360px, 26vw, 600px);
-  height: clamp(374px, 27vw, 624px);
+  top: clamp(116px, 20vh, 230px);
+  left: clamp(-300px, -12vw, -140px);
+  width: clamp(380px, 30vw, 680px);
+  height: clamp(295px, 26vw, 527px);
   opacity: 0.16;
-  transform: rotate(4deg);
+  transform: rotate(2deg);
 }
 
 .lotus-layer--dashboard .lotus-decor--right {
   top: clamp(118px, 21vh, 238px);
-  right: clamp(-170px, -6vw, -64px);
-  width: clamp(360px, 26vw, 600px);
-  height: clamp(374px, 27vw, 624px);
-  opacity: 0.15;
-  transform: scaleX(-1) rotate(5deg);
+  right: clamp(-300px, -12vw, -140px);
+  width: clamp(380px, 30vw, 680px);
+  height: clamp(295px, 26vw, 527px);
+  opacity: 0.14;
+  transform: scaleX(-1) rotate(3deg);
 }
 
 .lotus-layer--dashboard .lotus-decor--bottom-left {
-  bottom: -148px;
-  left: clamp(-122px, -4vw, -44px);
-  width: clamp(230px, 17vw, 330px);
-  height: clamp(240px, 18vw, 344px);
-  opacity: 0.06;
-  transform: rotate(-12deg);
+  bottom: -190px;
+  left: clamp(-190px, -7vw, -72px);
+  width: clamp(300px, 22vw, 500px);
+  height: clamp(233px, 19vw, 388px);
+  opacity: 0.045;
+  transform: rotate(-8deg);
 }
 
 .lotus-layer--dashboard .lotus-decor--bottom-right {
+  display: none;
   right: clamp(-132px, -4vw, -44px);
   bottom: -150px;
   width: clamp(240px, 18vw, 340px);
-  height: clamp(250px, 19vw, 354px);
-  opacity: 0.065;
+  height: clamp(186px, 16vw, 264px);
+  opacity: 0.045;
   transform: scaleX(-1) rotate(12deg);
 }
 
 .lotus-layer--dashboard .lotus-decor--top-soft {
+  display: none;
   top: -190px;
   left: 44vw;
   width: clamp(240px, 18vw, 330px);
-  height: clamp(250px, 19vw, 344px);
-  opacity: 0.045;
+  height: clamp(186px, 16vw, 256px);
+  opacity: 0.035;
   transform: rotate(-4deg);
 }
 
