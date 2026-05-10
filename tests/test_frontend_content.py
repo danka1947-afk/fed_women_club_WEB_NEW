@@ -161,12 +161,21 @@ def test_frontend_removes_broken_lotus_background() -> None:
 
     for removed_lotus_marker in (
         "reference-lotus-layer",
-        "--user-lotus-reference-svg",
-        "lotus-decor",
         "lotus-layer",
+        "lotus-decor",
+        "--user-lotus-reference-svg",
+        "--lotus-reference-background",
+        "--lotus-left-composition",
+        "--lotus-right-composition",
+        "--lotus-swirl-line",
+        "--lotus-line-art",
+        "--lotus-botanical-line-art",
+        "--lotus-botanical-composition",
     ):
         assert removed_lotus_marker not in source
         assert removed_lotus_marker not in styles
+
+    assert '/assets/lotus-bg.png' in styles
 
     for expected in (
         "Женский клуб",
