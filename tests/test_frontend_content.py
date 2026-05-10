@@ -75,6 +75,13 @@ def test_public_frontend_contains_css_only_sakura_layer() -> None:
     ):
         assert expected in source or expected in styles
 
+    assert "Array.from({ length: 68 }" in source
+    assert "sakura-petal--68" in styles
+    assert "rgba(244, 196, 206" in styles
+    assert "rgba(236, 182, 194" in styles
+    assert "rgba(228, 170, 184" in styles
+    assert "rgba(255, 230, 236" in styles
+    assert "filter: blur(0.8px);" in styles
     assert "position: fixed;" in styles
     assert "pointer-events: none;" in styles
     assert "z-index: 0;" in styles
