@@ -159,24 +159,26 @@ def test_frontend_contains_reference_lotus_svg_background() -> None:
     source = _frontend_main()
     styles = _frontend_styles()
 
-    assert "--lotus-reference-background" in styles
+    assert "--user-lotus-reference-svg" in styles
     assert "viewBox%3D%220%200%201200%20700%22" in styles
     assert "feGaussianBlur" in styles
     assert "watercolor" in styles
-    assert "stroke-linecap%3D%22round%22" in styles
-    assert "stroke-linejoin%3D%22round%22" in styles
-    assert "lotus-layer" in source
+    assert "M165%20480%20Q170%20620%20140%20680" in styles
+    assert "translate%28120%20380%29%20scale%281.1%29" in styles
     assert "reference-lotus-layer" in source
-    assert "lotus-layer--public" in source
-    assert "lotus-layer--dashboard" in source
+    assert "reference-lotus-layer--public" in source
+    assert "reference-lotus-layer--dashboard" in source
     assert "dashboard-shell" in source
 
     for removed_lotus_asset in (
+        "--lotus-reference-background",
         "--lotus-left-composition",
         "--lotus-right-composition",
         "--lotus-swirl-line",
         "--lotus-botanical-composition",
         "--lotus-line-art",
+        "class=\"lotus-layer",
+        ".lotus-layer",
         "lotus-decor",
         "lotus-decor--left",
         "lotus-decor--right",
