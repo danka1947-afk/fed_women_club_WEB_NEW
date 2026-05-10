@@ -219,6 +219,7 @@ const adminState = {
   selectedPartnerIdForQr: '',
   selectedQrLinkIdForEdit: '',
   selectedPartnerIdForEdit: '',
+  selectedCityIdForEdit: '',
   selectedOfferIdForEdit: '',
   panelMessage: '',
   formMessages: {},
@@ -983,6 +984,9 @@ const loadUsers = async () => {
 
 const loadCities = async () => {
   adminState.cities = await apiFetch('/api/v1/admin/cities');
+  if (adminState.selectedCityIdForEdit && !adminState.cities.some((city) => String(city.id) === String(adminState.selectedCityIdForEdit))) {
+    adminState.selectedCityIdForEdit = '';
+  }
 };
 
 const loadCategories = async () => {
@@ -1148,21 +1152,66 @@ const renderUsersTab = () => `
   </div>
 `;
 
+const renderCityActionButtons = (city) => `
+  <div class="admin-inline-actions">
+    <button class="admin-inline-action" type="button" data-admin-city-edit="${escapeHtml(city.id)}">Редактировать</button>
+    <button class="admin-inline-action" type="button" data-admin-city-active-toggle="${escapeHtml(city.id)}">
+      ${city.is_active ? 'Деактивировать' : 'Активировать'}
+    </button>
+  </div>
+`;
+
+const renderCityCreateForm = () => `
+  <form class="admin-form" data-admin-form="city">
+    <h4>Новый город</h4>
+    <label>Название города<input name="name" required /></label>
+    <label>Слаг / код города<input name="slug" required /></label>
+    <label>Порядок сортировки<input name="sort_order" type="number" value="0" /></label>
+    <label class="checkbox-row"><input name="is_active" type="checkbox" checked /> Активен</label>
+    <button type="submit">Создать город</button>
+    <p class="form-message" data-form-message="city">${escapeHtml(adminState.formMessages.city || '')}</p>
+  </form>
+`;
+
+const renderCityEditForm = () => {
+  const city = adminState.cities.find((item) => String(item.id) === String(adminState.selectedCityIdForEdit));
+  if (!city) {
+    return '';
+  }
+
+  return `
+    <form class="admin-form" data-admin-form="cityEdit" data-city-id="${escapeHtml(city.id)}">
+      <h4>Редактировать город</h4>
+      <label>Название<input name="name" value="${escapeHtml(city.name || '')}" required /></label>
+      <label>Slug<input name="slug" value="${escapeHtml(city.slug || '')}" required /></label>
+      <label>Порядок сортировки<input name="sort_order" type="number" value="${escapeHtml(city.sort_order ?? 0)}" /></label>
+      <label class="checkbox-row"><input name="is_active" type="checkbox" ${city.is_active ? 'checked' : ''} /> Активен</label>
+      <div class="admin-form-actions">
+        <button type="submit">Сохранить изменения</button>
+        <button class="admin-inline-action" type="button" data-admin-city-edit-cancel>Отмена</button>
+      </div>
+      <p class="form-message" data-form-message="cityEdit">${escapeHtml(adminState.formMessages.cityEdit || '')}</p>
+    </form>
+  `;
+};
+
 const renderCitiesTab = () => `
   <div class="admin-two-column">
     <div>
       <div class="admin-section-heading"><h4>Города</h4><p>Список городов для управления каталогом.</p></div>
-      ${renderTable(['Город', 'Слаг', 'Активен', 'Сортировка'], adminState.cities.map((city) => [city.name, city.slug, formatBool(city.is_active), city.sort_order]))}
+      ${renderTable(
+        ['Город', 'Слаг', 'Активен', 'Сортировка', 'Действие'],
+        adminState.cities.map((city) => [
+          formatValue(city.name),
+          formatValue(city.slug),
+          formatValue(formatBool(city.is_active)),
+          formatValue(city.sort_order),
+          renderCityActionButtons(city),
+        ]),
+        true,
+      )}
     </div>
-    <form class="admin-form" data-admin-form="city">
-      <h4>Новый город</h4>
-      <label>Название города<input name="name" required /></label>
-      <label>Слаг / код города<input name="slug" required /></label>
-      <label>Порядок сортировки<input name="sort_order" type="number" value="0" /></label>
-      <label class="checkbox-row"><input name="is_active" type="checkbox" checked /> Активен</label>
-      <button type="submit">Создать город</button>
-      <p class="form-message" data-form-message="city">${escapeHtml(adminState.formMessages.city || '')}</p>
-    </form>
+    ${adminState.selectedCityIdForEdit ? renderCityEditForm() : renderCityCreateForm()}
   </div>
 `;
 
@@ -1671,16 +1720,47 @@ const getOptionalText = (formData, name) => {
   return value || null;
 };
 
+const buildCityPayload = (formData) => ({
+  name: getOptionalText(formData, 'name'),
+  slug: getOptionalText(formData, 'slug'),
+  sort_order: Number(formData.get('sort_order') || 0),
+  is_active: formData.has('is_active'),
+});
+
 const submitCity = async (form) => {
   const formData = new FormData(form);
-  await postJson('/api/v1/admin/cities', {
-    name: getOptionalText(formData, 'name'),
-    slug: getOptionalText(formData, 'slug'),
-    sort_order: Number(formData.get('sort_order') || 0),
-    is_active: formData.has('is_active'),
-  });
+  await postJson('/api/v1/admin/cities', buildCityPayload(formData));
   form.reset();
   await loadCities();
+};
+
+const submitCityEdit = async (form) => {
+  const cityId = form.dataset.cityId;
+  const formData = new FormData(form);
+  await patchJson(`/api/v1/admin/cities/${cityId}`, buildCityPayload(formData));
+  await loadCities();
+};
+
+const toggleCityActive = async (cityId) => {
+  const city = adminState.cities.find((item) => String(item.id) === String(cityId));
+  if (!city) {
+    return;
+  }
+
+  const confirmationText = city.is_active ? 'Убрать город из активных?' : 'Активировать город?';
+  if (!window.confirm(confirmationText)) {
+    return;
+  }
+
+  try {
+    await patchJson(`/api/v1/admin/cities/${cityId}`, { is_active: city.is_active ? false : true });
+    await loadCities();
+    setPanelMessage(city.is_active ? 'Город деактивирован.' : 'Город активирован.', 'success');
+  } catch (error) {
+    setPanelMessage(error.message || 'Не удалось обновить город.', 'error');
+  }
+
+  renderAdminLayout();
 };
 
 const submitUser = async (form) => {
@@ -1822,6 +1902,8 @@ const handleAdminFormSubmit = async (form) => {
       await submitUser(form);
     } else if (formType === 'city') {
       await submitCity(form);
+    } else if (formType === 'cityEdit') {
+      await submitCityEdit(form);
     } else if (formType === 'partner') {
       await submitPartner(form);
     } else if (formType === 'partnerEdit') {
@@ -1951,6 +2033,28 @@ root.addEventListener('click', async (event) => {
   const userToggle = event.target.closest('[data-user-active-toggle]');
   if (userToggle) {
     toggleUserActive(userToggle.dataset.userActiveToggle);
+    return;
+  }
+
+  const cityEditButton = event.target.closest('[data-admin-city-edit]');
+  if (cityEditButton) {
+    adminState.selectedCityIdForEdit = cityEditButton.dataset.adminCityEdit;
+    setFormMessage('cityEdit');
+    renderAdminLayout();
+    return;
+  }
+
+  const cityEditCancel = event.target.closest('[data-admin-city-edit-cancel]');
+  if (cityEditCancel) {
+    adminState.selectedCityIdForEdit = '';
+    setFormMessage('cityEdit');
+    renderAdminLayout();
+    return;
+  }
+
+  const cityActiveToggle = event.target.closest('[data-admin-city-active-toggle]');
+  if (cityActiveToggle) {
+    toggleCityActive(cityActiveToggle.dataset.adminCityActiveToggle);
     return;
   }
 

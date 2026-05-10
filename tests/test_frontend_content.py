@@ -410,6 +410,62 @@ def test_public_landing_copy_and_city_chips_remain_intact() -> None:
         assert public_copy in source
 
 
+def test_frontend_contains_admin_city_edit_and_safe_deactivate_ui() -> None:
+    source = _frontend_main()
+    styles = _frontend_styles()
+
+    for expected in (
+        "Редактировать город",
+        "Редактировать",
+        "Деактивировать",
+        "Убрать город из активных?",
+        "data-admin-city-edit",
+        "data-admin-city-active-toggle",
+        "Название",
+        "Slug",
+        "Активен",
+        "Порядок сортировки",
+        "Отмена",
+        "POST",
+        "PATCH",
+        "/api/v1/admin/cities",
+        "patchJson(`/api/v1/admin/cities/${cityId}`",
+        "is_active: city.is_active ? false : true",
+        "await loadCities();",
+    ):
+        assert expected in source or expected in styles
+
+
+def test_frontend_city_management_keeps_required_landing_dashboard_and_negative_markers() -> None:
+    source = _frontend_main()
+    styles = _frontend_styles()
+
+    for expected in (
+        "Женский клуб",
+        "Федеральный клуб привилегий для девушек",
+        "Новосибирск",
+        "Череповец",
+        "dashboard-shell",
+        "dashboard-topbar",
+        "dashboard-sidebar",
+        "dashboard-main",
+        "womenClubAdminAccessToken",
+        "womenclub_partner_token",
+        "womenclub_client_token",
+    ):
+        assert expected in source or expected in styles
+
+    for removed_marker in (
+        "reference-lotus-layer",
+        "lotus-layer",
+        "lotus-decor",
+        "--user-lotus-reference-svg",
+        "--lotus-reference-background",
+        "/assets/lotus-bg.png",
+    ):
+        assert removed_marker not in source
+        assert removed_marker not in styles
+
 
 def test_frontend_contains_admin_partner_edit_ui() -> None:
     source = _frontend_main()
