@@ -64,6 +64,24 @@ def test_public_frontend_keeps_core_blocks() -> None:
         assert public_block in source
 
 
+def test_public_frontend_contains_css_only_sakura_layer() -> None:
+    source = _frontend_main()
+    styles = _frontend_styles()
+
+    for expected in (
+        'class="sakura-layer" aria-hidden="true"',
+        "sakura-petal",
+        "sakura-petal--1",
+    ):
+        assert expected in source or expected in styles
+
+    assert "position: fixed;" in styles
+    assert "pointer-events: none;" in styles
+    assert "z-index: 0;" in styles
+    assert ".app-shell" in styles
+    assert "z-index: 1;" in styles
+
+
 def test_brand_copy_targets_girls() -> None:
     source = _frontend_main()
 

@@ -41,6 +41,75 @@ body {
 }
 
 
+.sakura-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.is-dashboard .sakura-layer {
+  display: none;
+}
+
+.sakura-petal {
+  position: absolute;
+  width: 12px;
+  height: 16px;
+  border-radius: 72% 28% 68% 32%;
+  background:
+    radial-gradient(circle at 35% 28%, rgba(255, 250, 250, 0.82), transparent 31%),
+    linear-gradient(145deg, rgba(252, 207, 218, 0.86), rgba(214, 139, 153, 0.48));
+  box-shadow: 0 6px 18px rgba(201, 130, 150, 0.08);
+  filter: blur(0.1px);
+  opacity: 0.3;
+  transform: rotate(var(--petal-rotate, 18deg)) skew(-4deg, 2deg);
+  transform-origin: 55% 75%;
+}
+
+.sakura-petal::after {
+  position: absolute;
+  top: 18%;
+  left: 48%;
+  width: 1px;
+  height: 58%;
+  border-radius: 999px;
+  background: linear-gradient(rgba(177, 94, 111, 0.18), rgba(177, 94, 111, 0.02));
+  content: "";
+  transform: rotate(10deg);
+}
+
+.sakura-petal--1 { top: 5%; left: 4%; width: 10px; height: 15px; opacity: 0.34; --petal-rotate: -24deg; }
+.sakura-petal--2 { top: 9%; left: 12%; width: 14px; height: 18px; opacity: 0.24; --petal-rotate: 38deg; }
+.sakura-petal--3 { top: 18%; left: 3%; width: 8px; height: 12px; opacity: 0.38; --petal-rotate: 72deg; }
+.sakura-petal--4 { top: 27%; left: 15%; width: 16px; height: 19px; opacity: 0.22; --petal-rotate: -58deg; }
+.sakura-petal--5 { top: 38%; left: 6%; width: 12px; height: 16px; opacity: 0.2; --petal-rotate: 18deg; }
+.sakura-petal--6 { top: 53%; left: 18%; width: 9px; height: 13px; opacity: 0.18; --petal-rotate: 103deg; }
+.sakura-petal--7 { top: 68%; left: 7%; width: 15px; height: 18px; opacity: 0.2; --petal-rotate: -36deg; }
+.sakura-petal--8 { bottom: 8%; left: 13%; width: 11px; height: 15px; opacity: 0.27; --petal-rotate: 55deg; }
+.sakura-petal--9 { bottom: 17%; left: 3%; width: 17px; height: 20px; opacity: 0.18; --petal-rotate: -78deg; }
+.sakura-petal--10 { top: 4%; right: 5%; width: 15px; height: 18px; opacity: 0.32; --petal-rotate: 31deg; }
+.sakura-petal--11 { top: 11%; right: 14%; width: 9px; height: 13px; opacity: 0.4; --petal-rotate: -44deg; }
+.sakura-petal--12 { top: 21%; right: 3%; width: 13px; height: 17px; opacity: 0.25; --petal-rotate: 82deg; }
+.sakura-petal--13 { top: 32%; right: 18%; width: 8px; height: 12px; opacity: 0.24; --petal-rotate: -12deg; }
+.sakura-petal--14 { top: 43%; right: 6%; width: 16px; height: 19px; opacity: 0.18; --petal-rotate: -67deg; }
+.sakura-petal--15 { top: 59%; right: 16%; width: 11px; height: 15px; opacity: 0.2; --petal-rotate: 48deg; }
+.sakura-petal--16 { top: 71%; right: 5%; width: 14px; height: 18px; opacity: 0.22; --petal-rotate: 112deg; }
+.sakura-petal--17 { bottom: 7%; right: 12%; width: 10px; height: 15px; opacity: 0.3; --petal-rotate: -25deg; }
+.sakura-petal--18 { bottom: 18%; right: 4%; width: 18px; height: 21px; opacity: 0.17; --petal-rotate: 63deg; }
+.sakura-petal--19 { top: 2%; left: 21%; width: 8px; height: 12px; opacity: 0.22; --petal-rotate: 15deg; }
+.sakura-petal--20 { top: 3%; right: 24%; width: 12px; height: 16px; opacity: 0.2; --petal-rotate: -55deg; }
+.sakura-petal--21 { top: 13%; left: 22%; width: 10px; height: 14px; opacity: 0.16; --petal-rotate: 88deg; }
+.sakura-petal--22 { top: 14%; right: 22%; width: 14px; height: 17px; opacity: 0.15; --petal-rotate: -28deg; }
+.sakura-petal--23 { bottom: 3%; left: 24%; width: 15px; height: 18px; opacity: 0.16; --petal-rotate: 42deg; }
+.sakura-petal--24 { bottom: 4%; right: 23%; width: 9px; height: 13px; opacity: 0.18; --petal-rotate: -91deg; }
+.sakura-petal--25 { bottom: 13%; left: 19%; width: 12px; height: 16px; opacity: 0.15; --petal-rotate: 74deg; }
+.sakura-petal--26 { bottom: 12%; right: 19%; width: 13px; height: 17px; opacity: 0.15; --petal-rotate: -39deg; }
+.sakura-petal--27 { top: 83%; left: 9%; width: 8px; height: 12px; opacity: 0.24; --petal-rotate: 21deg; }
+.sakura-petal--28 { top: 84%; right: 9%; width: 11px; height: 15px; opacity: 0.22; --petal-rotate: -64deg; }
+
+
 a {
   color: inherit;
   text-decoration: none;
