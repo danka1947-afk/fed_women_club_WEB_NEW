@@ -220,6 +220,7 @@ const adminState = {
   selectedQrLinkIdForEdit: '',
   selectedPartnerIdForEdit: '',
   selectedCityIdForEdit: '',
+  selectedCategoryIdForEdit: '',
   selectedOfferIdForEdit: '',
   panelMessage: '',
   formMessages: {},
@@ -991,6 +992,9 @@ const loadCities = async () => {
 
 const loadCategories = async () => {
   adminState.categories = await apiFetch('/api/v1/admin/categories');
+  if (adminState.selectedCategoryIdForEdit && !adminState.categories.some((category) => String(category.id) === String(adminState.selectedCategoryIdForEdit))) {
+    adminState.selectedCategoryIdForEdit = '';
+  }
 };
 
 const loadPartners = async () => {
@@ -1215,9 +1219,69 @@ const renderCitiesTab = () => `
   </div>
 `;
 
+const getCategoryName = (category) => category.name || category.title || '';
+
+const renderCategoryActionButtons = (category) => `
+  <div class="admin-inline-actions">
+    <button class="admin-inline-action" type="button" data-admin-category-edit="${escapeHtml(category.id)}">Редактировать</button>
+    <button class="admin-inline-action" type="button" data-admin-category-active-toggle="${escapeHtml(category.id)}">
+      ${category.is_active ? 'Деактивировать' : 'Активировать'}
+    </button>
+  </div>
+`;
+
+const renderCategoryCreateForm = () => `
+  <form class="admin-form" data-admin-form="category">
+    <h4>Новая категория</h4>
+    <label>Название<input name="name" required /></label>
+    <label>Slug<input name="slug" required /></label>
+    <label>Порядок сортировки<input name="sort_order" type="number" value="0" /></label>
+    <label class="checkbox-row"><input name="is_active" type="checkbox" checked /> Активна</label>
+    <button type="submit">Создать категорию</button>
+    <p class="form-message" data-form-message="category">${escapeHtml(adminState.formMessages.category || '')}</p>
+  </form>
+`;
+
+const renderCategoryEditForm = () => {
+  const category = adminState.categories.find((item) => String(item.id) === String(adminState.selectedCategoryIdForEdit));
+  if (!category) {
+    return '';
+  }
+
+  return `
+    <form class="admin-form" data-admin-form="categoryEdit" data-category-id="${escapeHtml(category.id)}">
+      <h4>Редактировать категорию</h4>
+      <label>Название<input name="name" value="${escapeHtml(getCategoryName(category))}" required /></label>
+      <label>Slug<input name="slug" value="${escapeHtml(category.slug || '')}" required /></label>
+      <label>Порядок сортировки<input name="sort_order" type="number" value="${escapeHtml(category.sort_order ?? 0)}" /></label>
+      <label class="checkbox-row"><input name="is_active" type="checkbox" ${category.is_active ? 'checked' : ''} /> Активна</label>
+      <div class="admin-form-actions">
+        <button type="submit">Сохранить изменения</button>
+        <button class="admin-inline-action" type="button" data-admin-category-edit-cancel>Отмена</button>
+      </div>
+      <p class="form-message" data-form-message="categoryEdit">${escapeHtml(adminState.formMessages.categoryEdit || '')}</p>
+    </form>
+  `;
+};
+
 const renderCategoriesTab = () => `
-  <div class="admin-section-heading"><h4>Категории</h4><p>Read-only справочник категорий партнёров.</p></div>
-  ${renderTable(['Категория', 'Слаг', 'Сортировка'], adminState.categories.map((category) => [category.title, category.slug, category.sort_order]))}
+  <div class="admin-two-column">
+    <div>
+      <div class="admin-section-heading"><h4>Категории</h4><p>Справочник категорий партнёров с безопасной деактивацией.</p></div>
+      ${renderTable(
+        ['Категория', 'Слаг', 'Активна', 'Сортировка', 'Действие'],
+        adminState.categories.map((category) => [
+          formatValue(getCategoryName(category)),
+          formatValue(category.slug),
+          formatValue(formatBool(category.is_active)),
+          formatValue(category.sort_order),
+          renderCategoryActionButtons(category),
+        ]),
+        true,
+      )}
+    </div>
+    ${adminState.selectedCategoryIdForEdit ? renderCategoryEditForm() : renderCategoryCreateForm()}
+  </div>
 `;
 
 const renderAdminPartnerAction = (partner) => `
@@ -1727,6 +1791,13 @@ const buildCityPayload = (formData) => ({
   is_active: formData.has('is_active'),
 });
 
+const buildCategoryPayload = (formData) => ({
+  name: getOptionalText(formData, 'name'),
+  slug: getOptionalText(formData, 'slug'),
+  sort_order: Number(formData.get('sort_order') || 0),
+  is_active: formData.has('is_active'),
+});
+
 const submitCity = async (form) => {
   const formData = new FormData(form);
   await postJson('/api/v1/admin/cities', buildCityPayload(formData));
@@ -1739,6 +1810,42 @@ const submitCityEdit = async (form) => {
   const formData = new FormData(form);
   await patchJson(`/api/v1/admin/cities/${cityId}`, buildCityPayload(formData));
   await loadCities();
+};
+
+const submitCategory = async (form) => {
+  const formData = new FormData(form);
+  await postJson('/api/v1/admin/categories', buildCategoryPayload(formData));
+  form.reset();
+  await loadCategories();
+};
+
+const submitCategoryEdit = async (form) => {
+  const categoryId = form.dataset.categoryId;
+  const formData = new FormData(form);
+  await patchJson(`/api/v1/admin/categories/${categoryId}`, buildCategoryPayload(formData));
+  await loadCategories();
+};
+
+const toggleCategoryActive = async (categoryId) => {
+  const category = adminState.categories.find((item) => String(item.id) === String(categoryId));
+  if (!category) {
+    return;
+  }
+
+  const confirmationText = category.is_active ? 'Деактивировать категорию?' : 'Активировать категорию?';
+  if (!window.confirm(confirmationText)) {
+    return;
+  }
+
+  try {
+    await patchJson(`/api/v1/admin/categories/${categoryId}`, { is_active: category.is_active ? false : true });
+    await loadCategories();
+    setPanelMessage(category.is_active ? 'Категория деактивирована.' : 'Категория активирована.', 'success');
+  } catch (error) {
+    setPanelMessage(error.message || 'Не удалось обновить категорию.', 'error');
+  }
+
+  renderAdminLayout();
 };
 
 const toggleCityActive = async (cityId) => {
@@ -1904,6 +2011,10 @@ const handleAdminFormSubmit = async (form) => {
       await submitCity(form);
     } else if (formType === 'cityEdit') {
       await submitCityEdit(form);
+    } else if (formType === 'category') {
+      await submitCategory(form);
+    } else if (formType === 'categoryEdit') {
+      await submitCategoryEdit(form);
     } else if (formType === 'partner') {
       await submitPartner(form);
     } else if (formType === 'partnerEdit') {
@@ -2055,6 +2166,28 @@ root.addEventListener('click', async (event) => {
   const cityActiveToggle = event.target.closest('[data-admin-city-active-toggle]');
   if (cityActiveToggle) {
     toggleCityActive(cityActiveToggle.dataset.adminCityActiveToggle);
+    return;
+  }
+
+  const categoryEditButton = event.target.closest('[data-admin-category-edit]');
+  if (categoryEditButton) {
+    adminState.selectedCategoryIdForEdit = categoryEditButton.dataset.adminCategoryEdit;
+    setFormMessage('categoryEdit');
+    renderAdminLayout();
+    return;
+  }
+
+  const categoryEditCancel = event.target.closest('[data-admin-category-edit-cancel]');
+  if (categoryEditCancel) {
+    adminState.selectedCategoryIdForEdit = '';
+    setFormMessage('categoryEdit');
+    renderAdminLayout();
+    return;
+  }
+
+  const categoryActiveToggle = event.target.closest('[data-admin-category-active-toggle]');
+  if (categoryActiveToggle) {
+    toggleCategoryActive(categoryActiveToggle.dataset.adminCategoryActiveToggle);
     return;
   }
 

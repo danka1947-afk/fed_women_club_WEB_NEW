@@ -387,28 +387,66 @@ def test_frontend_contains_admin_cabinet_endpoint_strings() -> None:
         assert endpoint in source
 
 
-def test_admin_categories_are_read_only_when_mutation_routes_are_missing() -> None:
+def test_admin_categories_support_create_edit_and_safe_toggle_ui() -> None:
     endpoints = _admin_endpoints()
     schemas = _admin_schemas()
     source = _frontend_main()
 
     assert '@router.get("/categories", response_model=list[CategoryRead])' in endpoints
-    assert '@router.post("/categories"' not in endpoints
-    assert '@router.patch("/categories/{category_id}"' not in endpoints
+    assert '@router.post("/categories", response_model=CategoryRead)' in endpoints
+    assert '@router.patch("/categories/{category_id}", response_model=CategoryRead)' in endpoints
     assert '@router.delete("/categories/{category_id}"' not in endpoints
-    assert 'class CategoryCreate' not in schemas
-    assert 'class CategoryUpdate' not in schemas
+    assert 'class CategoryCreate' in schemas
+    assert 'class CategoryUpdate' in schemas
 
-    assert "/api/v1/admin/categories" in source
-    for forbidden_marker in (
+    for marker in (
         "Новая категория",
         "Редактировать категорию",
+        "Редактировать",
+        "Деактивировать",
+        "Активировать",
+        "Название",
+        "Slug",
+        "Активна",
+        "Порядок сортировки",
+        "Отмена",
+        "postJson('/api/v1/admin/categories'",
+        "patchJson(`/api/v1/admin/categories/${categoryId}`",
         "data-admin-category-edit",
         "data-admin-category-active-toggle",
-        "patchJson(`/api/v1/admin/categories/${categoryId}`",
-        "postJson('/api/v1/admin/categories'",
     ):
-        assert forbidden_marker not in source
+        assert marker in source
+
+
+def test_frontend_category_admin_keeps_public_dashboard_and_removed_image_markers() -> None:
+    source = _frontend_main()
+    styles = _frontend_styles()
+
+    for marker in (
+        "Женский клуб",
+        "Федеральный клуб привилегий для девушек",
+        "Новосибирск",
+        "Череповец",
+        "dashboard-shell",
+        "dashboard-topbar",
+        "dashboard-sidebar",
+        "dashboard-main",
+        "womenClubAdminAccessToken",
+        "womenclub_partner_token",
+        "womenclub_client_token",
+    ):
+        assert marker in source
+
+    for removed_marker in (
+        "reference-lotus-layer",
+        "lotus-layer",
+        "lotus-decor",
+        "--user-lotus-reference-svg",
+        "--lotus-reference-background",
+        "/assets/lotus-bg.png",
+    ):
+        assert removed_marker not in source
+        assert removed_marker not in styles
 
 
 def test_frontend_contains_admin_user_role_options() -> None:
