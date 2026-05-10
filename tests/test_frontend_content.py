@@ -155,50 +155,33 @@ def test_frontend_contains_dashboard_shell_classes() -> None:
     assert "min-width: 0;" in styles
 
 
-def test_frontend_contains_reference_lotus_svg_background() -> None:
+def test_frontend_removes_broken_lotus_background() -> None:
     source = _frontend_main()
     styles = _frontend_styles()
 
-    assert "--user-lotus-reference-svg" in styles
-    assert "viewBox%3D%220%200%201200%20700%22" in styles
-    assert "feGaussianBlur" in styles
-    assert "watercolor" in styles
-    assert "M165%20480%20Q170%20620%20140%20680" in styles
-    assert "translate%28120%20380%29%20scale%281.1%29" in styles
-    assert "reference-lotus-layer" in source
-    assert "reference-lotus-layer--public" in source
-    assert "reference-lotus-layer--dashboard" in source
-    assert "dashboard-shell" in source
-
-    for removed_lotus_asset in (
-        "--lotus-reference-background",
-        "--lotus-left-composition",
-        "--lotus-right-composition",
-        "--lotus-swirl-line",
-        "--lotus-botanical-composition",
-        "--lotus-line-art",
-        "class=\"lotus-layer",
-        ".lotus-layer",
+    for removed_lotus_marker in (
+        "reference-lotus-layer",
+        "--user-lotus-reference-svg",
         "lotus-decor",
-        "lotus-decor--left",
-        "lotus-decor--right",
-        "lotus-decor--bottom-left",
-        "lotus-decor--bottom-right",
-        "lotus-decor--top-soft",
+        "lotus-layer",
     ):
-        assert removed_lotus_asset not in source
-        assert removed_lotus_asset not in styles
+        assert removed_lotus_marker not in source
+        assert removed_lotus_marker not in styles
 
     for expected in (
         "Женский клуб",
         "Федеральный клуб привилегий для девушек",
         "Новосибирск",
         "Череповец",
+        "dashboard-shell",
+        "dashboard-topbar",
+        "dashboard-sidebar",
+        "dashboard-main",
         "womenClubAdminAccessToken",
         "womenclub_partner_token",
         "womenclub_client_token",
     ):
-        assert expected in source
+        assert expected in source or expected in styles
 
 
 def test_frontend_keeps_required_public_role_nav_and_token_copy() -> None:

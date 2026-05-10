@@ -10,7 +10,6 @@
   --color-border: rgba(201, 130, 120, 0.25);
   --shadow-soft: 0 24px 70px rgba(143, 81, 75, 0.13);
   --shadow-card: 0 18px 48px rgba(201, 130, 120, 0.15);
-  --user-lotus-reference-svg: url("data:image/svg+xml,%3Csvg%20viewBox%3D%220%200%201200%20700%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20preserveAspectRatio%3D%22xMidYMid%20slice%22%3E%0A%20%20%3Cdefs%3E%0A%20%20%20%20%3Cfilter%20id%3D%22watercolor%22%20x%3D%22-50%25%22%20y%3D%22-50%25%22%20width%3D%22200%25%22%20height%3D%22200%25%22%3E%0A%20%20%20%20%20%20%3CfeGaussianBlur%20in%3D%22SourceGraphic%22%20stdDeviation%3D%2225%22%2F%3E%0A%20%20%20%20%3C%2Ffilter%3E%0A%20%20%3C%2Fdefs%3E%0A%20%20%3Crect%20width%3D%221200%22%20height%3D%22700%22%20fill%3D%22%23fffaf5%22%2F%3E%0A%20%20%3Cellipse%20cx%3D%22200%22%20cy%3D%22150%22%20rx%3D%22280%22%20ry%3D%22220%22%20fill%3D%22%23ffe6e6%22%20opacity%3D%220.45%22%20filter%3D%22url%28%23watercolor%29%22%2F%3E%0A%20%20%3Cellipse%20cx%3D%22950%22%20cy%3D%22280%22%20rx%3D%22250%22%20ry%3D%22180%22%20fill%3D%22%23f8e0e0%22%20opacity%3D%220.4%22%20filter%3D%22url%28%23watercolor%29%22%2F%3E%0A%20%20%3Cellipse%20cx%3D%22150%22%20cy%3D%22520%22%20rx%3D%22200%22%20ry%3D%22140%22%20fill%3D%22%23ffe4d6%22%20opacity%3D%220.35%22%20filter%3D%22url%28%23watercolor%29%22%2F%3E%0A%20%20%3Cg%20transform%3D%22translate%28120%20380%29%20scale%281.1%29%22%3E%0A%20%20%20%20%3Cpath%20d%3D%22M-25%2C80%20Q-60%2C20%20-45%2C-35%20Q-20%2C-70%2015%2C-65%20Q50%2C-55%2055%2C10%20Q60%2C65%2025%2C85%20Z%22%20fill%3D%22%23fff%22%20stroke%3D%22%232c2c2c%22%20stroke-width%3D%226%22%2F%3E%0A%20%20%20%20%3Cpath%20d%3D%22M-35%2C65%20Q-75%2C15%20-50%2C-45%20Q-25%2C-75%2020%2C-70%20Q65%2C-50%2070%2C20%20Q65%2C70%2030%2C82%20Z%22%20fill%3D%22none%22%20stroke%3D%22%232c2c2c%22%20stroke-width%3D%225%22%2F%3E%0A%20%20%20%20%3Cpath%20d%3D%22M-10%2C75%20Q-45%2C25%20-30%2C-55%20Q-5%2C-80%2035%2C-65%20Q70%2C-35%2065%2C35%20Q45%2C75%2020%2C82%20Z%22%20fill%3D%22none%22%20stroke%3D%22%232c2c2c%22%20stroke-width%3D%225%22%2F%3E%0A%20%20%3C%2Fg%3E%0A%20%20%3Cg%20transform%3D%22translate%2880%20180%29%20scale%281.35%29%22%3E%0A%20%20%20%20%3Cpath%20d%3D%22M-35%2C65%20Q-75%2C10%20-55%2C-55%20Q-25%2C-85%2025%2C-75%20Q60%2C-55%2065%2C5%20Q55%2C65%2020%2C80%20Z%22%20fill%3D%22%23fff%22%20stroke%3D%22%232c2c2c%22%20stroke-width%3D%225%22%2F%3E%0A%20%20%20%20%3Cpath%20d%3D%22M-45%2C55%20Q-85%2C15%20-70%2C-50%20Q-40%2C-85%2015%2C-80%20Q55%2C-60%2070%2C0%20Q60%2C60%2030%2C75%20Z%22%20fill%3D%22none%22%20stroke%3D%22%232c2c2c%22%20stroke-width%3D%224.5%22%2F%3E%0A%20%20%20%20%3Cpath%20d%3D%22M-20%2C70%20Q-65%2C25%20-45%2C-60%20Q-15%2C-88%2030%2C-75%20Q65%2C-45%2068%2C20%20Q50%2C68%2025%2C78%20Z%22%20fill%3D%22none%22%20stroke%3D%22%232c2c2c%22%20stroke-width%3D%224.5%22%2F%3E%0A%20%20%3C%2Fg%3E%0A%20%20%3Cg%20transform%3D%22translate%28820%20120%29%20scale%281.25%29%22%3E%0A%20%20%20%20%3Cpath%20d%3D%22M-30%2C70%20Q-70%2C20%20-50%2C-50%20Q-20%2C-80%2030%2C-72%20Q65%2C-48%2068%2C10%20Q60%2C60%2025%2C78%20Z%22%20fill%3D%22%23fff%22%20stroke%3D%22%232c2c2c%22%20stroke-width%3D%225%22%2F%3E%0A%20%20%20%20%3Cpath%20d%3D%22M-45%2C55%20Q-85%2C15%20-65%2C-48%20Q-35%2C-82%2020%2C-75%20Q60%2C-50%2070%2C5%20Q60%2C62%2030%2C75%20Z%22%20fill%3D%22none%22%20stroke%3D%22%232c2c2c%22%20stroke-width%3D%224.5%22%2F%3E%0A%20%20%20%20%3Cpath%20d%3D%22M-15%2C72%20Q-55%2C30%20-40%2C-58%20Q-10%2C-85%2035%2C-70%20Q70%2C-40%2065%2C25%20Q48%2C68%2022%2C78%20Z%22%20fill%3D%22none%22%20stroke%3D%22%232c2c2c%22%20stroke-width%3D%224.5%22%2F%3E%0A%20%20%3C%2Fg%3E%0A%20%20%3Cpath%20d%3D%22M165%20480%20Q170%20620%20140%20680%22%20fill%3D%22none%22%20stroke%3D%22%232c2c2c%22%20stroke-width%3D%227%22%20stroke-linecap%3D%22round%22%2F%3E%0A%20%20%3Cpath%20d%3D%22M115%20280%20Q125%20380%20105%20480%22%20fill%3D%22none%22%20stroke%3D%22%232c2c2c%22%20stroke-width%3D%226%22%20stroke-linecap%3D%22round%22%2F%3E%0A%20%20%3Cpath%20d%3D%22M880%20280%20Q890%20350%20920%20410%22%20fill%3D%22none%22%20stroke%3D%22%232c2c2c%22%20stroke-width%3D%226%22%20stroke-linecap%3D%22round%22%2F%3E%0A%20%20%3Cpath%20d%3D%22M0%20620%20Q150%20580%20300%20620%20Q450%20660%20600%20605%20Q780%20565%20950%20615%20Q1100%20645%201200%20610%22%20fill%3D%22none%22%20stroke%3D%22%232c2c2c%22%20stroke-width%3D%224%22%20stroke-linecap%3D%22round%22%20opacity%3D%220.7%22%2F%3E%0A%3C%2Fsvg%3E");
   --radius-lg: 32px;
   --radius-md: 22px;
   --radius-sm: 14px;
@@ -38,26 +37,6 @@ body {
   background:
     radial-gradient(circle at top left, rgba(246, 216, 210, 0.8), transparent 34rem),
     linear-gradient(135deg, var(--color-background), var(--color-background-soft));
-}
-
-.reference-lotus-layer {
-  position: fixed;
-  inset: 0;
-  z-index: 0;
-  overflow: hidden;
-  background-image: var(--user-lotus-reference-svg);
-  background-repeat: no-repeat;
-  background-position: center top;
-  background-size: cover;
-  pointer-events: none;
-}
-
-.reference-lotus-layer--public {
-  opacity: 0.48;
-}
-
-.reference-lotus-layer--dashboard {
-  opacity: 0.2;
 }
 
 a {
@@ -549,11 +528,6 @@ h2 {
     padding-top: 10px;
   }
 
-
-  .reference-lotus-layer--public {
-    opacity: 0.12;
-    background-position: 46% top;
-  }
 
   .hero,
   .panel,
@@ -1755,12 +1729,6 @@ body.is-dashboard {
 }
 
 @media (max-width: 640px) {
-  .reference-lotus-layer--dashboard {
-    opacity: 0.12;
-    background-position: 48% top;
-  }
-
-
   .dashboard-layout {
     --dashboard-width: min(100% - 20px, 1680px);
     width: var(--dashboard-width);
