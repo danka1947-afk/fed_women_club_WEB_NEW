@@ -52,7 +52,7 @@ def test_migration_files_have_single_head_revision() -> None:
     referenced_revisions = {down_revision for down_revision in revisions.values() if down_revision}
     heads = sorted(set(revisions) - referenced_revisions)
 
-    assert heads == ["20260510_0006"]
+    assert heads == ["20260511_0007"]
 
 
 def test_base_metadata_includes_domain_foundation_tables() -> None:
@@ -71,6 +71,7 @@ def test_base_metadata_includes_domain_foundation_tables() -> None:
         "admin_users",
         "vk_link_codes",
         "categories",
+        "client_password_setup_tokens",
     }.issubset(Base.metadata.tables)
 
 

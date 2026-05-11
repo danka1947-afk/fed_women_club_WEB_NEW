@@ -6,6 +6,7 @@ import hmac
 import importlib.util
 import json
 import os
+import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -118,6 +119,18 @@ def _decode_jwt_stdlib(token: str) -> dict[str, Any]:
     except (ValueError, TypeError, json.JSONDecodeError) as exc:
         raise ValueError("Invalid token") from exc
 
+
+
+def generate_password_setup_token() -> str:
+    return secrets.token_urlsafe(48)
+
+
+def hash_password_setup_token(token: str) -> str:
+    return hmac.new(
+        settings.SECRET_KEY.encode("utf-8"),
+        token.encode("utf-8"),
+        hashlib.sha256,
+    ).hexdigest()
 
 def create_access_token(subject: str, expires_delta: timedelta | None = None) -> str:
     expire = datetime.now(timezone.utc) + (

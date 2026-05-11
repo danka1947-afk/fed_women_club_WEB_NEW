@@ -77,6 +77,49 @@ const sakuraCenterPetalMarkup = Array.from({ length: 20 }, (_, index) => (
 
 const sakuraPetalMarkup = `${sakuraEdgePetalMarkup}${sakuraCenterPetalMarkup}`;
 
+
+const getPasswordSetupParams = () => {
+  const params = new URLSearchParams(window.location.search);
+  const setupToken = params.get('setup_token');
+  return {
+    setupToken: setupToken ? setupToken.trim() : '',
+    login: (params.get('login') || '').trim(),
+  };
+};
+
+const renderPasswordSetupApp = () => {
+  const { login } = getPasswordSetupParams();
+  document.body.classList.remove('is-dashboard');
+  root.innerHTML = `
+    <div class="sakura-layer" aria-hidden="true">
+      ${sakuraPetalMarkup}
+    </div>
+    <main class="app-shell setup-password-shell">
+      <section class="panel setup-password-panel" aria-labelledby="setup-password-title">
+        <p class="section-kicker">VK onboarding</p>
+        <h1 id="setup-password-title">Задайте пароль</h1>
+        <p>Придумайте пароль для входа в личный кабинет клуба.</p>
+        <form class="login-form setup-password-form" data-password-setup-form>
+          <label>
+            Логин
+            <input type="text" name="login" autocomplete="username" value="${escapeHtml(login)}" readonly placeholder="Логин появится после установки, если VK-бот не передал email или телефон" />
+          </label>
+          <label>
+            Новый пароль
+            <input type="password" name="password" autocomplete="new-password" placeholder="Минимум 8 символов" required />
+          </label>
+          <label>
+            Повторите пароль
+            <input type="password" name="password_confirm" autocomplete="new-password" placeholder="Повторите пароль" required />
+          </label>
+          <button type="submit">Сохранить пароль</button>
+          <p class="login-message" data-password-setup-message role="status" aria-live="polite"></p>
+        </form>
+      </section>
+    </main>
+  `;
+};
+
 const renderPublicApp = () => {
   document.body.classList.remove('is-dashboard');
   root.innerHTML = `
@@ -2334,6 +2377,56 @@ const handleAdminFormSubmit = async (form) => {
   renderAdminLayout();
 };
 
+
+const handlePasswordSetupSubmit = async (form) => {
+  const message = document.querySelector('[data-password-setup-message]');
+  if (message) {
+    message.textContent = '';
+  }
+  const { setupToken, login } = getPasswordSetupParams();
+  const formData = new FormData(form);
+  const password = String(formData.get('password') || '');
+  const passwordConfirm = String(formData.get('password_confirm') || '');
+
+  try {
+    const response = await fetch('/api/v1/auth/password-setup/complete', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        token: setupToken,
+        password,
+        password_confirm: passwordConfirm,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error('Password setup failed');
+    }
+
+    await response.json();
+    form.reset();
+    if (message) {
+      message.textContent = 'Пароль установлен. Теперь войдите в личный кабинет.';
+    }
+    const nextUrl = new URL(window.location.href);
+    nextUrl.searchParams.delete('setup_token');
+    window.history.replaceState({}, '', `${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}`);
+    renderPublicApp();
+    setLoginMode('client');
+    const loginInput = document.querySelector('[data-login-form] input[name="email"]');
+    if (loginInput && login) {
+      loginInput.value = login;
+    }
+    setLoginMessage('Пароль установлен. Теперь войдите в личный кабинет.');
+  } catch (error) {
+    if (message) {
+      message.textContent = 'Ссылка недействительна или истекла. Запросите новую ссылку в VK-боте.';
+    }
+  }
+};
+
 const handleLoginSubmit = async (form) => {
   setLoginMessage();
 
@@ -2663,6 +2756,13 @@ root.addEventListener('change', (event) => {
 });
 
 root.addEventListener('submit', (event) => {
+  const passwordSetup = event.target.closest('[data-password-setup-form]');
+  if (passwordSetup) {
+    event.preventDefault();
+    handlePasswordSetupSubmit(passwordSetup);
+    return;
+  }
+
   const login = event.target.closest('[data-login-form]');
   if (login) {
     event.preventDefault();
@@ -2751,4 +2851,8 @@ const restoreAdminSession = async () => {
   }
 };
 
-restoreAdminSession();
+if (getPasswordSetupParams().setupToken) {
+  renderPasswordSetupApp();
+} else {
+  restoreAdminSession();
+}

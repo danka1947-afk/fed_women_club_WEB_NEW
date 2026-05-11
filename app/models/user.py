@@ -47,6 +47,11 @@ class User(Base):
         uselist=False,
     )
     owned_partners: Mapped[list["Partner"]] = relationship("Partner", back_populates="owner_user")
+    password_setup_tokens: Mapped[list["ClientPasswordSetupToken"]] = relationship(
+        "ClientPasswordSetupToken",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
 
 
 class AdminUser(Base):

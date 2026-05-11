@@ -979,3 +979,45 @@ def test_client_cabinet_uses_human_readable_profile_catalog_history_and_subscrip
     assert "selected_city_id: selectedCityId ? Number(selectedCityId) : null" in source
     assert "renderStatusBadge(formatStatus(item.status))" in source
     assert "formatClientCategory(partner.category_slug)" in source
+
+
+def test_frontend_contains_vk_password_setup_flow_markers() -> None:
+    source = _frontend_main()
+
+    assert "setup_token" in source
+    assert "getPasswordSetupParams" in source
+    assert "Задайте пароль" in source
+    assert "Новый пароль" in source
+    assert "Повторите пароль" in source
+    assert "Пароль установлен. Теперь войдите" in source
+    assert "/api/v1/auth/password-setup/complete" in source
+    assert "Ссылка недействительна или истекла" in source
+
+
+def test_frontend_preserves_public_and_cabinet_contract_markers_after_password_setup() -> None:
+    source = _frontend_main()
+    styles = _frontend_styles()
+
+    for expected in (
+        "Федеральный клуб привилегий для девушек",
+        "data-login-form",
+        'data-login-mode="admin"',
+        'data-login-mode="partner"',
+        'data-login-mode="client"',
+        "/api/v1/auth/login",
+        "/api/v1/auth/user-login",
+        "Панель администратора",
+        "partner-dashboard",
+        "client-dashboard",
+    ):
+        assert expected in source
+
+    for removed_marker in (
+        "reference-lotus-layer",
+        "lotus-layer",
+        "lotus-decor",
+        "--user-lotus-reference-svg",
+        "--lotus-reference-background",
+    ):
+        assert removed_marker not in source
+        assert removed_marker not in styles

@@ -35,6 +35,8 @@ class VkOnboardClientRequest(BaseModel):
     source: str | None = "vk"
     selected_city_slug: str | None = None
     full_name: str | None = None
+    email: str | None = None
+    phone: str | None = None
 
 
 class VkOnboardClientUserRead(BaseModel):
@@ -64,3 +66,7 @@ class VkOnboardClientResponse(BaseModel):
     client: VkOnboardClientProfileRead
     is_new: bool
     password_setup_required: bool = True
+    password_setup_url: str | None = None
+    login: str | None = None
+    password_setup_expires_at: datetime | None = None
+    password_setup_ttl_seconds: int | None = None

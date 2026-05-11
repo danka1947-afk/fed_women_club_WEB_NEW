@@ -1,6 +1,6 @@
 from app.models.category import Category
 from app.models.city import City
-from app.models.client import ClientProfile, VkLinkCode
+from app.models.client import ClientPasswordSetupToken, ClientProfile, VkLinkCode
 from app.models.lead import LeadClick
 from app.models.partner import Partner, PartnerOffer, PartnerQrLink
 from app.models.payment import PaymentReceipt, PaymentRequest, PaymentRequestStatus, Subscription, SubscriptionStatus
@@ -12,6 +12,7 @@ __all__ = [
     "Category",
     "City",
     "ClientProfile",
+    "ClientPasswordSetupToken",
     "VkLinkCode",
     "LeadClick",
     "Partner",
