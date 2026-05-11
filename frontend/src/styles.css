@@ -1128,6 +1128,50 @@ h2 {
   white-space: nowrap;
 }
 
+.status-badge {
+  display: inline-flex;
+  max-width: 100%;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 8px;
+  border: 1px solid rgba(201, 130, 120, 0.2);
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.15;
+  white-space: nowrap;
+}
+
+.status-badge--success {
+  border-color: rgba(128, 156, 119, 0.34);
+  background: rgba(237, 246, 231, 0.92);
+  color: #49673f;
+}
+
+.status-badge--muted {
+  border-color: rgba(166, 139, 133, 0.28);
+  background: rgba(249, 243, 240, 0.94);
+  color: #7a6965;
+}
+
+.status-badge--warning {
+  border-color: rgba(211, 162, 99, 0.36);
+  background: rgba(255, 247, 228, 0.95);
+  color: #8a6231;
+}
+
+.status-badge--danger {
+  border-color: rgba(190, 93, 101, 0.32);
+  background: rgba(253, 235, 237, 0.95);
+  color: #9a4450;
+}
+
+.status-badge--info {
+  border-color: rgba(157, 133, 190, 0.28);
+  background: rgba(246, 241, 252, 0.95);
+  color: #65517e;
+}
+
 .admin-form {
   width: 100%;
   min-width: 0;

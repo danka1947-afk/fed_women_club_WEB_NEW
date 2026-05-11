@@ -373,6 +373,70 @@ def test_frontend_contains_admin_search_filter_markers() -> None:
     ):
         assert helper_marker in source
 
+
+def test_frontend_contains_reusable_status_badges() -> None:
+    source = _frontend_main()
+    styles = _frontend_styles()
+
+    for expected in (
+        "renderStatusBadge",
+        "status-badge",
+        "status-badge--success",
+        "status-badge--muted",
+        "status-badge--warning",
+        "status-badge--danger",
+    ):
+        assert expected in source or expected in styles
+
+    for expected_label in (
+        "Активен",
+        "Неактивен",
+        "Активна",
+        "Неактивна",
+        "Проверен",
+        "Не проверен",
+        "Подтверждено",
+        "Истекло",
+        "Отменено",
+    ):
+        assert expected_label in source
+
+    for preserved_marker in (
+        "Пользователи",
+        "Города",
+        "Категории",
+        "Партнёры",
+        "Предложения",
+        "QR / лиды",
+        "Подтверждения",
+        "Личный кабинет",
+        "Кабинет партнёра",
+        "womenClubAdminAccessToken",
+        "womenclub_partner_token",
+        "womenclub_client_token",
+        "dashboard-shell",
+        "dashboard-topbar",
+        "dashboard-sidebar",
+        "dashboard-main",
+        "Женский клуб",
+        "Федеральный клуб привилегий для девушек",
+        "Новосибирск",
+        "Череповец",
+    ):
+        assert preserved_marker in source or preserved_marker in styles
+
+    for removed_lotus_marker in (
+        "reference-lotus-layer",
+        "lotus-layer",
+        "lotus-decor",
+        "--user-lotus-reference-svg",
+        "--lotus-reference-background",
+        "/assets/lotus-bg.png",
+    ):
+        assert removed_lotus_marker not in source
+        assert removed_lotus_marker not in styles
+
+
 def test_frontend_contains_human_readable_admin_labels() -> None:
     source = _frontend_main()
 
@@ -821,9 +885,9 @@ def test_partner_cabinet_uses_human_readable_copy_statuses_and_empty_states() ->
     ):
         assert marker in source
 
-    assert "formatStatus(item.status)" in source
-    assert "formatActiveStatus(offer.is_active)" in source
-    assert "formatActiveStatusFeminine(link.is_active)" in source
+    assert "renderStatusBadge(formatStatus(item.status))" in source
+    assert "renderActiveStatusBadge(offer.is_active)" in source
+    assert "renderActiveStatusFeminineBadge(link.is_active)" in source
 
 def test_frontend_contains_client_cabinet_foundation() -> None:
     source = _frontend_main()
@@ -913,5 +977,5 @@ def test_client_cabinet_uses_human_readable_profile_catalog_history_and_subscrip
         assert expected in source
 
     assert "selected_city_id: selectedCityId ? Number(selectedCityId) : null" in source
-    assert "formatStatus(item.status)" in source
+    assert "renderStatusBadge(formatStatus(item.status))" in source
     assert "formatClientCategory(partner.category_slug)" in source
