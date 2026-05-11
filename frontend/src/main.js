@@ -367,6 +367,52 @@ const formatBool = (value) => (value ? 'Активен' : 'Неактивен');
 const formatActiveStatus = (value) => (value ? 'Активно' : 'Неактивно');
 const formatActiveStatusFeminine = (value) => (value ? 'Активна' : 'Неактивна');
 const formatVerifiedStatus = (value) => (value ? 'Проверен' : 'Не проверен');
+
+const statusBadgeMappings = {
+  'активен': { label: 'Активен', tone: 'success' },
+  'активно': { label: 'Активно', tone: 'success' },
+  'активна': { label: 'Активна', tone: 'success' },
+  'неактивен': { label: 'Неактивен', tone: 'muted' },
+  'неактивно': { label: 'Неактивно', tone: 'muted' },
+  'неактивна': { label: 'Неактивна', tone: 'muted' },
+  'проверен': { label: 'Проверен', tone: 'success' },
+  'не проверен': { label: 'Не проверен', tone: 'warning' },
+  'подтверждено': { label: 'Подтверждено', tone: 'success' },
+  'истекло': { label: 'Истекло', tone: 'warning' },
+  'отменено': { label: 'Отменено', tone: 'danger' },
+  'active': { label: 'Активно', tone: 'success' },
+  'confirmed': { label: 'Подтверждено', tone: 'success' },
+  'expired': { label: 'Истекло', tone: 'warning' },
+  'cancelled': { label: 'Отменено', tone: 'danger' },
+  'canceled': { label: 'Отменено', tone: 'danger' },
+};
+
+const getStatusBadgeMeta = (value, tone = '') => {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (!normalized || normalized === '—') {
+    return null;
+  }
+
+  const mapped = statusBadgeMappings[normalized] || { label: value, tone: tone || 'info' };
+  return {
+    label: mapped.label,
+    tone: tone || mapped.tone || 'info',
+  };
+};
+
+const renderStatusBadge = (label, tone = '') => {
+  const meta = getStatusBadgeMeta(label, tone);
+  if (!meta) {
+    return '—';
+  }
+
+  return `<span class="status-badge status-badge--${escapeHtml(meta.tone)}">${escapeHtml(meta.label)}</span>`;
+};
+
+const renderBoolStatusBadge = (value) => renderStatusBadge(formatBool(value));
+const renderActiveStatusBadge = (value) => renderStatusBadge(formatActiveStatus(value));
+const renderActiveStatusFeminineBadge = (value) => renderStatusBadge(formatActiveStatusFeminine(value));
+const renderVerifiedStatusBadge = (value) => renderStatusBadge(formatVerifiedStatus(value));
 const formatRole = (role) => ({
   client: 'Клиент',
   partner: 'Партнёр',
@@ -376,6 +422,7 @@ const formatValue = (value) => {
   if (value === null || value === undefined || value === '') return '—';
   return escapeHtml(value);
 };
+const renderDisplayValue = (value) => String(value || '').startsWith('<span class="status-badge') ? value : formatValue(value);
 const formatDate = (value) => (value ? new Date(value).toLocaleString('ru-RU') : '—');
 
 
@@ -815,9 +862,9 @@ const renderClientProfileTab = () => {
         ['Имя', profile.full_name],
         ['Город', profile.selected_city_name || 'Выберите город'],
         ['Источник', profile.source],
-        ['Активность', formatBool(profile.is_active)],
+        ['Активность', renderBoolStatusBadge(profile.is_active)],
       ].map(([label, value]) => `
-        <div class="summary-card"><span>${label}</span><strong>${formatValue(value)}</strong></div>
+        <div class="summary-card"><span>${label}</span><strong>${renderDisplayValue(value)}</strong></div>
       `).join('')}
     </div>
     <section class="client-vk-link-card" aria-labelledby="client-vk-link-title">
@@ -883,7 +930,7 @@ const renderClientSubscriptionTab = () => {
   return `
     <div class="admin-section-heading"><h4>Моя подписка</h4><p>Статус и сроки текущей подписки.</p></div>
     <div class="summary-grid">
-      <div class="summary-card"><span>Статус</span><strong>${formatValue(formatStatus(subscription.status))}</strong></div>
+      <div class="summary-card"><span>Статус</span><strong>${renderStatusBadge(formatStatus(subscription.status))}</strong></div>
       <div class="summary-card"><span>Начало</span><strong>${formatValue(formatDate(subscription.starts_at))}</strong></div>
       <div class="summary-card"><span>Окончание</span><strong>${formatValue(formatDate(subscription.ends_at))}</strong></div>
     </div>
@@ -929,7 +976,7 @@ const renderClientPartnerCard = (partner) => {
     <article class="client-partner-card">
       <div class="client-card-topline">
         <span>${formatValue(formatClientCategory(partner.category_slug))}</span>
-        <span>${partner.is_verified ? 'Проверен' : 'На проверке'}</span>
+        ${partner.is_verified ? renderVerifiedStatusBadge(true) : renderStatusBadge('На проверке', 'info')}
       </div>
       <h4>${formatValue(partner.name)}</h4>
       <p>${formatValue(partner.description)}</p>
@@ -972,8 +1019,8 @@ const renderClientHistoryTab = () => `
   <div class="admin-section-heading"><h4>История</h4><p>Ваши последние подтверждения привилегий.</p></div>
   ${renderTable(
     ['Код', 'Статус', 'Партнёр', 'Название предложения', 'Истекает', 'Подтверждено', 'Создано'],
-    clientState.verifications.map((item) => [item.code, formatStatus(item.status), item.partner_name, item.offer_title, formatDate(item.expires_at), formatDate(item.confirmed_at), formatDate(item.created_at)]),
-    false,
+    clientState.verifications.map((item) => [formatValue(item.code), renderStatusBadge(formatStatus(item.status)), formatValue(item.partner_name), formatValue(item.offer_title), formatValue(formatDate(item.expires_at)), formatValue(formatDate(item.confirmed_at)), formatValue(formatDate(item.created_at))]),
+    true,
     '',
     'Пока нет подтверждений.',
   )}
@@ -1014,11 +1061,11 @@ const renderPartnerProfileTab = () => {
             ['Адрес', profile.address],
             ['Телефон', profile.phone],
             ['Сайт / соцсеть', profile.website_url || profile.social_url],
-            ['Активность', formatBool(profile.is_active)],
-            ['Проверка', formatVerifiedStatus(profile.is_verified)],
+            ['Активность', renderBoolStatusBadge(profile.is_active)],
+            ['Проверка', renderVerifiedStatusBadge(profile.is_verified)],
             ['Описание', profile.description],
             ['График', profile.working_hours],
-          ].map(([label, value]) => `<article class="summary-card"><span>${escapeHtml(label)}</span><strong>${formatValue(value)}</strong></article>`).join('')}
+          ].map(([label, value]) => `<article class="summary-card"><span>${escapeHtml(label)}</span><strong>${renderDisplayValue(value)}</strong></article>`).join('')}
         </div>
       </div>
       <form class="admin-form" data-partner-form="profile">
@@ -1055,7 +1102,7 @@ const renderPartnerOffersTab = () => `
       formatValue(offer.description),
       formatValue(offer.conditions),
       formatValue(offer.base_price),
-      formatValue(formatActiveStatus(offer.is_active)),
+      renderActiveStatusBadge(offer.is_active),
       formatValue(offer.sort_order),
       renderPartnerOfferAction(offer),
     ]),
@@ -1086,7 +1133,7 @@ const renderPartnerQrTab = () => `
       link.qr_url ? `<a href="${escapeHtml(link.qr_url)}" target="_blank" rel="noreferrer">${escapeHtml(link.qr_url)}</a>` : '—',
       link.target_url ? `<a href="${escapeHtml(link.target_url)}" target="_blank" rel="noreferrer">${escapeHtml(link.target_url)}</a>` : '—',
       formatValue(link.deep_link_payload),
-      formatValue(formatActiveStatusFeminine(link.is_active)),
+      renderActiveStatusFeminineBadge(link.is_active),
     ]),
     true,
   ) : renderPartnerEmptyState('Пока нет QR-ссылок.', 'Создайте QR-ссылку, чтобы отслеживать переходы от клиентов.')}
@@ -1108,7 +1155,7 @@ const renderPartnerVerificationsTab = () => `
     ['Код', 'Статус', 'Клиент', 'Название предложения', 'Истекает', 'Подтверждено', 'Действие'],
     partnerState.verifications.map((item) => [
       formatValue(item.code),
-      formatValue(formatStatus(item.status)),
+      renderStatusBadge(formatStatus(item.status)),
       formatValue(item.client_name || item.client_id),
       formatValue(item.offer_title),
       formatValue(formatDate(item.expires_at)),
@@ -1305,7 +1352,7 @@ const renderUsersTab = () => {
             formatValue(item.email),
             formatValue(item.phone),
             formatValue(formatRole(item.role)),
-            formatValue(formatBool(item.is_active)),
+            renderBoolStatusBadge(item.is_active),
             renderUserActionButton(item),
           ]),
           true,
@@ -1382,7 +1429,7 @@ const renderCitiesTab = () => {
           cities.map((city) => [
             formatValue(city.name),
             formatValue(city.slug),
-            formatValue(formatBool(city.is_active)),
+            renderBoolStatusBadge(city.is_active),
             formatValue(city.sort_order),
             renderCityActionButtons(city),
           ]),
@@ -1453,7 +1500,7 @@ const renderCategoriesTab = () => {
           categories.map((category) => [
             formatValue(getCategoryName(category)),
             formatValue(category.slug),
-            formatValue(formatBool(category.is_active)),
+            renderActiveStatusFeminineBadge(category.is_active),
             formatValue(category.sort_order),
             renderCategoryActionButtons(category),
           ]),
@@ -1522,8 +1569,8 @@ const renderPartnersTab = () => {
             formatValue(partner.city_name),
             formatValue(partner.category_slug),
             formatValue(partner.owner_email),
-            formatValue(formatBool(partner.is_active)),
-            formatValue(partner.is_verified ? 'Проверен' : 'Не проверен'),
+            renderBoolStatusBadge(partner.is_active),
+            renderVerifiedStatusBadge(partner.is_verified),
             renderAdminPartnerAction(partner),
           ]),
           true,
@@ -1606,7 +1653,7 @@ const renderOffersTab = () => {
       ${renderAdminSearch('offers', 'Поиск по предложениям')}
       ${renderTable(
         ['Название предложения', 'Описание', 'Базовая цена', 'Скидка, %', 'Активно', 'Сортировка', 'Действие'],
-        offers.map((offer) => [formatValue(offer.title), formatValue(offer.benefit_text), formatValue(offer.base_price), formatValue(offer.discount_percent), formatValue(formatBool(offer.is_active)), formatValue(offer.sort_order), renderAdminOfferAction(offer)]),
+        offers.map((offer) => [formatValue(offer.title), formatValue(offer.benefit_text), formatValue(offer.base_price), formatValue(offer.discount_percent), renderActiveStatusBadge(offer.is_active), formatValue(offer.sort_order), renderAdminOfferAction(offer)]),
         true,
         'admin-table--compact',
         adminState.search.offers ? 'Ничего не найдено.' : 'Пока нет данных.',
@@ -1664,7 +1711,7 @@ const renderQrTab = () => {
       ${renderAdminSearch('qr', 'Поиск по QR')}
       ${renderTable(
         ['Код ссылки', 'QR-ссылка', 'Целевая ссылка', 'Активна', 'Действие'],
-        qrLinks.map((link) => [formatValue(link.slug), link.qr_url ? `<a href="${escapeHtml(link.qr_url)}" target="_blank" rel="noreferrer">${escapeHtml(link.qr_url)}</a>` : '—', formatValue(link.target_url), formatValue(formatBool(link.is_active)), renderAdminQrAction(link)]),
+        qrLinks.map((link) => [formatValue(link.slug), link.qr_url ? `<a href="${escapeHtml(link.qr_url)}" target="_blank" rel="noreferrer">${escapeHtml(link.qr_url)}</a>` : '—', formatValue(link.target_url), renderActiveStatusFeminineBadge(link.is_active), renderAdminQrAction(link)]),
         true,
         'admin-table--compact',
         adminState.search.qr ? 'Ничего не найдено.' : 'Пока нет данных.',
@@ -1697,8 +1744,8 @@ const renderVerificationsTab = () => {
     ${renderAdminSearch('verifications', 'Поиск по подтверждениям')}
     ${renderTable(
       ['Статус', 'Код', 'Партнёр', 'Клиент', 'Название предложения', 'Создано', 'Истекает', 'Подтверждено'],
-      verifications.map((item) => [item.status, item.code, item.partner_name, `${item.client_name || '—'} / ${item.client_id}`, item.offer_title, formatDate(item.created_at), formatDate(item.expires_at), formatDate(item.confirmed_at)]),
-      false,
+      verifications.map((item) => [renderStatusBadge(formatStatus(item.status)), formatValue(item.code), formatValue(item.partner_name), formatValue(`${item.client_name || '—'} / ${item.client_id}`), formatValue(item.offer_title), formatValue(formatDate(item.created_at)), formatValue(formatDate(item.expires_at)), formatValue(formatDate(item.confirmed_at))]),
+      true,
       'admin-table--compact',
       adminState.search.verifications ? 'Ничего не найдено.' : 'Пока нет данных.',
     )}
