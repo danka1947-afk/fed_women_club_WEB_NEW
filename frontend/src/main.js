@@ -1121,7 +1121,7 @@ const renderOverviewTab = () => {
 };
 
 const renderUserActionButton = (user) => `
-  <button class="admin-inline-action" type="button" data-user-active-toggle="${escapeHtml(user.id)}">
+  <button class="admin-inline-action admin-table-action" type="button" data-user-active-toggle="${escapeHtml(user.id)}">
     ${user.is_active ? 'Заблокировать' : 'Активировать'}
   </button>
 `;
@@ -1141,6 +1141,7 @@ const renderUsersTab = () => `
           renderUserActionButton(item),
         ]),
         true,
+        'admin-table--compact',
       )}
     </div>
     <form class="admin-form" data-admin-form="user">
@@ -1158,8 +1159,8 @@ const renderUsersTab = () => `
 
 const renderCityActionButtons = (city) => `
   <div class="admin-inline-actions">
-    <button class="admin-inline-action" type="button" data-admin-city-edit="${escapeHtml(city.id)}">Редактировать</button>
-    <button class="admin-inline-action" type="button" data-admin-city-active-toggle="${escapeHtml(city.id)}">
+    <button class="admin-inline-action admin-table-action" type="button" data-admin-city-edit="${escapeHtml(city.id)}">Редактировать</button>
+    <button class="admin-inline-action admin-table-action" type="button" data-admin-city-active-toggle="${escapeHtml(city.id)}">
       ${city.is_active ? 'Деактивировать' : 'Активировать'}
     </button>
   </div>
@@ -1213,6 +1214,7 @@ const renderCitiesTab = () => `
           renderCityActionButtons(city),
         ]),
         true,
+        'admin-table--compact',
       )}
     </div>
     ${adminState.selectedCityIdForEdit ? renderCityEditForm() : renderCityCreateForm()}
@@ -1223,8 +1225,8 @@ const getCategoryName = (category) => category.name || category.title || '';
 
 const renderCategoryActionButtons = (category) => `
   <div class="admin-inline-actions">
-    <button class="admin-inline-action" type="button" data-admin-category-edit="${escapeHtml(category.id)}">Редактировать</button>
-    <button class="admin-inline-action" type="button" data-admin-category-active-toggle="${escapeHtml(category.id)}">
+    <button class="admin-inline-action admin-table-action" type="button" data-admin-category-edit="${escapeHtml(category.id)}">Редактировать</button>
+    <button class="admin-inline-action admin-table-action" type="button" data-admin-category-active-toggle="${escapeHtml(category.id)}">
       ${category.is_active ? 'Деактивировать' : 'Активировать'}
     </button>
   </div>
@@ -1278,6 +1280,7 @@ const renderCategoriesTab = () => `
           renderCategoryActionButtons(category),
         ]),
         true,
+        'admin-table--compact',
       )}
     </div>
     ${adminState.selectedCategoryIdForEdit ? renderCategoryEditForm() : renderCategoryCreateForm()}
@@ -1285,7 +1288,7 @@ const renderCategoriesTab = () => `
 `;
 
 const renderAdminPartnerAction = (partner) => `
-  <button class="admin-inline-action" type="button" data-admin-partner-edit="${escapeHtml(partner.id)}">Редактировать</button>
+  <button class="admin-inline-action admin-table-action" type="button" data-admin-partner-edit="${escapeHtml(partner.id)}">Редактировать</button>
 `;
 
 const renderPartnerEditForm = () => {
@@ -1333,6 +1336,7 @@ const renderPartnersTab = () => `
           renderAdminPartnerAction(partner),
         ]),
         true,
+        'admin-table--compact',
       )}
     </div>
     ${adminState.selectedPartnerIdForEdit ? renderPartnerEditForm() : `
@@ -1356,7 +1360,7 @@ const renderPartnersTab = () => `
 `;
 
 const renderAdminOfferAction = (offer) => `
-  <button class="admin-inline-action" type="button" data-admin-offer-edit="${escapeHtml(offer.id)}">Редактировать</button>
+  <button class="admin-inline-action admin-table-action" type="button" data-admin-offer-edit="${escapeHtml(offer.id)}">Редактировать</button>
 `;
 
 const renderOfferEditForm = () => {
@@ -1408,13 +1412,14 @@ const renderOffersTab = () => `
       ['Название предложения', 'Описание', 'Базовая цена', 'Скидка, %', 'Активно', 'Сортировка', 'Действие'],
       adminState.offers.map((offer) => [formatValue(offer.title), formatValue(offer.benefit_text), formatValue(offer.base_price), formatValue(offer.discount_percent), formatValue(formatBool(offer.is_active)), formatValue(offer.sort_order), renderAdminOfferAction(offer)]),
       true,
+      'admin-table--compact',
     )}
     ${adminState.selectedOfferIdForEdit ? renderOfferEditForm() : renderOfferCreateForm()}
   ` : '<p class="empty-note">Сначала выберите партнёра.</p>'}
 `;
 
 const renderAdminQrAction = (link) => `
-  <button class="admin-inline-action" type="button" data-admin-qr-edit="${escapeHtml(link.id)}">Редактировать</button>
+  <button class="admin-inline-action admin-table-action" type="button" data-admin-qr-edit="${escapeHtml(link.id)}">Редактировать</button>
 `;
 
 const renderQrCreateForm = () => `
@@ -1459,11 +1464,12 @@ const renderQrTab = () => `
       ['Код ссылки', 'QR-ссылка', 'Целевая ссылка', 'Активна', 'Действие'],
       adminState.qrLinks.map((link) => [formatValue(link.slug), link.qr_url ? `<a href="${escapeHtml(link.qr_url)}" target="_blank" rel="noreferrer">${escapeHtml(link.qr_url)}</a>` : '—', formatValue(link.target_url), formatValue(formatBool(link.is_active)), renderAdminQrAction(link)]),
       true,
+      'admin-table--compact',
     )}
     ${adminState.selectedQrLinkIdForEdit ? renderQrEditForm() : renderQrCreateForm()}
   ` : '<p class="empty-note">Сначала выберите партнёра.</p>'}
   <h4 class="table-title">Лиды партнёров</h4>
-  ${renderTable(['Партнёр', 'Город', 'Код ссылки', 'Лиды / переходы'], adminState.leads.map((lead) => [lead.partner_name, lead.city_name, lead.qr_slug, lead.total_clicks]))}
+  ${renderTable(['Партнёр', 'Город', 'Код ссылки', 'Лиды / переходы'], adminState.leads.map((lead) => [lead.partner_name, lead.city_name, lead.qr_slug, lead.total_clicks]), false, 'admin-table--compact')}
 `;
 
 const renderVerificationsTab = () => `
@@ -1471,20 +1477,36 @@ const renderVerificationsTab = () => `
   ${renderTable(
     ['Статус', 'Код', 'Партнёр', 'Клиент', 'Название предложения', 'Создано', 'Истекает', 'Подтверждено'],
     adminState.verifications.map((item) => [item.status, item.code, item.partner_name, `${item.client_name || '—'} / ${item.client_id}`, item.offer_title, formatDate(item.created_at), formatDate(item.expires_at), formatDate(item.confirmed_at)]),
+    false,
+    'admin-table--compact',
   )}
 `;
 
-const renderTable = (headers, rows, trustedHtml = false) => {
+const getAdminTableCellClass = (header) => {
+  if (header === 'Действие') {
+    return 'admin-table-cell--actions';
+  }
+
+  if (['Описание', 'Название предложения', 'Партнёр', 'Email', 'Телефон', 'Владелец', 'QR-ссылка', 'Целевая ссылка', 'Клиент'].includes(header)) {
+    return 'admin-table-cell--wrap';
+  }
+
+  return 'admin-table-cell--truncate';
+};
+
+const renderTable = (headers, rows, trustedHtml = false, tableModifier = '') => {
   if (!rows.length) {
     return '<div class="empty-note">Пока нет данных.</div>';
   }
 
+  const tableClassName = ['admin-table', tableModifier].filter(Boolean).join(' ');
+
   return `
     <div class="admin-table-wrap">
-      <table class="admin-table">
-        <thead><tr>${headers.map((header) => `<th>${escapeHtml(header)}</th>`).join('')}</tr></thead>
+      <table class="${tableClassName}">
+        <thead><tr>${headers.map((header) => `<th class="${getAdminTableCellClass(header)}">${escapeHtml(header)}</th>`).join('')}</tr></thead>
         <tbody>
-          ${rows.map((row) => `<tr>${row.map((cell) => `<td>${trustedHtml ? cell : formatValue(cell)}</td>`).join('')}</tr>`).join('')}
+          ${rows.map((row) => `<tr>${row.map((cell, index) => `<td class="${getAdminTableCellClass(headers[index])}">${trustedHtml ? cell : formatValue(cell)}</td>`).join('')}</tr>`).join('')}
         </tbody>
       </table>
     </div>
