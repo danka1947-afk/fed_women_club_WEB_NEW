@@ -364,12 +364,18 @@ const escapeHtml = (value) => String(value ?? '')
   .replaceAll("'", '&#039;');
 
 const formatBool = (value) => (value ? 'Активен' : 'Неактивен');
+const formatActiveStatus = (value) => (value ? 'Активно' : 'Неактивно');
+const formatActiveStatusFeminine = (value) => (value ? 'Активна' : 'Неактивна');
+const formatVerifiedStatus = (value) => (value ? 'Проверен' : 'Не проверен');
 const formatRole = (role) => ({
   client: 'Клиент',
   partner: 'Партнёр',
   admin: 'Администратор',
 }[role] || role);
-const formatValue = (value) => escapeHtml(value || '—');
+const formatValue = (value) => {
+  if (value === null || value === undefined || value === '') return '—';
+  return escapeHtml(value);
+};
 const formatDate = (value) => (value ? new Date(value).toLocaleString('ru-RU') : '—');
 
 
@@ -415,13 +421,18 @@ const formatClientCategory = (slug) => {
   return category?.title || slug || '—';
 };
 
-const renderClientEmptyState = (title, text) => `
+const formatPartnerCategory = (partner) => partner.category_title || partner.category_name || partner.category || partner.category_slug || '—';
+
+const renderEmptyState = (title, text, icon = '♡') => `
   <article class="client-empty-state">
-    <span class="client-empty-state__icon" aria-hidden="true">♡</span>
+    <span class="client-empty-state__icon" aria-hidden="true">${escapeHtml(icon)}</span>
     <h4>${escapeHtml(title)}</h4>
     <p>${escapeHtml(text)}</p>
   </article>
 `;
+
+const renderClientEmptyState = (title, text) => renderEmptyState(title, text);
+const renderPartnerEmptyState = (title, text) => renderEmptyState(title, text, '✦');
 
 const getToken = () => localStorage.getItem(authTokenKey);
 const getPartnerToken = () => localStorage.getItem(partnerTokenKey);
@@ -999,25 +1010,25 @@ const renderPartnerProfileTab = () => {
           ${[
             ['Название', profile.name],
             ['Город', profile.city_name],
-            ['Категория', profile.category_slug],
-            ['Активность', formatBool(profile.is_active)],
-            ['Верификация', profile.is_verified ? 'Проверен' : 'Не проверен'],
-            ['Описание', profile.description],
+            ['Категория', formatPartnerCategory(profile)],
             ['Адрес', profile.address],
             ['Телефон', profile.phone],
-            ['Сайт', profile.website_url],
-            ['Соцсети', profile.social_url],
+            ['Сайт / соцсеть', profile.website_url || profile.social_url],
+            ['Активность', formatBool(profile.is_active)],
+            ['Проверка', formatVerifiedStatus(profile.is_verified)],
+            ['Описание', profile.description],
             ['График', profile.working_hours],
           ].map(([label, value]) => `<article class="summary-card"><span>${escapeHtml(label)}</span><strong>${formatValue(value)}</strong></article>`).join('')}
         </div>
       </div>
       <form class="admin-form" data-partner-form="profile">
         <h4>Обновить профиль</h4>
+        <p class="form-message">Название, город, категория, активность и проверка редактируются администратором.</p>
         <label>Описание<textarea name="description" rows="4">${escapeHtml(profile.description || '')}</textarea></label>
         <label>Адрес<input name="address" value="${escapeHtml(profile.address || '')}" /></label>
         <label>Телефон<input name="phone" autocomplete="tel" value="${escapeHtml(profile.phone || '')}" /></label>
         <label>Сайт<input name="website_url" value="${escapeHtml(profile.website_url || '')}" /></label>
-        <label>Соцсети<input name="social_url" value="${escapeHtml(profile.social_url || '')}" /></label>
+        <label>Соцсеть<input name="social_url" value="${escapeHtml(profile.social_url || '')}" /></label>
         <label>График работы<input name="working_hours" value="${escapeHtml(profile.working_hours || '')}" /></label>
         <label>Логотип<input name="logo_url" value="${escapeHtml(profile.logo_url || '')}" /></label>
         <label>Обложка<input name="cover_url" value="${escapeHtml(profile.cover_url || '')}" /></label>
@@ -1036,14 +1047,23 @@ const renderPartnerOfferAction = (offer) => `
 
 const renderPartnerOffersTab = () => `
   <div class="admin-section-heading"><h4>Предложения</h4><p>Создавайте предложения и быстро скрывайте или показывайте их в каталоге.</p></div>
-  ${renderTable(
-    ['Название предложения', 'Описание', 'Скидка, %', 'Активно', 'Сортировка', 'Действие'],
-    partnerState.offers.map((offer) => [formatValue(offer.title), formatValue(offer.benefit_text), formatValue(offer.discount_percent), formatValue(formatBool(offer.is_active)), formatValue(offer.sort_order), renderPartnerOfferAction(offer)]),
+  ${partnerState.offers.length ? renderTable(
+    ['Название', 'Краткая выгода', 'Описание', 'Условия', 'Базовая цена', 'Активно', 'Порядок сортировки', 'Действие'],
+    partnerState.offers.map((offer) => [
+      formatValue(offer.title),
+      formatValue(offer.benefit_text),
+      formatValue(offer.description),
+      formatValue(offer.conditions),
+      formatValue(offer.base_price),
+      formatValue(formatActiveStatus(offer.is_active)),
+      formatValue(offer.sort_order),
+      renderPartnerOfferAction(offer),
+    ]),
     true,
-  )}
+  ) : renderPartnerEmptyState('Пока нет предложений.', 'Добавьте первое предложение, чтобы клиенты видели его в каталоге.')}
   <form class="admin-form admin-form--inline" data-partner-form="offer">
     <h4>Новое предложение</h4>
-    <label>Название предложения<input name="title" required /></label>
+    <label>Название<input name="title" required /></label>
     <label>Краткая выгода<input name="benefit_text" /></label>
     <label>Описание<textarea name="description" rows="3"></textarea></label>
     <label>Условия<textarea name="conditions" rows="3"></textarea></label>
@@ -1051,7 +1071,7 @@ const renderPartnerOffersTab = () => `
     <label>Скидка, %<input name="discount_percent" inputmode="decimal" /></label>
     <label>Изображение<input name="image_url" /></label>
     <label>Порядок сортировки<input name="sort_order" type="number" value="0" /></label>
-    <label class="checkbox-row"><input name="is_active" type="checkbox" checked /> Активен</label>
+    <label class="checkbox-row"><input name="is_active" type="checkbox" checked /> Активно</label>
     <button type="submit">Создать предложение</button>
     <p class="form-message" data-partner-form-message="offer">${escapeHtml(partnerState.formMessages.offer || '')}</p>
   </form>
@@ -1059,31 +1079,36 @@ const renderPartnerOffersTab = () => `
 
 const renderPartnerQrTab = () => `
   <div class="admin-section-heading"><h4>QR / лиды</h4><p>QR-ссылки создаёт администратор. Партнёр видит ссылки и статистику переходов.</p></div>
-  ${renderTable(
-    ['Код ссылки', 'QR-ссылка', 'Целевая ссылка', 'Активна'],
+  ${partnerState.qrLinks.length ? renderTable(
+    ['Код ссылки', 'QR-ссылка', 'Целевая ссылка', 'Deep-link payload', 'Активна'],
     partnerState.qrLinks.map((link) => [
       formatValue(link.slug),
-      `<a href="${escapeHtml(link.qr_url)}" target="_blank" rel="noreferrer">${escapeHtml(link.qr_url)}</a>`,
+      link.qr_url ? `<a href="${escapeHtml(link.qr_url)}" target="_blank" rel="noreferrer">${escapeHtml(link.qr_url)}</a>` : '—',
       link.target_url ? `<a href="${escapeHtml(link.target_url)}" target="_blank" rel="noreferrer">${escapeHtml(link.target_url)}</a>` : '—',
-      formatValue(formatBool(link.is_active)),
+      formatValue(link.deep_link_payload),
+      formatValue(formatActiveStatusFeminine(link.is_active)),
     ]),
     true,
-  )}
+  ) : renderPartnerEmptyState('Пока нет QR-ссылок.', 'Создайте QR-ссылку, чтобы отслеживать переходы от клиентов.')}
   <h4 class="table-title">Лиды</h4>
-  ${renderTable(['Код ссылки', 'Лиды / переходы'], partnerState.leads.map((lead) => [lead.qr_slug, lead.total_clicks]))}
+  ${partnerState.leads.length ? renderTable(
+    ['Код ссылки', 'Лиды / переходы'],
+    partnerState.leads.map((lead) => [formatValue(lead.qr_slug), formatValue(lead.total_clicks)]),
+    true,
+  ) : renderPartnerEmptyState('Пока нет лидов.', 'Когда клиенты перейдут по QR-ссылке, они появятся здесь.')}
 `;
 
 const renderPartnerVerificationAction = (verification) => verification.status === 'active'
-  ? `<button class="admin-inline-action" type="button" data-partner-confirm-verification="${escapeHtml(verification.id)}">Подтвердить</button>`
+  ? `<button class="admin-inline-action" type="button" data-partner-confirm-verification="${escapeHtml(verification.id)}">Подтвердить привилегию</button>`
   : '—';
 
 const renderPartnerVerificationsTab = () => `
   <div class="admin-section-heading"><h4>Подтверждения</h4><p>Подтверждайте активные клиентские коды до окончания срока действия.</p></div>
-  ${renderTable(
+  ${partnerState.verifications.length ? renderTable(
     ['Код', 'Статус', 'Клиент', 'Название предложения', 'Истекает', 'Подтверждено', 'Действие'],
     partnerState.verifications.map((item) => [
       formatValue(item.code),
-      formatValue(item.status),
+      formatValue(formatStatus(item.status)),
       formatValue(item.client_name || item.client_id),
       formatValue(item.offer_title),
       formatValue(formatDate(item.expires_at)),
@@ -1091,7 +1116,7 @@ const renderPartnerVerificationsTab = () => `
       renderPartnerVerificationAction(item),
     ]),
     true,
-  )}
+  ) : renderPartnerEmptyState('Пока нет подтверждений.', 'Когда клиент покажет код привилегии, подтверждение появится здесь.')}
 `;
 
 const requestAdminMe = () => apiFetch('/api/v1/admin/me');
