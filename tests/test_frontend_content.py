@@ -772,6 +772,59 @@ def test_frontend_contains_partner_endpoint_strings_and_separate_token() -> None
     assert "womenclub_partner_token" in source
 
 
+def test_partner_cabinet_uses_human_readable_copy_statuses_and_empty_states() -> None:
+    source = _frontend_main()
+
+    for expected in (
+        "Пока нет предложений.",
+        "Добавьте первое предложение",
+        "Пока нет QR-ссылок.",
+        "Создайте QR-ссылку",
+        "Пока нет лидов.",
+        "Когда клиенты перейдут по QR-ссылке",
+        "Пока нет подтверждений.",
+        "Когда клиент покажет код привилегии",
+        "Активен",
+        "Неактивен",
+        "Проверен",
+        "Не проверен",
+        "Активно",
+        "Неактивно",
+        "Активна",
+        "Неактивна",
+        "Подтверждено",
+        "Истекло",
+        "Отменено",
+        "Название",
+        "Краткая выгода",
+        "Описание",
+        "Условия",
+        "Базовая цена",
+        "Код ссылки",
+        "Целевая ссылка",
+        "Подтвердить привилегию",
+    ):
+        assert expected in source
+
+    for marker in (
+        "womenclub_partner_token",
+        "womenclub_client_token",
+        "womenClubAdminAccessToken",
+        "dashboard-shell",
+        "dashboard-topbar",
+        "dashboard-sidebar",
+        "dashboard-main",
+        "Женский клуб",
+        "Федеральный клуб привилегий для девушек",
+        "Новосибирск",
+        "Череповец",
+    ):
+        assert marker in source
+
+    assert "formatStatus(item.status)" in source
+    assert "formatActiveStatus(offer.is_active)" in source
+    assert "formatActiveStatusFeminine(link.is_active)" in source
+
 def test_frontend_contains_client_cabinet_foundation() -> None:
     source = _frontend_main()
 
