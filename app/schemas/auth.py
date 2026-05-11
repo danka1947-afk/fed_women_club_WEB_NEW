@@ -46,3 +46,15 @@ class UnifiedTokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
     user: UnifiedUserRead
+
+
+class PasswordSetupCompleteRequest(BaseModel):
+    token: str
+    password: str
+    password_confirm: str | None = None
+
+
+class PasswordSetupCompleteResponse(BaseModel):
+    ok: bool
+    login: str | None = None
+    message: str | None = None

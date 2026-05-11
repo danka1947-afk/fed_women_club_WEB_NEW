@@ -59,3 +59,27 @@ class VkLinkCode(Base):
     )
 
     client: Mapped["ClientProfile"] = relationship("ClientProfile", back_populates="vk_link_codes")
+
+
+class ClientPasswordSetupToken(Base):
+    __tablename__ = "client_password_setup_tokens"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    token_hash: Mapped[str] = mapped_column(String(128), nullable=False, unique=True, index=True)
+    purpose: Mapped[str] = mapped_column(
+        String(64),
+        nullable=False,
+        default="vk_onboarding_password_setup",
+    )
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+    source: Mapped[str | None] = mapped_column(String(64), nullable=True, default="vk")
+    vk_user_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+
+    user: Mapped["User"] = relationship("User", back_populates="password_setup_tokens")

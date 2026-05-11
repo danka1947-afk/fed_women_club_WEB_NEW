@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Generator
 from datetime import datetime, timedelta, timezone
+from urllib.parse import parse_qs, urlparse
 
 import pytest
 from fastapi.testclient import TestClient
@@ -11,12 +12,12 @@ from sqlalchemy.pool import StaticPool
 
 import app.models  # noqa: F401 - register all SQLAlchemy models for test metadata
 from app.core.config import settings
-from app.core.security import hash_password
+from app.core.security import hash_password, hash_password_setup_token, verify_password
 from app.db.base import Base
 from app.db.session import get_db
 from app.main import app
 from app.models.city import City
-from app.models.client import ClientProfile, VkLinkCode, VkLinkCodeStatus
+from app.models.client import ClientPasswordSetupToken, ClientProfile, VkLinkCode, VkLinkCodeStatus
 from app.models.user import User, UserRole
 
 BOT_API_TOKEN = "test-vk-bot-service-token"
@@ -393,6 +394,156 @@ def test_bot_onboard_client_repeated_vk_user_id_returns_existing_profile(vk_link
         assert users_count == 1
         assert profiles_count == 1
 
+
+
+def _extract_setup_token(setup_url: str) -> str:
+    parsed = urlparse(setup_url)
+    values = parse_qs(parsed.query).get("setup_token")
+    assert values
+    return values[0]
+
+
+def test_bot_onboard_client_returns_password_setup_url_and_stores_only_token_hash(vk_link_client: TestClient) -> None:
+    response = vk_link_client.post(
+        "/api/v1/bot/vk/onboard-client",
+        headers=_bot_headers(),
+        json={"vk_user_id": "vk-setup-url", "email": "  ClientSetup@Example.COM  "},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["password_setup_required"] is True
+    assert data["password_setup_url"].startswith(f"{settings.WEB_PUBLIC_URL}/?setup_token=")
+    assert data["login"] == "clientsetup@example.com"
+    assert data["password_setup_ttl_seconds"] == 3600
+    assert data["password_setup_expires_at"]
+    assert "login=clientsetup%40example.com" in data["password_setup_url"]
+
+    plain_token = _extract_setup_token(data["password_setup_url"])
+    with _db_session() as session:
+        setup_token = session.execute(select(ClientPasswordSetupToken)).scalar_one()
+        assert setup_token.token_hash == hash_password_setup_token(plain_token)
+        assert setup_token.token_hash != plain_token
+        assert plain_token not in setup_token.token_hash
+        assert setup_token.purpose == "vk_onboarding_password_setup"
+        assert setup_token.used_at is None
+        assert setup_token.source == "vk"
+        assert setup_token.vk_user_id == "vk-setup-url"
+
+
+def test_password_setup_complete_sets_password_and_user_can_login(vk_link_client: TestClient) -> None:
+    onboard_response = vk_link_client.post(
+        "/api/v1/bot/vk/onboard-client",
+        headers=_bot_headers(),
+        json={"vk_user_id": "vk-complete", "phone": " +79990007777 "},
+    )
+    assert onboard_response.status_code == 200
+    plain_token = _extract_setup_token(onboard_response.json()["password_setup_url"])
+
+    complete_response = vk_link_client.post(
+        "/api/v1/auth/password-setup/complete",
+        json={"token": plain_token, "password": "ClientPass123", "password_confirm": "ClientPass123"},
+    )
+
+    assert complete_response.status_code == 200
+    assert complete_response.json()["ok"] is True
+    assert complete_response.json()["login"] == "+79990007777"
+    with _db_session() as session:
+        profile = session.execute(select(ClientProfile).where(ClientProfile.vk_user_id == "vk-complete")).scalar_one()
+        user = session.get(User, profile.user_id)
+        assert user is not None
+        assert user.password_hash is not None
+        assert verify_password("ClientPass123", user.password_hash)
+        setup_token = session.execute(select(ClientPasswordSetupToken)).scalar_one()
+        assert setup_token.used_at is not None
+
+    login_response = vk_link_client.post(
+        "/api/v1/auth/user-login",
+        json={"login": "+79990007777", "password": "ClientPass123"},
+    )
+    assert login_response.status_code == 200
+    assert login_response.json()["user"]["role"] == UserRole.CLIENT.value
+
+
+def test_password_setup_token_reuse_is_rejected(vk_link_client: TestClient) -> None:
+    onboard_response = vk_link_client.post(
+        "/api/v1/bot/vk/onboard-client",
+        headers=_bot_headers(),
+        json={"vk_user_id": "vk-reuse", "email": "reuse@example.com"},
+    )
+    plain_token = _extract_setup_token(onboard_response.json()["password_setup_url"])
+    first = vk_link_client.post(
+        "/api/v1/auth/password-setup/complete",
+        json={"token": plain_token, "password": "ClientPass123", "password_confirm": "ClientPass123"},
+    )
+    assert first.status_code == 200
+
+    second = vk_link_client.post(
+        "/api/v1/auth/password-setup/complete",
+        json={"token": plain_token, "password": "OtherPass123", "password_confirm": "OtherPass123"},
+    )
+    assert second.status_code == 400
+
+
+def test_expired_password_setup_token_is_rejected(vk_link_client: TestClient) -> None:
+    onboard_response = vk_link_client.post(
+        "/api/v1/bot/vk/onboard-client",
+        headers=_bot_headers(),
+        json={"vk_user_id": "vk-expired", "email": "expired@example.com"},
+    )
+    plain_token = _extract_setup_token(onboard_response.json()["password_setup_url"])
+    with _db_session() as session:
+        setup_token = session.execute(select(ClientPasswordSetupToken)).scalar_one()
+        setup_token.expires_at = datetime.now(timezone.utc) - timedelta(seconds=1)
+        session.commit()
+
+    response = vk_link_client.post(
+        "/api/v1/auth/password-setup/complete",
+        json={"token": plain_token, "password": "ClientPass123", "password_confirm": "ClientPass123"},
+    )
+    assert response.status_code == 400
+
+
+def test_password_setup_mismatch_is_rejected(vk_link_client: TestClient) -> None:
+    onboard_response = vk_link_client.post(
+        "/api/v1/bot/vk/onboard-client",
+        headers=_bot_headers(),
+        json={"vk_user_id": "vk-mismatch", "email": "mismatch@example.com"},
+    )
+    plain_token = _extract_setup_token(onboard_response.json()["password_setup_url"])
+
+    response = vk_link_client.post(
+        "/api/v1/auth/password-setup/complete",
+        json={"token": plain_token, "password": "ClientPass123", "password_confirm": "DifferentPass123"},
+    )
+    assert response.status_code == 400
+
+
+def test_onboarding_existing_client_with_password_has_no_setup_url(vk_link_client: TestClient) -> None:
+    with _db_session() as session:
+        user = User(
+            email="existing-password@example.com",
+            phone=None,
+            password_hash=hash_password("ExistingPass123"),
+            role=UserRole.CLIENT.value,
+            is_active=True,
+        )
+        session.add(user)
+        session.flush()
+        session.add(ClientProfile(user_id=user.id, vk_user_id="vk-has-password", is_active=True, source="vk"))
+        session.commit()
+
+    response = vk_link_client.post(
+        "/api/v1/bot/vk/onboard-client",
+        headers=_bot_headers(),
+        json={"vk_user_id": "vk-has-password"},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["password_setup_required"] is False
+    assert data["password_setup_url"] is None
+    assert data["password_setup_expires_at"] is None
+    assert data["password_setup_ttl_seconds"] is None
 
 def test_bot_onboard_client_active_city_slug_sets_selected_city_id(vk_link_client: TestClient) -> None:
     response = vk_link_client.post(
