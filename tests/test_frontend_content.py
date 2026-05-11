@@ -339,6 +339,40 @@ def test_frontend_contains_compact_admin_table_markers() -> None:
     ):
         assert tab_text in source
 
+
+def test_frontend_contains_admin_search_filter_markers() -> None:
+    source = _frontend_main()
+    styles = _frontend_styles()
+
+    for expected in (
+        "admin-search",
+        "admin-search-input",
+        "admin-toolbar",
+        "admin-search-reset",
+    ):
+        assert expected in source or expected in styles
+
+    for placeholder in (
+        "Поиск по пользователям",
+        "Поиск по городам",
+        "Поиск по категориям",
+        "Поиск по партнёрам",
+        "Поиск по предложениям",
+        "Поиск по QR",
+        "Поиск по лидам",
+        "Поиск по подтверждениям",
+    ):
+        assert placeholder in source
+
+    for helper_marker in (
+        "normalizeSearchText",
+        "filterAdminRows",
+        "data-admin-search",
+        "data-admin-search-reset",
+        "Ничего не найдено.",
+    ):
+        assert helper_marker in source
+
 def test_frontend_contains_human_readable_admin_labels() -> None:
     source = _frontend_main()
 

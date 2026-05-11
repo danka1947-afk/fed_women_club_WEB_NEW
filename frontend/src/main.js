@@ -225,7 +225,38 @@ const adminState = {
   panelMessage: '',
   formMessages: {},
   overviewPartialError: false,
+  search: {
+    users: '',
+    cities: '',
+    categories: '',
+    partners: '',
+    offers: '',
+    qr: '',
+    leads: '',
+    verifications: '',
+  },
 };
+
+const normalizeSearchText = (value) => String(value ?? '').trim().toLowerCase();
+
+const getSearchableValue = (row, field) => {
+  if (typeof field === 'function') {
+    return field(row);
+  }
+
+  return row?.[field];
+};
+
+const filterAdminRows = (rows, query, fields) => {
+  const normalizedQuery = normalizeSearchText(query);
+  if (!normalizedQuery) {
+    return rows;
+  }
+
+  return rows.filter((row) => fields.some((field) => normalizeSearchText(getSearchableValue(row, field)).includes(normalizedQuery)));
+};
+
+const searchableBool = (value) => `${formatBool(value)} ${value ? 'active активен активна активно да true' : 'inactive неактивен неактивна неактивно нет false'}`;
 
 const partnerTabs = [
   { id: 'profile', label: 'Профиль', icon: '♡' },
@@ -1126,36 +1157,54 @@ const renderUserActionButton = (user) => `
   </button>
 `;
 
-const renderUsersTab = () => `
-  <div class="admin-two-column admin-two-column--wide">
-    <div>
-      <div class="admin-section-heading"><h4>Пользователи</h4><p>Unified users для клиентских, партнёрских и административных кабинетов.</p></div>
-      ${renderTable(
-        ['ID', 'Email', 'Телефон', 'Роль', 'Активен', 'Действие'],
-        adminState.users.map((item) => [
-          formatValue(item.id),
-          formatValue(item.email),
-          formatValue(item.phone),
-          formatValue(formatRole(item.role)),
-          formatValue(formatBool(item.is_active)),
-          renderUserActionButton(item),
-        ]),
-        true,
-        'admin-table--compact',
-      )}
+const renderAdminSearch = (scope, placeholder) => {
+  const value = adminState.search?.[scope] || '';
+  return `
+    <div class="admin-toolbar">
+      <label class="admin-search">
+        <span class="visually-hidden">${escapeHtml(placeholder)}</span>
+        <input class="admin-search-input" data-admin-search="${escapeHtml(scope)}" value="${escapeHtml(value)}" placeholder="${escapeHtml(placeholder)}" />
+      </label>
+      ${value ? `<button class="admin-search-reset" type="button" data-admin-search-reset="${escapeHtml(scope)}">Сбросить</button>` : ''}
     </div>
-    <form class="admin-form" data-admin-form="user">
-      <h4>Новый пользователь</h4>
-      <label>Email<input name="email" type="email" autocomplete="email" /></label>
-      <label>Телефон<input name="phone" autocomplete="tel" /></label>
-      <label>Пароль<input name="password" type="password" autocomplete="new-password" required /></label>
-      <label>Роль${renderSelect('role', [['client', 'Клиент'], ['partner', 'Партнёр'], ['admin', 'Администратор']], true, 'client')}</label>
-      <label class="checkbox-row"><input name="is_active" type="checkbox" checked /> Активен</label>
-      <button type="submit">Создать пользователя</button>
-      <p class="form-message" data-form-message="user">${escapeHtml(adminState.formMessages.user || '')}</p>
-    </form>
-  </div>
-`;
+  `;
+};
+
+const renderUsersTab = () => {
+  const users = filterAdminRows(adminState.users, adminState.search.users, ['email', 'phone', 'role', (item) => formatRole(item.role), (item) => searchableBool(item.is_active)]);
+  return `
+    <div class="admin-two-column admin-two-column--wide">
+      <div>
+        <div class="admin-section-heading"><h4>Пользователи</h4><p>Unified users для клиентских, партнёрских и административных кабинетов.</p></div>
+        ${renderAdminSearch('users', 'Поиск по пользователям')}
+        ${renderTable(
+          ['ID', 'Email', 'Телефон', 'Роль', 'Активен', 'Действие'],
+          users.map((item) => [
+            formatValue(item.id),
+            formatValue(item.email),
+            formatValue(item.phone),
+            formatValue(formatRole(item.role)),
+            formatValue(formatBool(item.is_active)),
+            renderUserActionButton(item),
+          ]),
+          true,
+          'admin-table--compact',
+          adminState.search.users ? 'Ничего не найдено.' : 'Пока нет данных.',
+        )}
+      </div>
+      <form class="admin-form" data-admin-form="user">
+        <h4>Новый пользователь</h4>
+        <label>Email<input name="email" type="email" autocomplete="email" /></label>
+        <label>Телефон<input name="phone" autocomplete="tel" /></label>
+        <label>Пароль<input name="password" type="password" autocomplete="new-password" required /></label>
+        <label>Роль${renderSelect('role', [['client', 'Клиент'], ['partner', 'Партнёр'], ['admin', 'Администратор']], true, 'client')}</label>
+        <label class="checkbox-row"><input name="is_active" type="checkbox" checked /> Активен</label>
+        <button type="submit">Создать пользователя</button>
+        <p class="form-message" data-form-message="user">${escapeHtml(adminState.formMessages.user || '')}</p>
+      </form>
+    </div>
+  `;
+};
 
 const renderCityActionButtons = (city) => `
   <div class="admin-inline-actions">
@@ -1200,26 +1249,31 @@ const renderCityEditForm = () => {
   `;
 };
 
-const renderCitiesTab = () => `
-  <div class="admin-two-column">
-    <div>
-      <div class="admin-section-heading"><h4>Города</h4><p>Список городов для управления каталогом.</p></div>
-      ${renderTable(
-        ['Город', 'Слаг', 'Активен', 'Сортировка', 'Действие'],
-        adminState.cities.map((city) => [
-          formatValue(city.name),
-          formatValue(city.slug),
-          formatValue(formatBool(city.is_active)),
-          formatValue(city.sort_order),
-          renderCityActionButtons(city),
-        ]),
-        true,
-        'admin-table--compact',
-      )}
+const renderCitiesTab = () => {
+  const cities = filterAdminRows(adminState.cities, adminState.search.cities, ['name', 'slug', (city) => searchableBool(city.is_active)]);
+  return `
+    <div class="admin-two-column">
+      <div>
+        <div class="admin-section-heading"><h4>Города</h4><p>Список городов для управления каталогом.</p></div>
+        ${renderAdminSearch('cities', 'Поиск по городам')}
+        ${renderTable(
+          ['Город', 'Слаг', 'Активен', 'Сортировка', 'Действие'],
+          cities.map((city) => [
+            formatValue(city.name),
+            formatValue(city.slug),
+            formatValue(formatBool(city.is_active)),
+            formatValue(city.sort_order),
+            renderCityActionButtons(city),
+          ]),
+          true,
+          'admin-table--compact',
+          adminState.search.cities ? 'Ничего не найдено.' : 'Пока нет данных.',
+        )}
+      </div>
+      ${adminState.selectedCityIdForEdit ? renderCityEditForm() : renderCityCreateForm()}
     </div>
-    ${adminState.selectedCityIdForEdit ? renderCityEditForm() : renderCityCreateForm()}
-  </div>
-`;
+  `;
+};
 
 const getCategoryName = (category) => category.name || category.title || '';
 
@@ -1266,26 +1320,31 @@ const renderCategoryEditForm = () => {
   `;
 };
 
-const renderCategoriesTab = () => `
-  <div class="admin-two-column">
-    <div>
-      <div class="admin-section-heading"><h4>Категории</h4><p>Справочник категорий партнёров с безопасной деактивацией.</p></div>
-      ${renderTable(
-        ['Категория', 'Слаг', 'Активна', 'Сортировка', 'Действие'],
-        adminState.categories.map((category) => [
-          formatValue(getCategoryName(category)),
-          formatValue(category.slug),
-          formatValue(formatBool(category.is_active)),
-          formatValue(category.sort_order),
-          renderCategoryActionButtons(category),
-        ]),
-        true,
-        'admin-table--compact',
-      )}
+const renderCategoriesTab = () => {
+  const categories = filterAdminRows(adminState.categories, adminState.search.categories, ['name', 'title', 'slug', (category) => searchableBool(category.is_active)]);
+  return `
+    <div class="admin-two-column">
+      <div>
+        <div class="admin-section-heading"><h4>Категории</h4><p>Справочник категорий партнёров с безопасной деактивацией.</p></div>
+        ${renderAdminSearch('categories', 'Поиск по категориям')}
+        ${renderTable(
+          ['Категория', 'Слаг', 'Активна', 'Сортировка', 'Действие'],
+          categories.map((category) => [
+            formatValue(getCategoryName(category)),
+            formatValue(category.slug),
+            formatValue(formatBool(category.is_active)),
+            formatValue(category.sort_order),
+            renderCategoryActionButtons(category),
+          ]),
+          true,
+          'admin-table--compact',
+          adminState.search.categories ? 'Ничего не найдено.' : 'Пока нет данных.',
+        )}
+      </div>
+      ${adminState.selectedCategoryIdForEdit ? renderCategoryEditForm() : renderCategoryCreateForm()}
     </div>
-    ${adminState.selectedCategoryIdForEdit ? renderCategoryEditForm() : renderCategoryCreateForm()}
-  </div>
-`;
+  `;
+};
 
 const renderAdminPartnerAction = (partner) => `
   <button class="admin-inline-action admin-table-action" type="button" data-admin-partner-edit="${escapeHtml(partner.id)}">Редактировать</button>
@@ -1320,26 +1379,38 @@ const renderPartnerEditForm = () => {
   `;
 };
 
-const renderPartnersTab = () => `
-  <div class="admin-two-column admin-two-column--wide">
-    <div>
-      <div class="admin-section-heading"><h4>Партнёры</h4><p>Базовый список партнёров клуба.</p></div>
-      ${renderTable(
-        ['Партнёр', 'Город', 'Категория', 'Владелец', 'Активен', 'Проверен', 'Действие'],
-        adminState.partners.map((partner) => [
-          formatValue(partner.name),
-          formatValue(partner.city_name),
-          formatValue(partner.category_slug),
-          formatValue(partner.owner_email),
-          formatValue(formatBool(partner.is_active)),
-          formatValue(partner.is_verified ? 'Проверен' : 'Не проверен'),
-          renderAdminPartnerAction(partner),
-        ]),
-        true,
-        'admin-table--compact',
-      )}
-    </div>
-    ${adminState.selectedPartnerIdForEdit ? renderPartnerEditForm() : `
+const renderPartnersTab = () => {
+  const partners = filterAdminRows(adminState.partners, adminState.search.partners, [
+    'name',
+    'city_name',
+    'category_slug',
+    'owner_email',
+    'phone',
+    (partner) => searchableBool(partner.is_active),
+    (partner) => (partner.is_verified ? 'verified проверен проверенный true' : 'unverified не проверен непроверенный false'),
+  ]);
+  return `
+    <div class="admin-two-column admin-two-column--wide">
+      <div>
+        <div class="admin-section-heading"><h4>Партнёры</h4><p>Базовый список партнёров клуба.</p></div>
+        ${renderAdminSearch('partners', 'Поиск по партнёрам')}
+        ${renderTable(
+          ['Партнёр', 'Город', 'Категория', 'Владелец', 'Активен', 'Проверен', 'Действие'],
+          partners.map((partner) => [
+            formatValue(partner.name),
+            formatValue(partner.city_name),
+            formatValue(partner.category_slug),
+            formatValue(partner.owner_email),
+            formatValue(formatBool(partner.is_active)),
+            formatValue(partner.is_verified ? 'Проверен' : 'Не проверен'),
+            renderAdminPartnerAction(partner),
+          ]),
+          true,
+          'admin-table--compact',
+          adminState.search.partners ? 'Ничего не найдено.' : 'Пока нет данных.',
+        )}
+      </div>
+      ${adminState.selectedPartnerIdForEdit ? renderPartnerEditForm() : `
     <form class="admin-form" data-admin-form="partner">
       <h4>Новый партнёр</h4>
       <label>Город${renderSelect('city_id', adminState.cities.map((city) => [city.id, city.name]), true)}</label>
@@ -1356,8 +1427,9 @@ const renderPartnersTab = () => `
       <p class="form-message" data-form-message="partner">${escapeHtml(adminState.formMessages.partner || '')}</p>
     </form>
     `}
-  </div>
-`;
+    </div>
+  `;
+};
 
 const renderAdminOfferAction = (offer) => `
   <button class="admin-inline-action admin-table-action" type="button" data-admin-offer-edit="${escapeHtml(offer.id)}">Редактировать</button>
@@ -1404,19 +1476,24 @@ const renderOfferCreateForm = () => `
   </form>
 `;
 
-const renderOffersTab = () => `
-  <div class="admin-section-heading"><h4>Предложения</h4><p>Выберите партнёра, чтобы увидеть и создать предложения.</p></div>
-  <label class="admin-select-label">Партнёр${renderPartnerPicker('offers', adminState.selectedPartnerIdForOffers)}</label>
-  ${adminState.selectedPartnerIdForOffers ? `
-    ${renderTable(
-      ['Название предложения', 'Описание', 'Базовая цена', 'Скидка, %', 'Активно', 'Сортировка', 'Действие'],
-      adminState.offers.map((offer) => [formatValue(offer.title), formatValue(offer.benefit_text), formatValue(offer.base_price), formatValue(offer.discount_percent), formatValue(formatBool(offer.is_active)), formatValue(offer.sort_order), renderAdminOfferAction(offer)]),
-      true,
-      'admin-table--compact',
-    )}
-    ${adminState.selectedOfferIdForEdit ? renderOfferEditForm() : renderOfferCreateForm()}
-  ` : '<p class="empty-note">Сначала выберите партнёра.</p>'}
-`;
+const renderOffersTab = () => {
+  const offers = filterAdminRows(adminState.offers, adminState.search.offers, ['title', 'description', 'benefit_text', 'discount_text', 'terms', 'conditions', (offer) => searchableBool(offer.is_active)]);
+  return `
+    <div class="admin-section-heading"><h4>Предложения</h4><p>Выберите партнёра, чтобы увидеть и создать предложения.</p></div>
+    <label class="admin-select-label">Партнёр${renderPartnerPicker('offers', adminState.selectedPartnerIdForOffers)}</label>
+    ${adminState.selectedPartnerIdForOffers ? `
+      ${renderAdminSearch('offers', 'Поиск по предложениям')}
+      ${renderTable(
+        ['Название предложения', 'Описание', 'Базовая цена', 'Скидка, %', 'Активно', 'Сортировка', 'Действие'],
+        offers.map((offer) => [formatValue(offer.title), formatValue(offer.benefit_text), formatValue(offer.base_price), formatValue(offer.discount_percent), formatValue(formatBool(offer.is_active)), formatValue(offer.sort_order), renderAdminOfferAction(offer)]),
+        true,
+        'admin-table--compact',
+        adminState.search.offers ? 'Ничего не найдено.' : 'Пока нет данных.',
+      )}
+      ${adminState.selectedOfferIdForEdit ? renderOfferEditForm() : renderOfferCreateForm()}
+    ` : '<p class="empty-note">Сначала выберите партнёра.</p>'}
+  `;
+};
 
 const renderAdminQrAction = (link) => `
   <button class="admin-inline-action admin-table-action" type="button" data-admin-qr-edit="${escapeHtml(link.id)}">Редактировать</button>
@@ -1456,31 +1533,56 @@ const renderQrEditForm = () => {
   `;
 };
 
-const renderQrTab = () => `
-  <div class="admin-section-heading"><h4>QR / лиды</h4><p>QR-ссылки партнёров и агрегированные переходы.</p></div>
-  <label class="admin-select-label">Партнёр${renderPartnerPicker('qr', adminState.selectedPartnerIdForQr)}</label>
-  ${adminState.selectedPartnerIdForQr ? `
-    ${renderTable(
-      ['Код ссылки', 'QR-ссылка', 'Целевая ссылка', 'Активна', 'Действие'],
-      adminState.qrLinks.map((link) => [formatValue(link.slug), link.qr_url ? `<a href="${escapeHtml(link.qr_url)}" target="_blank" rel="noreferrer">${escapeHtml(link.qr_url)}</a>` : '—', formatValue(link.target_url), formatValue(formatBool(link.is_active)), renderAdminQrAction(link)]),
-      true,
-      'admin-table--compact',
-    )}
-    ${adminState.selectedQrLinkIdForEdit ? renderQrEditForm() : renderQrCreateForm()}
-  ` : '<p class="empty-note">Сначала выберите партнёра.</p>'}
-  <h4 class="table-title">Лиды партнёров</h4>
-  ${renderTable(['Партнёр', 'Город', 'Код ссылки', 'Лиды / переходы'], adminState.leads.map((lead) => [lead.partner_name, lead.city_name, lead.qr_slug, lead.total_clicks]), false, 'admin-table--compact')}
-`;
+const renderQrTab = () => {
+  const qrLinks = filterAdminRows(adminState.qrLinks, adminState.search.qr, ['slug', 'target_url', 'deep_link_payload', (link) => searchableBool(link.is_active)]);
+  const leads = filterAdminRows(adminState.leads, adminState.search.leads, ['partner_name', 'city_name', 'qr_slug', 'target_url', 'deep_link_payload', 'total_clicks']);
+  return `
+    <div class="admin-section-heading"><h4>QR / лиды</h4><p>QR-ссылки партнёров и агрегированные переходы.</p></div>
+    <label class="admin-select-label">Партнёр${renderPartnerPicker('qr', adminState.selectedPartnerIdForQr)}</label>
+    ${adminState.selectedPartnerIdForQr ? `
+      ${renderAdminSearch('qr', 'Поиск по QR')}
+      ${renderTable(
+        ['Код ссылки', 'QR-ссылка', 'Целевая ссылка', 'Активна', 'Действие'],
+        qrLinks.map((link) => [formatValue(link.slug), link.qr_url ? `<a href="${escapeHtml(link.qr_url)}" target="_blank" rel="noreferrer">${escapeHtml(link.qr_url)}</a>` : '—', formatValue(link.target_url), formatValue(formatBool(link.is_active)), renderAdminQrAction(link)]),
+        true,
+        'admin-table--compact',
+        adminState.search.qr ? 'Ничего не найдено.' : 'Пока нет данных.',
+      )}
+      ${adminState.selectedQrLinkIdForEdit ? renderQrEditForm() : renderQrCreateForm()}
+    ` : '<p class="empty-note">Сначала выберите партнёра.</p>'}
+    <h4 class="table-title">Лиды партнёров</h4>
+    ${renderAdminSearch('leads', 'Поиск по лидам')}
+    ${renderTable(['Партнёр', 'Город', 'Код ссылки', 'Лиды / переходы'], leads.map((lead) => [lead.partner_name, lead.city_name, lead.qr_slug, lead.total_clicks]), false, 'admin-table--compact', adminState.search.leads ? 'Ничего не найдено.' : 'Пока нет данных.')}
+  `;
+};
 
-const renderVerificationsTab = () => `
-  <div class="admin-section-heading"><h4>Подтверждения</h4><p>Последние сессии подтверждения привилегий.</p></div>
-  ${renderTable(
-    ['Статус', 'Код', 'Партнёр', 'Клиент', 'Название предложения', 'Создано', 'Истекает', 'Подтверждено'],
-    adminState.verifications.map((item) => [item.status, item.code, item.partner_name, `${item.client_name || '—'} / ${item.client_id}`, item.offer_title, formatDate(item.created_at), formatDate(item.expires_at), formatDate(item.confirmed_at)]),
-    false,
-    'admin-table--compact',
-  )}
-`;
+const renderVerificationsTab = () => {
+  const verifications = filterAdminRows(adminState.verifications, adminState.search.verifications, [
+    'status',
+    'code',
+    'partner_name',
+    'client_name',
+    'client_id',
+    'offer_title',
+    'created_at',
+    'expires_at',
+    'confirmed_at',
+    (item) => formatDate(item.created_at),
+    (item) => formatDate(item.expires_at),
+    (item) => formatDate(item.confirmed_at),
+  ]);
+  return `
+    <div class="admin-section-heading"><h4>Подтверждения</h4><p>Последние сессии подтверждения привилегий.</p></div>
+    ${renderAdminSearch('verifications', 'Поиск по подтверждениям')}
+    ${renderTable(
+      ['Статус', 'Код', 'Партнёр', 'Клиент', 'Название предложения', 'Создано', 'Истекает', 'Подтверждено'],
+      verifications.map((item) => [item.status, item.code, item.partner_name, `${item.client_name || '—'} / ${item.client_id}`, item.offer_title, formatDate(item.created_at), formatDate(item.expires_at), formatDate(item.confirmed_at)]),
+      false,
+      'admin-table--compact',
+      adminState.search.verifications ? 'Ничего не найдено.' : 'Пока нет данных.',
+    )}
+  `;
+};
 
 const getAdminTableCellClass = (header) => {
   if (header === 'Действие') {
@@ -1494,9 +1596,9 @@ const getAdminTableCellClass = (header) => {
   return 'admin-table-cell--truncate';
 };
 
-const renderTable = (headers, rows, trustedHtml = false, tableModifier = '') => {
+const renderTable = (headers, rows, trustedHtml = false, tableModifier = '', emptyMessage = 'Пока нет данных.') => {
   if (!rows.length) {
-    return '<div class="empty-note">Пока нет данных.</div>';
+    return `<div class="empty-note">${escapeHtml(emptyMessage)}</div>`;
   }
 
   const tableClassName = ['admin-table', tableModifier].filter(Boolean).join(' ');
@@ -2163,6 +2265,13 @@ root.addEventListener('click', async (event) => {
     return;
   }
 
+  const adminSearchReset = event.target.closest('[data-admin-search-reset]');
+  if (adminSearchReset) {
+    adminState.search[adminSearchReset.dataset.adminSearchReset] = '';
+    renderAdminLayout();
+    return;
+  }
+
   const userToggle = event.target.closest('[data-user-active-toggle]');
   if (userToggle) {
     toggleUserActive(userToggle.dataset.userActiveToggle);
@@ -2346,6 +2455,24 @@ root.addEventListener('click', async (event) => {
   if (verifyPartnerButton) {
     await createClientVerification(verifyPartnerButton.dataset.clientVerifyPartner);
   }
+});
+
+root.addEventListener('input', (event) => {
+  const searchInput = event.target.closest('[data-admin-search]');
+  if (!searchInput) {
+    return;
+  }
+
+  const searchScope = searchInput.dataset.adminSearch;
+  adminState.search[searchScope] = searchInput.value;
+  renderAdminLayout();
+  requestAnimationFrame(() => {
+    const updatedInput = root.querySelector(`[data-admin-search="${searchScope}"]`);
+    if (updatedInput) {
+      updatedInput.focus();
+      updatedInput.setSelectionRange(updatedInput.value.length, updatedInput.value.length);
+    }
+  });
 });
 
 root.addEventListener('change', (event) => {
