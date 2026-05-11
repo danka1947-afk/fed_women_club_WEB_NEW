@@ -827,3 +827,38 @@ def test_frontend_contains_client_vk_link_code_ui() -> None:
         "Череповец",
     ):
         assert public_copy in source
+
+
+def test_client_cabinet_uses_human_readable_profile_catalog_history_and_subscription_copy() -> None:
+    source = _frontend_main()
+
+    for forbidden in (
+        "ID города не угадывается",
+        "Город (ID)",
+        "например, beauty",
+        "Например, beauty",
+        "ID из админки",
+    ):
+        assert forbidden not in source
+
+    for expected in (
+        "Выберите город",
+        "Выберите город, чтобы видеть предложения рядом с вами.",
+        "Все категории",
+        "Категория",
+        "По выбранному городу",
+        "Все города",
+        "Название, описание, адрес",
+        "Пока нет подтверждений.",
+        "Активная подписка пока не найдена",
+        "Когда подписка будет оформлена",
+        "Активно",
+        "Подтверждено",
+        "Истекло",
+        "Отменено",
+    ):
+        assert expected in source
+
+    assert "selected_city_id: selectedCityId ? Number(selectedCityId) : null" in source
+    assert "formatStatus(item.status)" in source
+    assert "formatClientCategory(partner.category_slug)" in source

@@ -23,6 +23,30 @@ const categories = [
   'Другое',
 ];
 
+
+const fallbackClientCities = [
+  { id: 1, slug: 'novosibirsk', name: 'Новосибирск' },
+  { id: 2, slug: 'cherepovets', name: 'Череповец' },
+];
+
+const fallbackClientCategories = [
+  { slug: 'krasota', title: 'Красота' },
+  { slug: 'manikyur-pedikyur', title: 'Маникюр / педикюр' },
+  { slug: 'volosy-okrashivanie', title: 'Волосы / окрашивание' },
+  { slug: 'brovi-resnitsy', title: 'Брови / ресницы' },
+  { slug: 'kosmetologiya', title: 'Косметология' },
+  { slug: 'massazh-spa', title: 'Массаж / SPA' },
+  { slug: 'fitnes-yoga', title: 'Фитнес / йога' },
+  { slug: 'zdorove', title: 'Здоровье' },
+  { slug: 'psihologiya', title: 'Психология' },
+  { slug: 'odezhda-aksessuary', title: 'Одежда / аксессуары' },
+  { slug: 'kafe-restorany', title: 'Кафе / рестораны' },
+  { slug: 'obuchenie-master-klassy', title: 'Обучение / мастер-классы' },
+  { slug: 'fotosessii', title: 'Фотосессии' },
+  { slug: 'cvety-podarki', title: 'Цветы / подарки' },
+  { slug: 'drugoe', title: 'Другое' },
+];
+
 const featureCards = [
   {
     title: 'Скидки у партнёров',
@@ -347,6 +371,57 @@ const formatRole = (role) => ({
 }[role] || role);
 const formatValue = (value) => escapeHtml(value || '—');
 const formatDate = (value) => (value ? new Date(value).toLocaleString('ru-RU') : '—');
+
+
+const statusLabels = {
+  active: 'Активно',
+  confirmed: 'Подтверждено',
+  expired: 'Истекло',
+  cancelled: 'Отменено',
+  canceled: 'Отменено',
+  paused: 'Приостановлено',
+};
+
+const formatStatus = (status) => {
+  const normalized = String(status || '').trim().toLowerCase();
+  if (!normalized) return '—';
+  return statusLabels[normalized] || status;
+};
+
+const getClientCityOptions = () => {
+  const stateCities = Array.isArray(adminState.cities) && adminState.cities.length
+    ? adminState.cities.filter((city) => city.is_active !== false)
+    : [];
+  const baseCities = stateCities.length ? stateCities : fallbackClientCities;
+  const profile = clientState.profile || {};
+  const hasSelectedCity = profile.selected_city_id
+    && !baseCities.some((city) => String(city.id) === String(profile.selected_city_id));
+
+  return [
+    ...baseCities,
+    ...(hasSelectedCity ? [{ id: profile.selected_city_id, slug: '', name: profile.selected_city_name || 'Выбранный город' }] : []),
+  ];
+};
+
+const getClientCategoryOptions = () => {
+  const stateCategories = Array.isArray(adminState.categories) && adminState.categories.length
+    ? adminState.categories.filter((category) => category.is_active !== false)
+    : [];
+  return stateCategories.length ? stateCategories : fallbackClientCategories;
+};
+
+const formatClientCategory = (slug) => {
+  const category = getClientCategoryOptions().find((item) => item.slug === slug);
+  return category?.title || slug || '—';
+};
+
+const renderClientEmptyState = (title, text) => `
+  <article class="client-empty-state">
+    <span class="client-empty-state__icon" aria-hidden="true">♡</span>
+    <h4>${escapeHtml(title)}</h4>
+    <p>${escapeHtml(text)}</p>
+  </article>
+`;
 
 const getToken = () => localStorage.getItem(authTokenKey);
 const getPartnerToken = () => localStorage.getItem(partnerTokenKey);
@@ -674,7 +749,7 @@ const buildClientCatalogPath = () => {
   const { q, category_slug: categorySlug, city_slug: citySlug } = clientState.catalogFilters;
   if (q) params.set('q', q);
   if (categorySlug) params.set('category_slug', categorySlug);
-  if (citySlug) params.set('city_slug', citySlug);
+  if (citySlug && citySlug !== '__all__') params.set('city_slug', citySlug);
   if (!citySlug && clientState.profile?.selected_city_id) {
     params.set('city_id', clientState.profile.selected_city_id);
   }
@@ -716,17 +791,18 @@ const renderClientTabContent = () => {
 
 const renderClientProfileTab = () => {
   const profile = clientState.profile || {};
+  const cityOptions = getClientCityOptions();
   return `
     <div class="admin-section-heading">
       <h4>Профиль</h4>
-      <p>ID города не угадывается на frontend: Новосибирск / Череповец создаются администратором, ID видно в админке.</p>
+      <p>Выберите город, чтобы видеть предложения рядом с вами.</p>
     </div>
     <div class="partner-profile-grid">
       ${[
         ['Email', profile.email],
         ['Телефон', profile.phone],
         ['Имя', profile.full_name],
-        ['Город', profile.selected_city_name],
+        ['Город', profile.selected_city_name || 'Выберите город'],
         ['Источник', profile.source],
         ['Активность', formatBool(profile.is_active)],
       ].map(([label, value]) => `
@@ -746,8 +822,13 @@ const renderClientProfileTab = () => {
     <form class="admin-form admin-form--inline" data-client-form="profile">
       <h4>Обновить профиль</h4>
       <label>Имя<input name="full_name" value="${escapeHtml(profile.full_name || '')}" /></label>
-      <label>Город (ID)<input name="selected_city_id" type="number" min="1" value="${escapeHtml(profile.selected_city_id || '')}" placeholder="ID из админки" /></label>
-      <p class="form-message">Новосибирск / Череповец доступны как публичные city chips, но их ID не хардкодятся.</p>
+      <label>Город
+        <select name="selected_city_id">
+          <option value="">Выберите город</option>
+          ${cityOptions.map((city) => `<option value="${escapeHtml(city.id)}" ${String(city.id) === String(profile.selected_city_id || '') ? 'selected' : ''}>${escapeHtml(city.name)}</option>`).join('')}
+        </select>
+      </label>
+      <p class="form-message">Выберите город, чтобы видеть предложения рядом с вами.</p>
       <button type="submit">Сохранить профиль</button>
       <p class="form-message" data-client-form-message="profile">${escapeHtml(clientState.formMessages.profile || '')}</p>
     </form>
@@ -782,41 +863,53 @@ const renderClientVkLinkCode = () => {
 const renderClientSubscriptionTab = () => {
   const subscription = clientState.subscription;
   if (!subscription) {
-    return '<div class="admin-section-heading"><h4>Моя подписка</h4><p>Активная подписка пока не найдена.</p></div>';
+    return `
+      <div class="admin-section-heading"><h4>Моя подписка</h4><p>Информация о вашей клубной подписке.</p></div>
+      ${renderClientEmptyState('Активная подписка пока не найдена', 'Когда подписка будет оформлена, здесь появится срок действия и статус.')}
+    `;
   }
 
   return `
     <div class="admin-section-heading"><h4>Моя подписка</h4><p>Статус и сроки текущей подписки.</p></div>
     <div class="summary-grid">
-      <div class="summary-card"><span>Статус</span><strong>${formatValue(subscription.status)}</strong></div>
+      <div class="summary-card"><span>Статус</span><strong>${formatValue(formatStatus(subscription.status))}</strong></div>
       <div class="summary-card"><span>Начало</span><strong>${formatValue(formatDate(subscription.starts_at))}</strong></div>
       <div class="summary-card"><span>Окончание</span><strong>${formatValue(formatDate(subscription.ends_at))}</strong></div>
     </div>
   `;
 };
 
-const renderClientCatalogTab = () => `
-  <div class="admin-section-heading">
-    <h4>Каталог</h4>
-    <p>Ищите партнёров по выбранному городу профиля или публичному city_slug.</p>
-  </div>
-  <form class="admin-form client-catalog-filter" data-client-form="catalog">
-    <label>Поиск<input name="q" value="${escapeHtml(clientState.catalogFilters.q)}" placeholder="Название, описание, адрес" /></label>
-    <label>Категория<input name="category_slug" value="${escapeHtml(clientState.catalogFilters.category_slug)}" placeholder="Например, beauty" /></label>
-    <label>Город
-      <select name="city_slug">
-        <option value="">По выбранному городу</option>
-        <option value="novosibirsk" ${clientState.catalogFilters.city_slug === 'novosibirsk' ? 'selected' : ''}>Новосибирск</option>
-        <option value="cherepovets" ${clientState.catalogFilters.city_slug === 'cherepovets' ? 'selected' : ''}>Череповец</option>
-      </select>
-    </label>
-    <button type="submit">Найти</button>
-  </form>
-  ${clientState.latestVerification ? renderClientVerificationResult(clientState.latestVerification) : ''}
-  <div class="client-catalog-grid">
-    ${clientState.partners.length ? clientState.partners.map(renderClientPartnerCard).join('') : '<p class="empty-note">Партнёры пока не найдены.</p>'}
-  </div>
-`;
+const renderClientCatalogTab = () => {
+  const cityOptions = getClientCityOptions();
+  const categoryOptions = getClientCategoryOptions();
+  return `
+    <div class="admin-section-heading">
+      <h4>Каталог</h4>
+      <p>Ищите партнёров по названию, категории и городу.</p>
+    </div>
+    <form class="admin-form client-catalog-filter" data-client-form="catalog">
+      <label>Поиск<input name="q" value="${escapeHtml(clientState.catalogFilters.q)}" placeholder="Название, описание, адрес" /></label>
+      <label>Категория
+        <select name="category_slug">
+          <option value="">Все категории</option>
+          ${categoryOptions.map((category) => `<option value="${escapeHtml(category.slug)}" ${clientState.catalogFilters.category_slug === category.slug ? 'selected' : ''}>${escapeHtml(category.title)}</option>`).join('')}
+        </select>
+      </label>
+      <label>Город
+        <select name="city_slug">
+          <option value="">По выбранному городу</option>
+          <option value="__all__" ${clientState.catalogFilters.city_slug === '__all__' ? 'selected' : ''}>Все города</option>
+          ${cityOptions.filter((city) => city.slug).map((city) => `<option value="${escapeHtml(city.slug)}" ${clientState.catalogFilters.city_slug === city.slug ? 'selected' : ''}>${escapeHtml(city.name)}</option>`).join('')}
+        </select>
+      </label>
+      <button type="submit">Найти</button>
+    </form>
+    ${clientState.latestVerification ? renderClientVerificationResult(clientState.latestVerification) : ''}
+    <div class="client-catalog-grid">
+      ${clientState.partners.length ? clientState.partners.map(renderClientPartnerCard).join('') : renderClientEmptyState('Партнёры пока не найдены', 'Попробуйте изменить город, категорию или поисковый запрос.')}
+    </div>
+  `;
+};
 
 const renderClientPartnerCard = (partner) => {
   const partnerId = partner.id;
@@ -824,7 +917,7 @@ const renderClientPartnerCard = (partner) => {
   return `
     <article class="client-partner-card">
       <div class="client-card-topline">
-        <span>${formatValue(partner.category_slug)}</span>
+        <span>${formatValue(formatClientCategory(partner.category_slug))}</span>
         <span>${partner.is_verified ? 'Проверен' : 'На проверке'}</span>
       </div>
       <h4>${formatValue(partner.name)}</h4>
@@ -868,7 +961,10 @@ const renderClientHistoryTab = () => `
   <div class="admin-section-heading"><h4>История</h4><p>Ваши последние подтверждения привилегий.</p></div>
   ${renderTable(
     ['Код', 'Статус', 'Партнёр', 'Название предложения', 'Истекает', 'Подтверждено', 'Создано'],
-    clientState.verifications.map((item) => [item.code, item.status, item.partner_name, item.offer_title, formatDate(item.expires_at), formatDate(item.confirmed_at), formatDate(item.created_at)]),
+    clientState.verifications.map((item) => [item.code, formatStatus(item.status), item.partner_name, item.offer_title, formatDate(item.expires_at), formatDate(item.confirmed_at), formatDate(item.created_at)]),
+    false,
+    '',
+    'Пока нет подтверждений.',
   )}
 `;
 

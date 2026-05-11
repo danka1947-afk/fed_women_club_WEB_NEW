@@ -2188,3 +2188,41 @@ body.is-dashboard {
     border-radius: 22px;
   }
 }
+
+.client-empty-state {
+  display: grid;
+  gap: 10px;
+  justify-items: start;
+  min-height: 150px;
+  padding: 24px;
+  border: 1px solid rgba(201, 130, 120, 0.22);
+  border-radius: 26px;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.96), rgba(255, 247, 245, 0.96)),
+    radial-gradient(circle at top right, rgba(246, 216, 210, 0.72), transparent 13rem);
+  box-shadow: 0 14px 34px rgba(143, 81, 75, 0.08);
+}
+
+.client-empty-state__icon {
+  display: inline-grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 999px;
+  background: rgba(201, 130, 120, 0.14);
+  color: var(--color-rose-dark);
+  font-weight: 900;
+}
+
+.client-empty-state h4,
+.client-empty-state p {
+  margin: 0;
+}
+
+.client-empty-state h4 {
+  color: var(--color-rose-dark);
+}
+
+.client-empty-state p {
+  color: var(--color-muted);
+}
