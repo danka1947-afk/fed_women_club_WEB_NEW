@@ -313,6 +313,32 @@ def test_frontend_keeps_required_public_role_nav_and_token_copy() -> None:
 
 
 
+
+def test_frontend_contains_compact_admin_table_markers() -> None:
+    source = _frontend_main()
+    styles = _frontend_styles()
+
+    for expected in (
+        "admin-table-action",
+        "admin-table--compact",
+        "admin-table-cell--actions",
+        "text-overflow: ellipsis",
+        "overflow-wrap",
+        "table-layout",
+    ):
+        assert expected in source or expected in styles
+
+    for tab_text in (
+        "Пользователи",
+        "Города",
+        "Категории",
+        "Партнёры",
+        "Предложения",
+        "QR / лиды",
+        "Подтверждения",
+    ):
+        assert tab_text in source
+
 def test_frontend_contains_human_readable_admin_labels() -> None:
     source = _frontend_main()
 

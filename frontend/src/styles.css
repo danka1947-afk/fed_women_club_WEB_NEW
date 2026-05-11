@@ -1980,6 +1980,75 @@ body.is-dashboard {
   line-height: 1.45;
 }
 
+.admin-table.admin-table--compact {
+  min-width: 0;
+  table-layout: fixed;
+  font-size: 0.86rem;
+}
+
+.admin-table--compact th,
+.admin-table--compact td {
+  min-width: 0;
+  padding: 8px 10px;
+}
+
+.admin-table--compact th {
+  font-size: 0.7rem;
+  letter-spacing: 0.055em;
+}
+
+.admin-table--compact td {
+  line-height: 1.32;
+}
+
+.admin-table--compact .admin-table-cell--truncate,
+.admin-table--compact .admin-table-cell--truncate a {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-table--compact .admin-table-cell--wrap,
+.admin-table--compact .admin-table-cell--wrap a {
+  overflow: hidden;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+
+.admin-table--compact .admin-table-cell--actions {
+  width: 112px;
+  max-width: 112px;
+  white-space: normal;
+}
+
+.admin-table--compact .admin-inline-actions {
+  display: flex;
+  width: max-content;
+  max-width: 100%;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.admin-table-action {
+  min-height: 0;
+  width: auto;
+  max-width: 100%;
+  padding: 6px 9px;
+  border-radius: 999px;
+  font-size: 0.74rem;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+@media (max-width: 900px) {
+  .admin-table.admin-table--compact {
+    min-width: 680px;
+    table-layout: auto;
+  }
+}
+
 .empty-note {
   display: grid;
   min-height: 92px;
