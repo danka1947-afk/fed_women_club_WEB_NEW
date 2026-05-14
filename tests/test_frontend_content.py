@@ -1021,3 +1021,74 @@ def test_frontend_preserves_public_and_cabinet_contract_markers_after_password_s
     ):
         assert removed_marker not in source
         assert removed_marker not in styles
+
+
+def test_public_landing_contains_smm_hero_menu_directions_and_partner_modal() -> None:
+    source = _frontend_main()
+    styles = _frontend_styles()
+
+    for expected in (
+        "hero-visual",
+        "hero-visual-card",
+        "hero-visual-image",
+        "hero-visual-caption",
+        "landing-menu",
+        "landing-menu-toggle",
+        "landing-menu-panel",
+        "О клубе",
+        "Привилегии",
+        "Партнёры",
+        "Направления",
+        "Как вступить",
+        "Города",
+        "landing-about",
+        "landing-benefits",
+        "landing-partners",
+        "landing-directions",
+        "landing-join",
+        "landing-cities",
+        "landing-direction-button",
+        "direction-card",
+        "data-landing-category-slug",
+        "selectedLandingDirection",
+        "landingPartnerModalState",
+        "/api/v1/public/landing/partners",
+        "landing-partner-modal",
+        "landing-partner-panel",
+        "landing-partner-card",
+        "landing-partner-cover",
+        "landing-partner-cover--placeholder",
+        "landing-carousel-button",
+        "Партнёры этого направления скоро появятся.",
+        "Закрыть",
+    ):
+        assert expected in source or expected in styles
+
+    for expected_style in (
+        ".hero-visual",
+        ".hero-visual-card",
+        ".hero-visual-image",
+        ".landing-menu-panel",
+        ".landing-direction-button",
+        ".landing-partner-modal",
+        ".landing-partner-card",
+        ".landing-carousel-button",
+    ):
+        assert expected_style in styles
+
+
+def test_public_landing_uses_safe_public_partner_fetches_and_images() -> None:
+    source = _frontend_main()
+    styles = _frontend_styles()
+    public_landing_match = re.search(r"const renderPublicApp = \(\) => \{(.*?)const authTokenKey", source, re.S)
+    assert public_landing_match is not None
+    public_landing_source = public_landing_match.group(1)
+
+    assert "/api/v1/public/landing/partners" in source
+    assert "/api/v1/admin/partners" not in public_landing_source
+    assert "/api/v1/clients/catalog/partners" not in public_landing_source
+    assert "http://" not in _css_block(styles, ".hero-visual-image")
+    assert "https://" not in _css_block(styles, ".hero-visual-image")
+    assert 'url("/assets/hero-woman.jpg")' in styles
+    assert "startsWith('/assets/')" in source
+    assert "startsWith('/uploads/')" in source
