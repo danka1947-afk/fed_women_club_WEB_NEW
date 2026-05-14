@@ -122,3 +122,27 @@ class LeadStatsRead(BaseModel):
     qr_link_id: int | None
     qr_slug: str | None
     total_clicks: int
+
+
+class PublicLandingPartnerOffer(BaseModel):
+    title: str
+    discount_text: str | None
+    description: str | None
+    terms: str | None
+
+
+class PublicLandingPartnerCard(BaseModel):
+    id: int
+    name: str
+    address: str | None
+    city_name: str
+    city_slug: str
+    category_title: str
+    category_slug: str
+    logo_url: str | None
+    cover_url: str | None
+    offers: list[PublicLandingPartnerOffer]
+
+
+class PublicLandingPartnerListResponse(BaseModel):
+    items: list[PublicLandingPartnerCard]

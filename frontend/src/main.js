@@ -5,23 +5,44 @@ const cities = [
   'Череповец',
 ];
 
-const categories = [
-  'Красота',
-  'Маникюр / педикюр',
-  'Волосы / окрашивание',
-  'Брови / ресницы',
-  'Косметология',
-  'Массаж / SPA',
-  'Фитнес / йога',
-  'Здоровье',
-  'Психология',
-  'Одежда / аксессуары',
-  'Кафе / рестораны',
-  'Обучение / мастер-классы',
-  'Фотосессии',
-  'Цветы / подарки',
-  'Другое',
+const categoryDirections = [
+  { slug: 'krasota', title: 'Красота' },
+  { slug: 'manikyur-pedikyur', title: 'Маникюр / педикюр' },
+  { slug: 'volosy-okrashivanie', title: 'Волосы / окрашивание' },
+  { slug: 'brovi-resnitsy', title: 'Брови / ресницы' },
+  { slug: 'kosmetologiya', title: 'Косметология' },
+  { slug: 'massazh-spa', title: 'Массаж / SPA' },
+  { slug: 'fitnes-yoga', title: 'Фитнес / йога' },
+  { slug: 'zdorove', title: 'Здоровье' },
+  { slug: 'psihologiya', title: 'Психология' },
+  { slug: 'odezhda-aksessuary', title: 'Одежда / аксессуары' },
+  { slug: 'kafe-restorany', title: 'Кафе / рестораны' },
+  { slug: 'obuchenie-master-klassy', title: 'Обучение / мастер-классы' },
+  { slug: 'fotosessii', title: 'Фотосессии' },
+  { slug: 'cvety-podarki', title: 'Цветы / подарки' },
+  { slug: 'drugoe', title: 'Другое' },
 ];
+
+const categories = categoryDirections.map((category) => category.title);
+
+const landingMenuLinks = [
+  { href: '#landing-about', label: 'О клубе' },
+  { href: '#landing-benefits', label: 'Привилегии' },
+  { href: '#landing-partners', label: 'Партнёры' },
+  { href: '#landing-directions', label: 'Направления' },
+  { href: '#landing-join', label: 'Как вступить' },
+  { href: '#landing-cities', label: 'Города' },
+];
+
+const landingPartnerModalState = {
+  isOpen: false,
+  selectedLandingDirection: null,
+  partners: [],
+  cache: {},
+  currentIndex: 0,
+  loading: false,
+  error: '',
+};
 
 
 const fallbackClientCities = [
@@ -127,7 +148,7 @@ const renderPublicApp = () => {
     ${sakuraPetalMarkup}
   </div>
   <main class="app-shell">
-    <header class="hero" aria-labelledby="hero-title">
+    <header class="hero" id="landing-about" aria-labelledby="hero-title">
       <nav class="topbar" aria-label="Основная навигация">
         <div class="brand" aria-label="Женский клуб">
           <span class="brand-mark" aria-hidden="true">ЖК</span>
@@ -136,7 +157,13 @@ const renderPublicApp = () => {
             <span class="brand-caption">Федеральный клуб привилегий для девушек</span>
           </span>
         </div>
-        <div class="topbar-actions" aria-label="Разделы кабинета">
+        <div class="topbar-actions" aria-label="Разделы лендинга">
+          <div class="landing-menu">
+            <button class="landing-menu-toggle" type="button" data-landing-menu-toggle aria-expanded="false" aria-controls="landing-menu-panel">Меню</button>
+          <div class="landing-menu-panel" id="landing-menu-panel" data-landing-menu-panel hidden>
+            ${landingMenuLinks.map((link) => `<a href="${link.href}" data-landing-menu-link>${link.label}</a>`).join('')}
+          </div>
+          </div>
           <a href="#login">Вход</a>
         </div>
       </nav>
@@ -157,16 +184,16 @@ const renderPublicApp = () => {
           </div>
         </section>
 
-        <aside class="hero-card" aria-label="Карточка клуба">
-          <div class="decor-line" aria-hidden="true"></div>
-          <span class="soft-badge">для себя</span>
-          <h2>Красота, забота и вдохновение</h2>
-          <p>Скидки, подарки и специальные предложения у партнёров клуба.</p>
+        <aside class="hero-visual" aria-label="Визуальная карточка клуба">
+          <div class="hero-visual-card">
+            <div class="hero-visual-image" role="img" aria-label="Нежный beauty-образ клуба"></div>
+            <p class="hero-visual-caption">Красота, забота и привилегии рядом с вами</p>
+          </div>
         </aside>
       </div>
     </header>
 
-    <section class="feature-grid" aria-label="Возможности клуба">
+    <section class="feature-grid" id="landing-benefits" aria-label="Возможности клуба">
       ${featureCards
         .map(
           (card) => `
@@ -180,8 +207,8 @@ const renderPublicApp = () => {
         .join('')}
     </section>
 
-    <section class="content-grid">
-      <section class="panel city-panel" aria-labelledby="city-selector-title">
+    <section class="content-grid" id="landing-partners">
+      <section class="panel city-panel" id="landing-cities" aria-labelledby="city-selector-title">
         <p class="section-kicker">География клуба</p>
         <h2 id="city-selector-title">Выберите город</h2>
         <p>Выберите город и откройте доступ к предложениям рядом.</p>
@@ -211,6 +238,7 @@ const renderPublicApp = () => {
       </section>
 
       <section class="panel" aria-labelledby="login-title" id="login">
+        <span class="landing-anchor" id="landing-join" aria-hidden="true"></span>
         <p class="section-kicker">Личный доступ</p>
         <h2 id="login-title">Вход в кабинет клуба</h2>
         <div class="login-mode-switch" role="tablist" aria-label="Тип входа">
@@ -240,13 +268,25 @@ const renderPublicApp = () => {
       </section>
     </section>
 
-    <section class="panel categories-panel" aria-labelledby="categories-title">
+    <section class="panel categories-panel" id="landing-directions" aria-labelledby="categories-title">
       <p class="section-kicker">Направления</p>
       <h2 id="categories-title">Категории партнёров</h2>
       <ul class="category-list">
-        ${categories.map((category) => `<li>${category}</li>`).join('')}
+        ${categoryDirections.map((category) => `
+          <li>
+            <button
+              class="landing-direction-button direction-card"
+              type="button"
+              data-landing-category-slug="${category.slug}"
+            >
+              ${category.title}
+            </button>
+          </li>
+        `).join('')}
       </ul>
     </section>
+
+    <section class="landing-partner-modal" data-landing-partner-modal aria-live="polite" hidden></section>
 
   </main>
 `;
@@ -686,6 +726,146 @@ const buildErrorMessage = async (response) => {
     // response body is not JSON
   }
   return `Ошибка ${response.status}`;
+};
+
+const getLandingDirectionBySlug = (slug) => categoryDirections.find((category) => category.slug === slug) || null;
+
+const isSafePublicAssetUrl = (value) => {
+  const url = String(value || '').trim();
+  return (url.startsWith('/assets/') || url.startsWith('/uploads/')) && !/[\s'"()]/.test(url);
+};
+
+const renderLandingPartnerImage = (partner) => {
+  const coverUrl = isSafePublicAssetUrl(partner?.cover_url) ? partner.cover_url : '';
+  if (!coverUrl) {
+    return '<div class="landing-partner-cover landing-partner-cover--placeholder" aria-hidden="true">♡</div>';
+  }
+  return `<div class="landing-partner-cover" style="background-image: url('${escapeHtml(coverUrl)}')" aria-hidden="true"></div>`;
+};
+
+const renderLandingPartnerCard = (partner) => {
+  const offers = Array.isArray(partner?.offers) ? partner.offers : [];
+  const firstOffer = offers[0] || null;
+  const logoUrl = isSafePublicAssetUrl(partner?.logo_url) ? partner.logo_url : '';
+  return `
+    <article class="landing-partner-card">
+      ${renderLandingPartnerImage(partner)}
+      <div class="landing-partner-card-body">
+        <div class="landing-partner-card-heading">
+          ${logoUrl ? `<span class="landing-partner-logo" style="background-image: url('${escapeHtml(logoUrl)}')" aria-hidden="true"></span>` : '<span class="landing-partner-logo landing-partner-logo--placeholder" aria-hidden="true">ЖК</span>'}
+          <div>
+            <p class="section-kicker">${escapeHtml(partner?.city_name || 'Город клуба')}</p>
+            <h3>${escapeHtml(partner?.name || 'Партнёр клуба')}</h3>
+          </div>
+        </div>
+        <p>${escapeHtml(partner?.address || 'Адрес появится в карточке партнёра')}</p>
+        ${firstOffer ? `
+          <div class="landing-partner-offer">
+            <strong>${escapeHtml(firstOffer.discount_text || firstOffer.title)}</strong>
+            <span>${escapeHtml(firstOffer.title)}</span>
+            <p>${escapeHtml(firstOffer.description || 'Подробности привилегии уточняйте у партнёра.')}</p>
+            ${firstOffer.terms ? `<small>${escapeHtml(firstOffer.terms)}</small>` : ''}
+          </div>
+        ` : '<div class="landing-partner-offer"><strong>Привилегия скоро появится</strong><p>Партнёр готовит специальное предложение для участниц клуба.</p></div>'}
+      </div>
+    </article>
+  `;
+};
+
+const renderLandingPartnerModal = () => {
+  const modal = document.querySelector('[data-landing-partner-modal]');
+  if (!modal) {
+    return;
+  }
+
+  if (!landingPartnerModalState.isOpen || !landingPartnerModalState.selectedLandingDirection) {
+    modal.hidden = true;
+    modal.innerHTML = '';
+    return;
+  }
+
+  const { selectedLandingDirection, partners, currentIndex, loading, error } = landingPartnerModalState;
+  const hasPartners = partners.length > 0;
+  const safeIndex = hasPartners ? Math.min(currentIndex, partners.length - 1) : 0;
+  landingPartnerModalState.currentIndex = safeIndex;
+
+  modal.hidden = false;
+  modal.innerHTML = `
+    <div class="landing-partner-panel" role="dialog" aria-modal="false" aria-labelledby="landing-partner-modal-title">
+      <div class="landing-partner-panel-header">
+        <div>
+          <p class="section-kicker">Партнёры клуба</p>
+          <h2 id="landing-partner-modal-title">${escapeHtml(selectedLandingDirection.title)}</h2>
+        </div>
+        <button class="landing-partner-close" type="button" data-landing-partner-close>Закрыть</button>
+      </div>
+      <div class="landing-partner-carousel">
+        ${loading ? '<p class="landing-partner-status">Загружаем партнёров направления…</p>' : ''}
+        ${error ? `<p class="landing-partner-status">${escapeHtml(error)}</p>` : ''}
+        ${!loading && !error && hasPartners ? renderLandingPartnerCard(partners[safeIndex]) : ''}
+        ${!loading && !error && !hasPartners ? '<p class="landing-partner-empty">Партнёры этого направления скоро появятся.</p>' : ''}
+      </div>
+      <div class="landing-partner-panel-actions">
+        <button class="landing-carousel-button" type="button" data-landing-carousel-prev ${hasPartners && partners.length > 1 ? '' : 'disabled'}>←</button>
+        <span>${hasPartners ? `${safeIndex + 1} / ${partners.length}` : '0 / 0'}</span>
+        <button class="landing-carousel-button" type="button" data-landing-carousel-next ${hasPartners && partners.length > 1 ? '' : 'disabled'}>→</button>
+        <a class="primary-button" href="#landing-join" data-landing-modal-cta>${hasPartners ? 'Получить привилегию' : 'Вступить в клуб'}</a>
+      </div>
+    </div>
+  `;
+};
+
+const openLandingDirection = async (slug) => {
+  const direction = getLandingDirectionBySlug(slug);
+  if (!direction) {
+    return;
+  }
+
+  landingPartnerModalState.isOpen = true;
+  landingPartnerModalState.selectedLandingDirection = direction;
+  landingPartnerModalState.currentIndex = 0;
+  landingPartnerModalState.error = '';
+  landingPartnerModalState.partners = landingPartnerModalState.cache[slug] || [];
+  landingPartnerModalState.loading = !landingPartnerModalState.cache[slug];
+  renderLandingPartnerModal();
+
+  if (landingPartnerModalState.cache[slug]) {
+    return;
+  }
+
+  try {
+    const response = await fetch(`/api/v1/public/landing/partners?category_slug=${encodeURIComponent(slug)}&limit=12`);
+    if (!response.ok) {
+      throw new Error(await buildErrorMessage(response));
+    }
+    const data = await response.json();
+    landingPartnerModalState.cache[slug] = Array.isArray(data.items) ? data.items : [];
+    landingPartnerModalState.partners = landingPartnerModalState.cache[slug];
+  } catch (error) {
+    landingPartnerModalState.error = 'Не удалось загрузить партнёров. Попробуйте позже.';
+  } finally {
+    landingPartnerModalState.loading = false;
+    renderLandingPartnerModal();
+  }
+};
+
+const closeLandingPartnerModal = () => {
+  landingPartnerModalState.isOpen = false;
+  landingPartnerModalState.selectedLandingDirection = null;
+  landingPartnerModalState.partners = [];
+  landingPartnerModalState.currentIndex = 0;
+  landingPartnerModalState.loading = false;
+  landingPartnerModalState.error = '';
+  renderLandingPartnerModal();
+};
+
+const moveLandingPartnerCarousel = (step) => {
+  const total = landingPartnerModalState.partners.length;
+  if (total < 2) {
+    return;
+  }
+  landingPartnerModalState.currentIndex = (landingPartnerModalState.currentIndex + step + total) % total;
+  renderLandingPartnerModal();
 };
 
 const apiFetch = async (path, options = {}) => {
@@ -2509,6 +2689,56 @@ const handleLoginSubmit = async (form) => {
 };
 
 root.addEventListener('click', async (event) => {
+  const menuToggle = event.target.closest('[data-landing-menu-toggle]');
+  if (menuToggle) {
+    const panel = document.querySelector('[data-landing-menu-panel]');
+    const isExpanded = menuToggle.getAttribute('aria-expanded') === 'true';
+    menuToggle.setAttribute('aria-expanded', String(!isExpanded));
+    if (panel) {
+      panel.hidden = isExpanded;
+    }
+    return;
+  }
+
+  const menuLink = event.target.closest('[data-landing-menu-link]');
+  if (menuLink) {
+    const menuButton = document.querySelector('[data-landing-menu-toggle]');
+    const panel = document.querySelector('[data-landing-menu-panel]');
+    if (menuButton) {
+      menuButton.setAttribute('aria-expanded', 'false');
+    }
+    if (panel) {
+      panel.hidden = true;
+    }
+    return;
+  }
+
+  const directionButton = event.target.closest('[data-landing-category-slug]');
+  if (directionButton) {
+    await openLandingDirection(directionButton.dataset.landingCategorySlug);
+    return;
+  }
+
+  if (event.target.closest('[data-landing-partner-close]')) {
+    closeLandingPartnerModal();
+    return;
+  }
+
+  if (event.target.closest('[data-landing-carousel-prev]')) {
+    moveLandingPartnerCarousel(-1);
+    return;
+  }
+
+  if (event.target.closest('[data-landing-carousel-next]')) {
+    moveLandingPartnerCarousel(1);
+    return;
+  }
+
+  if (event.target.closest('[data-landing-modal-cta]')) {
+    closeLandingPartnerModal();
+    return;
+  }
+
   const cityChoice = event.target.closest('[data-city-choice]');
   if (cityChoice) {
     document.querySelectorAll('[data-city-choice]').forEach((choice) => {
