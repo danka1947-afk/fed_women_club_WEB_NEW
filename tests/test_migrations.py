@@ -18,6 +18,7 @@ from app.models import (
     LeadClick,
     Partner,
     PartnerOffer,
+    PartnerPhoto,
     PartnerQrLink,
     PaymentReceipt,
     PaymentRequest,
@@ -52,7 +53,7 @@ def test_migration_files_have_single_head_revision() -> None:
     referenced_revisions = {down_revision for down_revision in revisions.values() if down_revision}
     heads = sorted(set(revisions) - referenced_revisions)
 
-    assert heads == ["20260511_0007"]
+    assert heads == ["20260514_0008"]
 
 
 def test_base_metadata_includes_domain_foundation_tables() -> None:
@@ -62,6 +63,7 @@ def test_base_metadata_includes_domain_foundation_tables() -> None:
         "client_profiles",
         "partners",
         "partner_offers",
+        "partner_photos",
         "payment_requests",
         "payment_receipts",
         "subscriptions",
@@ -117,6 +119,7 @@ def test_domain_foundation_persists_in_sqlite_memory() -> None:
             assert session.query(ClientProfile).count() == 1
             assert session.query(Partner).count() == 1
             assert session.query(PartnerOffer).count() == 1
+            assert session.query(PartnerPhoto).count() == 1
             assert session.query(PartnerQrLink).count() == 1
             assert session.query(LeadClick).count() == 1
             assert session.query(PaymentRequest).count() == 1
@@ -160,8 +163,9 @@ def _create_domain_foundation_graph(session: Session, now: datetime) -> None:
         base_price=Decimal("1000.00"),
         discount_percent=Decimal("10.00"),
     )
+    photo = PartnerPhoto(partner_id=partner.id, url="/uploads/partners/1/photos/photo-test.webp", alt_text="Gallery")
     qr_link = PartnerQrLink(partner_id=partner.id, slug="beauty-partner", target_url="https://example.com")
-    session.add_all([offer, qr_link])
+    session.add_all([offer, photo, qr_link])
     session.flush()
 
     lead_click = LeadClick(

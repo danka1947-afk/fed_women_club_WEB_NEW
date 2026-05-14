@@ -541,3 +541,67 @@ def test_partner_offer_upload_rejects_unauthorized_request(partner_client: TestC
     )
 
     assert response.status_code == 401
+
+
+def test_partner_uploads_own_gallery_photo_lists_sorted_and_patches(partner_client: TestClient) -> None:
+    token = _partner_token(partner_client)
+
+    first = partner_client.post(
+        "/api/v1/partners/me/photos",
+        headers=_auth_headers(token),
+        data={"alt_text": "Кабинет", "sort_order": "30"},
+        files={"file": ("gallery.png", TINY_PROFILE_PNG_BYTES, "image/png")},
+    )
+    second = partner_client.post(
+        "/api/v1/partners/me/photos",
+        headers=_auth_headers(token),
+        data={"alt_text": "Ресепшен", "sort_order": "10"},
+        files={"file": ("gallery-2.png", TINY_PROFILE_PNG_BYTES, "image/png")},
+    )
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert first.json()["url"].startswith("/uploads/partners/1/photos/photo-")
+
+    list_response = partner_client.get("/api/v1/partners/me/photos", headers=_auth_headers(token))
+    assert list_response.status_code == 200
+    assert [photo["alt_text"] for photo in list_response.json()] == ["Ресепшен", "Кабинет"]
+
+    patch_response = partner_client.patch(
+        f"/api/v1/partners/me/photos/{first.json()['id']}",
+        headers=_auth_headers(token),
+        json={"alt_text": "Скрытая", "sort_order": 1, "is_active": False},
+    )
+    assert patch_response.status_code == 200
+    assert patch_response.json()["alt_text"] == "Скрытая"
+    assert patch_response.json()["is_active"] is False
+
+
+def test_partner_cannot_update_another_partner_photo(partner_client: TestClient, admin_token: str) -> None:
+    token = _partner_token(partner_client)
+    admin_upload = partner_client.post(
+        "/api/v1/admin/partners/2/photos",
+        headers=_auth_headers(admin_token),
+        files={"file": ("other.png", TINY_PROFILE_PNG_BYTES, "image/png")},
+    )
+    assert admin_upload.status_code == 200
+
+    response = partner_client.patch(
+        f"/api/v1/partners/me/photos/{admin_upload.json()['id']}",
+        headers=_auth_headers(token),
+        json={"is_active": False},
+    )
+
+    assert response.status_code == 404
+
+
+def test_partner_gallery_photo_upload_rejects_invalid_file_type(partner_client: TestClient) -> None:
+    token = _partner_token(partner_client)
+
+    response = partner_client.post(
+        "/api/v1/partners/me/photos",
+        headers=_auth_headers(token),
+        files={"file": ("gallery.svg", b"<svg></svg>", "image/svg+xml")},
+    )
+
+    assert response.status_code == 400

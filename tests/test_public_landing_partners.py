@@ -15,7 +15,7 @@ from app.db.session import get_db
 from app.main import app
 from app.models.category import Category
 from app.models.city import City
-from app.models.partner import Partner, PartnerOffer
+from app.models.partner import Partner, PartnerOffer, PartnerPhoto
 from app.models.user import User, UserRole
 
 
@@ -65,6 +65,20 @@ def public_client() -> Generator[TestClient, None, None]:
         session.flush()
         session.add_all(
             [
+                PartnerPhoto(
+                    partner_id=partners[0].id,
+                    url="/uploads/partners/1/photos/photo-visible.webp",
+                    alt_text="Живое фото",
+                    is_active=True,
+                    sort_order=5,
+                ),
+                PartnerPhoto(
+                    partner_id=partners[0].id,
+                    url="/uploads/partners/1/photos/photo-hidden.webp",
+                    alt_text="Скрытое фото",
+                    is_active=False,
+                    sort_order=1,
+                ),
                 PartnerOffer(
                     partner_id=partners[0].id,
                     title="Скидка на первый визит",
@@ -145,6 +159,14 @@ def test_public_landing_partners_returns_only_safe_active_public_data(public_cli
                 "terms": "По предварительной записи",
             }
         ],
+        "photos": [
+            {
+                "id": item["photos"][0]["id"],
+                "url": "/uploads/partners/1/photos/photo-visible.webp",
+                "alt_text": "Живое фото",
+                "sort_order": 5,
+            }
+        ],
     }
     serialized = str(item)
     for forbidden_key in ("owner_user_id", "owner_email", "phone", "social_url"):
@@ -157,6 +179,7 @@ def test_public_landing_partners_formats_offer_benefits_without_scientific_notat
     assert response.status_code == 200
     data = response.json()
     assert [item["name"] for item in data["items"]] == ["Yoga Active"]
+    assert data["items"][0]["photos"] == []
     offers = data["items"][0]["offers"]
     assert offers == [
         {

@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from decimal import Decimal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class PartnerProfileRead(BaseModel):
@@ -78,6 +78,28 @@ class PartnerOfferUpdate(BaseModel):
     sort_order: int | None = None
 
 
+class PartnerPhotoRead(BaseModel):
+    id: int
+    partner_id: int
+    url: str
+    alt_text: str | None
+    sort_order: int
+    is_active: bool
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class PartnerPhotoUpdate(BaseModel):
+    alt_text: str | None = None
+    sort_order: int | None = None
+    is_active: bool | None = None
+
+
+class PartnerPhotoUploadResponse(PartnerPhotoRead):
+    pass
+
+
 class PartnerVerificationRead(BaseModel):
     id: int
     client_id: int
@@ -131,6 +153,13 @@ class PublicLandingPartnerOffer(BaseModel):
     terms: str | None
 
 
+class PublicLandingPartnerPhoto(BaseModel):
+    id: int
+    url: str
+    alt_text: str | None
+    sort_order: int
+
+
 class PublicLandingPartnerCard(BaseModel):
     id: int
     name: str
@@ -142,6 +171,7 @@ class PublicLandingPartnerCard(BaseModel):
     logo_url: str | None
     cover_url: str | None
     offers: list[PublicLandingPartnerOffer]
+    photos: list[PublicLandingPartnerPhoto] = Field(default_factory=list)
 
 
 class PublicLandingPartnerListResponse(BaseModel):

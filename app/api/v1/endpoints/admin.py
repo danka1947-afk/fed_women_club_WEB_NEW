@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from decimal import Decimal
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -16,7 +16,7 @@ from app.models.category import Category
 from app.models.city import City
 from app.models.client import ClientProfile
 from app.models.lead import LeadClick
-from app.models.partner import Partner, PartnerOffer, PartnerQrLink
+from app.models.partner import Partner, PartnerOffer, PartnerPhoto, PartnerQrLink
 from app.models.user import AdminUser, User, UserRole
 from app.models.verification import PrivilegeVerificationSession
 from app.schemas.admin import (
@@ -35,6 +35,9 @@ from app.schemas.admin import (
     PartnerOfferCreate,
     PartnerOfferRead,
     PartnerOfferUpdate,
+    PartnerPhotoRead,
+    PartnerPhotoUpdate,
+    PartnerPhotoUploadResponse,
     PartnerQrLinkCreate,
     PartnerQrLinkRead,
     PartnerQrLinkUpdate,
@@ -42,7 +45,7 @@ from app.schemas.admin import (
     PartnerUpdate,
 )
 from app.schemas.auth import AdminUserRead
-from app.services.image_uploads import save_partner_image_upload, save_partner_offer_image_upload, validate_image_kind
+from app.services.image_uploads import save_partner_image_upload, save_partner_offer_image_upload, save_partner_photo_image_upload, validate_image_kind
 from app.services.qr_links import (
     generate_qr_slug,
     is_valid_qr_slug,
@@ -475,6 +478,70 @@ async def upload_admin_partner_image(
     setattr(partner, f"{normalized_kind}_url", image_url)
     db.commit()
     return {"url": image_url, "kind": normalized_kind}
+
+
+@router.post("/partners/{partner_id}/photos", response_model=PartnerPhotoUploadResponse)
+async def upload_admin_partner_photo(
+    partner_id: int,
+    file: UploadFile = File(...),
+    alt_text: str | None = Form(default=None),
+    sort_order: int = Form(default=0),
+    admin: AdminUser = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> PartnerPhoto:
+    _ = admin
+    partner = _ensure_partner_exists(db, partner_id)
+    photo_url = await save_partner_photo_image_upload(partner.id, file)
+    photo = PartnerPhoto(
+        partner_id=partner.id,
+        url=photo_url,
+        alt_text=_normalize_optional_text(alt_text),
+        sort_order=sort_order,
+        is_active=True,
+    )
+    db.add(photo)
+    db.commit()
+    db.refresh(photo)
+    return photo
+
+
+@router.get("/partners/{partner_id}/photos", response_model=list[PartnerPhotoRead])
+def list_admin_partner_photos(
+    partner_id: int,
+    admin: AdminUser = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> list[PartnerPhoto]:
+    _ = admin
+    partner = _ensure_partner_exists(db, partner_id)
+    return list(
+        db.execute(
+            select(PartnerPhoto)
+            .where(PartnerPhoto.partner_id == partner.id)
+            .order_by(PartnerPhoto.sort_order.asc(), PartnerPhoto.created_at.asc())
+        ).scalars().all()
+    )
+
+
+@router.patch("/partner-photos/{photo_id}", response_model=PartnerPhotoRead)
+def update_admin_partner_photo(
+    photo_id: int,
+    payload: PartnerPhotoUpdate,
+    admin: AdminUser = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> PartnerPhoto:
+    _ = admin
+    photo = db.get(PartnerPhoto, photo_id)
+    if photo is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Partner photo not found")
+    update_data = payload.model_dump(exclude_unset=True)
+    if "alt_text" in update_data:
+        photo.alt_text = _normalize_optional_text(update_data["alt_text"])
+    for field in ("sort_order", "is_active"):
+        if field in update_data:
+            setattr(photo, field, update_data[field])
+    db.commit()
+    db.refresh(photo)
+    return photo
 
 
 @router.post("/partners/{partner_id}/qr-links", response_model=PartnerQrLinkRead)

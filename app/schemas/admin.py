@@ -181,6 +181,28 @@ class PartnerOfferUpdate(BaseModel):
     sort_order: int | None = None
 
 
+class PartnerPhotoRead(BaseModel):
+    id: int
+    partner_id: int
+    url: str
+    alt_text: str | None
+    sort_order: int
+    is_active: bool
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class PartnerPhotoUpdate(BaseModel):
+    alt_text: str | None = None
+    sort_order: int | None = None
+    is_active: bool | None = None
+
+
+class PartnerPhotoUploadResponse(PartnerPhotoRead):
+    pass
+
+
 class AdminVerificationRead(BaseModel):
     id: int
     client_id: int

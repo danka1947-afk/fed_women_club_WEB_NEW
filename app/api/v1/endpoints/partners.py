@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from decimal import Decimal
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -12,16 +12,19 @@ from app.db.session import get_db
 from app.models.city import City
 from app.models.client import ClientProfile
 from app.models.lead import LeadClick
-from app.models.partner import Partner, PartnerOffer, PartnerQrLink
+from app.models.partner import Partner, PartnerOffer, PartnerPhoto, PartnerQrLink
 from app.models.verification import PrivilegeVerificationSession, PrivilegeVerificationStatus
 from app.models.user import User
-from app.services.image_uploads import save_partner_image_upload, save_partner_offer_image_upload, validate_image_kind
+from app.services.image_uploads import save_partner_image_upload, save_partner_offer_image_upload, save_partner_photo_image_upload, validate_image_kind
 from app.schemas.partner import (
     ConfirmVerificationResponse,
     PartnerOfferCreate,
     PartnerOfferRead,
     LeadStatsRead,
     PartnerOfferUpdate,
+    PartnerPhotoRead,
+    PartnerPhotoUpdate,
+    PartnerPhotoUploadResponse,
     PartnerQrLinkRead,
     PartnerProfileRead,
     PartnerProfileUpdate,
@@ -86,6 +89,71 @@ async def upload_partner_me_image(
     setattr(partner, f"{normalized_kind}_url", image_url)
     db.commit()
     return {"url": image_url, "kind": normalized_kind}
+
+
+@router.post("/me/photos", response_model=PartnerPhotoUploadResponse)
+async def upload_partner_photo(
+    file: UploadFile = File(...),
+    alt_text: str | None = Form(default=None),
+    sort_order: int = Form(default=0),
+    current_user: User = Depends(require_partner),
+    db: Session = Depends(get_db),
+) -> PartnerPhoto:
+    partner = _get_current_partner_or_404(db, current_user.id)
+    photo_url = await save_partner_photo_image_upload(partner.id, file)
+    photo = PartnerPhoto(
+        partner_id=partner.id,
+        url=photo_url,
+        alt_text=_normalize_optional_text(alt_text),
+        sort_order=sort_order,
+        is_active=True,
+    )
+    db.add(photo)
+    db.commit()
+    db.refresh(photo)
+    return photo
+
+
+@router.get("/me/photos", response_model=list[PartnerPhotoRead])
+def list_partner_photos(
+    current_user: User = Depends(require_partner),
+    db: Session = Depends(get_db),
+) -> list[PartnerPhoto]:
+    partner = _get_current_partner_or_404(db, current_user.id)
+    return list(
+        db.execute(
+            select(PartnerPhoto)
+            .where(PartnerPhoto.partner_id == partner.id)
+            .order_by(PartnerPhoto.sort_order.asc(), PartnerPhoto.created_at.asc())
+        ).scalars().all()
+    )
+
+
+@router.patch("/me/photos/{photo_id}", response_model=PartnerPhotoRead)
+def update_partner_photo(
+    photo_id: int,
+    payload: PartnerPhotoUpdate,
+    current_user: User = Depends(require_partner),
+    db: Session = Depends(get_db),
+) -> PartnerPhoto:
+    partner = _get_current_partner_or_404(db, current_user.id)
+    photo = db.execute(
+        select(PartnerPhoto).where(
+            PartnerPhoto.id == photo_id,
+            PartnerPhoto.partner_id == partner.id,
+        )
+    ).scalar_one_or_none()
+    if photo is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Partner photo not found")
+    update_data = payload.model_dump(exclude_unset=True)
+    if "alt_text" in update_data:
+        photo.alt_text = _normalize_optional_text(update_data["alt_text"])
+    for field in ("sort_order", "is_active"):
+        if field in update_data:
+            setattr(photo, field, update_data[field])
+    db.commit()
+    db.refresh(photo)
+    return photo
 
 
 @router.get("/me/qr-links", response_model=list[PartnerQrLinkRead])

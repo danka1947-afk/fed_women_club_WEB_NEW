@@ -415,3 +415,47 @@ def test_admin_upload_missing_partner_returns_404(admin_client: TestClient, admi
     )
 
     assert response.status_code == 404
+
+
+def test_admin_uploads_partner_photo_lists_sorted_and_patches(admin_client: TestClient, admin_token: str) -> None:
+    first = admin_client.post(
+        "/api/v1/admin/partners/1/photos",
+        headers=_auth_headers(admin_token),
+        data={"alt_text": "Витрина", "sort_order": "20"},
+        files=_upload_file(TINY_PNG_BYTES, "gallery.png", "image/png"),
+    )
+    second = admin_client.post(
+        "/api/v1/admin/partners/1/photos",
+        headers=_auth_headers(admin_token),
+        data={"alt_text": "Зал", "sort_order": "10"},
+        files=_upload_file(TINY_PNG_BYTES, "gallery-2.png", "image/png"),
+    )
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert first.json()["url"].startswith("/uploads/partners/1/photos/photo-")
+    assert first.json()["url"].endswith(".png")
+
+    list_response = admin_client.get("/api/v1/admin/partners/1/photos", headers=_auth_headers(admin_token))
+    assert list_response.status_code == 200
+    assert [photo["alt_text"] for photo in list_response.json()] == ["Зал", "Витрина"]
+
+    patch_response = admin_client.patch(
+        f"/api/v1/admin/partner-photos/{first.json()['id']}",
+        headers=_auth_headers(admin_token),
+        json={"alt_text": "Новое описание", "sort_order": 5, "is_active": False},
+    )
+    assert patch_response.status_code == 200
+    assert patch_response.json()["alt_text"] == "Новое описание"
+    assert patch_response.json()["sort_order"] == 5
+    assert patch_response.json()["is_active"] is False
+
+
+def test_admin_partner_photo_upload_rejects_invalid_file_type(admin_client: TestClient, admin_token: str) -> None:
+    response = admin_client.post(
+        "/api/v1/admin/partners/1/photos",
+        headers=_auth_headers(admin_token),
+        files=_upload_file(b"<svg></svg>", "gallery.svg", "image/svg+xml"),
+    )
+
+    assert response.status_code == 400
