@@ -1157,3 +1157,52 @@ def test_frontend_contains_partner_marketplace_profile_preview() -> None:
 
     assert "startsWith('/uploads/')" in source
     assert "startsWith('/assets/')" in source
+
+def test_frontend_contains_offer_marketplace_cards() -> None:
+    source = _frontend_main()
+    styles = _frontend_styles()
+
+    for expected in (
+        "renderOfferMarketplaceCard",
+        "offer-marketplace-card",
+        "offer-marketplace-image",
+        "offer-marketplace-benefit",
+        "offer-marketplace-preview",
+        "offer-card-grid",
+        "offer-card-placeholder",
+        "Предложения и привилегии",
+        "Оформите услуги так, чтобы участницы сразу понимали выгоду",
+        "Так предложение увидит клиент",
+        "Добавьте первое предложение",
+        "URL изображения",
+        "Базовая цена",
+        "Скидка, %",
+        "Получить привилегию",
+        "Фото услуги",
+        "Специальное предложение",
+    ):
+        assert expected in source or expected in styles
+
+    assert "startsWith('/uploads/')" in source
+    assert "startsWith('/assets/')" in source
+    assert "partner-marketplace-card" in source or "partner-marketplace-card" in styles
+    assert "Загрузить логотип" in source
+    assert "Загрузить обложку" in source
+    assert "/api/v1/public/landing/partners" in source
+    assert "landing-partner-card" in source or "landing-partner-card" in styles
+    assert "data-landing-partner-modal" in source
+    assert "setup_token" in source
+    assert "womenClubAdminAccessToken" in source
+    assert "womenclub_partner_token" in source
+    assert "womenclub_client_token" in source
+
+    for removed_marker in (
+        "reference-lotus-layer",
+        "lotus-layer",
+        "lotus-decor",
+        "--user-lotus-reference-svg",
+        "--lotus-reference-background",
+        "/assets/lotus-bg.png",
+    ):
+        assert removed_marker not in source
+        assert removed_marker not in styles

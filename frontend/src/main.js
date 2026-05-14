@@ -381,6 +381,7 @@ const partnerState = {
   verifications: [],
   panelMessage: '',
   formMessages: {},
+  selectedOfferIdForEdit: '',
 };
 
 const clientTabs = [
@@ -521,6 +522,54 @@ const formatPartnerBenefit = (offer) => {
     return benefitText;
   }
   return formatDiscountPercent(offer?.discount_percent) || 'Специальное предложение';
+};
+
+const formatOfferBasePrice = (value) => {
+  if (value === null || value === undefined || value === '') return 'Цена уточняется';
+  const rawValue = String(value).trim();
+  if (!rawValue || hasScientificNotation(rawValue)) return 'Цена уточняется';
+  const normalized = Number(rawValue.replace(',', '.'));
+  if (!Number.isFinite(normalized)) return rawValue;
+  return `${normalized.toLocaleString('ru-RU', {
+    maximumFractionDigits: 2,
+  })} ₽`;
+};
+
+const renderOfferMarketplaceCard = (offer = {}, options = {}) => {
+  const imageUrl = isSafePublicAssetUrl(offer.image_url) ? offer.image_url : '';
+  const title = String(offer.title || '').trim() || 'Название предложения';
+  const description = String(offer.description || '').trim() || 'Опишите услугу, формат и результат, который получит участница клуба.';
+  const conditions = String(offer.conditions || offer.terms || '').trim() || 'Условия получения привилегии появятся здесь.';
+  const benefit = formatPartnerBenefit(offer);
+  const basePrice = formatOfferBasePrice(offer.base_price);
+  const ctaText = options.cta || 'Получить привилегию';
+  const note = options.note || 'Так предложение увидит клиент';
+  const actionHtml = options.actionHtml || `<button type="button" disabled>${escapeHtml(ctaText)}</button>`;
+
+  return `
+    <article class="offer-marketplace-card ${options.compact ? 'offer-marketplace-card--compact' : ''}">
+      ${imageUrl
+        ? `<div class="offer-marketplace-image" style="background-image: url('${escapeHtml(imageUrl)}')" role="img" aria-label="${escapeHtml(title)}"></div>`
+        : '<div class="offer-marketplace-image offer-card-placeholder" aria-hidden="true"><span>Фото услуги</span></div>'}
+      <div class="offer-marketplace-body">
+        <div class="offer-marketplace-heading">
+          <span class="offer-marketplace-benefit">${escapeHtml(benefit)}</span>
+          ${offer.is_active === undefined ? '' : renderActiveStatusBadge(offer.is_active)}
+        </div>
+        <h4>${escapeHtml(title)}</h4>
+        <p>${escapeHtml(description)}</p>
+        <dl class="offer-marketplace-meta">
+          <div><dt>Условия</dt><dd>${escapeHtml(conditions)}</dd></div>
+          <div><dt>Базовая цена</dt><dd>${escapeHtml(basePrice)}</dd></div>
+          <div><dt>Скидка</dt><dd>${escapeHtml(formatDiscountPercent(offer.discount_percent) || 'Индивидуально')}</dd></div>
+        </dl>
+        <div class="offer-marketplace-preview">
+          <span>${escapeHtml(note)}</span>
+          ${actionHtml}
+        </div>
+      </div>
+    </article>
+  `;
 };
 
 const renderDisplayValue = (value) => String(value || '').startsWith('<span class="status-badge') ? value : formatValue(value);
@@ -1183,7 +1232,12 @@ const clientPostJson = (path, payload = {}) => clientApiFetch(path, {
 
 const requestPartnerUserMe = () => partnerApiFetch('/api/v1/auth/user-me');
 const loadPartnerProfile = async () => { partnerState.profile = await partnerApiFetch('/api/v1/partners/me'); };
-const loadPartnerOffers = async () => { partnerState.offers = await partnerApiFetch('/api/v1/partners/me/offers'); };
+const loadPartnerOffers = async () => {
+  partnerState.offers = await partnerApiFetch('/api/v1/partners/me/offers');
+  if (partnerState.selectedOfferIdForEdit && !partnerState.offers.some((offer) => String(offer.id) === String(partnerState.selectedOfferIdForEdit))) {
+    partnerState.selectedOfferIdForEdit = '';
+  }
+};
 const loadPartnerQrLinks = async () => { partnerState.qrLinks = await partnerApiFetch('/api/v1/partners/me/qr-links'); };
 const loadPartnerLeads = async () => { partnerState.leads = await partnerApiFetch('/api/v1/partners/me/leads'); };
 const loadPartnerVerifications = async () => { partnerState.verifications = await partnerApiFetch('/api/v1/partners/me/verifications'); };
@@ -1386,15 +1440,11 @@ const renderClientPartnerCard = (partner) => {
   `;
 };
 
-const renderClientOffer = (partnerId, offer) => `
-  <div class="client-offer-card">
-    <h5>${formatValue(offer.title)}</h5>
-    <p><strong>${formatValue(offer.benefit_text)}</strong></p>
-    <p>${formatValue(offer.description)}</p>
-    <p class="client-offer-meta">Условия: ${formatValue(offer.conditions)} · Цена: ${formatValue(offer.base_price)} · Скидка: ${formatValue(offer.discount_percent)}</p>
-    <button type="button" data-client-verify-offer="${escapeHtml(partnerId)}" data-offer-id="${escapeHtml(offer.id)}">Подтвердить привилегию</button>
-  </div>
-`;
+const renderClientOffer = (partnerId, offer) => renderOfferMarketplaceCard(offer, {
+  cta: 'Получить привилегию',
+  note: 'Карточка привилегии партнёра',
+  actionHtml: `<button type="button" data-client-verify-offer="${escapeHtml(partnerId)}" data-offer-id="${escapeHtml(offer.id)}">Получить привилегию</button>`,
+});
 
 const renderClientVerificationResult = (verification) => `
   <div class="client-verification-result" role="status">
@@ -1486,41 +1536,68 @@ const renderPartnerProfileTab = () => {
 };
 
 const renderPartnerOfferAction = (offer) => `
+  <button class="admin-inline-action" type="button" data-partner-offer-edit="${escapeHtml(offer.id)}">Редактировать</button>
   <button class="admin-inline-action" type="button" data-partner-offer-toggle="${escapeHtml(offer.id)}">
     ${offer.is_active ? 'Скрыть' : 'Показать'}
   </button>
 `;
 
+const renderPartnerOfferForm = () => {
+  const offer = partnerState.offers.find((item) => String(item.id) === String(partnerState.selectedOfferIdForEdit));
+  const isEdit = Boolean(offer);
+  const previewOffer = isEdit ? offer : { is_active: true };
+
+  return `
+    <section class="offer-marketplace-preview">
+      <span class="section-kicker">Preview предложения</span>
+      ${renderOfferMarketplaceCard(previewOffer, { note: 'Так предложение увидит клиент' })}
+    </section>
+    <form class="admin-form admin-form--inline" data-partner-form="${isEdit ? 'offerEdit' : 'offer'}" ${isEdit ? `data-offer-id="${escapeHtml(offer.id)}"` : ''}>
+      <h4>${isEdit ? 'Редактировать предложение' : 'Новое предложение'}</h4>
+      <label>Название<input name="title" required value="${escapeHtml(offer?.title || '')}" /></label>
+      <label>Краткая выгода<input name="benefit_text" value="${escapeHtml(offer?.benefit_text || '')}" /></label>
+      <label>Описание<textarea name="description" rows="3">${escapeHtml(offer?.description || '')}</textarea></label>
+      <label>Условия<textarea name="conditions" rows="3">${escapeHtml(offer?.conditions || '')}</textarea></label>
+      <label>Базовая цена<input name="base_price" inputmode="decimal" value="${escapeHtml(offer?.base_price || '')}" /></label>
+      <label>Скидка, %<input name="discount_percent" inputmode="decimal" value="${escapeHtml(offer?.discount_percent || '')}" /></label>
+      <label>URL изображения<input name="image_url" value="${escapeHtml(offer?.image_url || '')}" placeholder="/uploads/offer.webp или /assets/offer.webp" /></label>
+      <label class="checkbox-row"><input name="is_active" type="checkbox" ${offer?.is_active === false ? '' : 'checked'} /> Активно</label>
+      <label>Порядок сортировки<input name="sort_order" type="number" value="${escapeHtml(offer?.sort_order || 0)}" /></label>
+      <div class="admin-form-actions">
+        <button type="submit">${isEdit ? 'Сохранить изменения' : 'Создать предложение'}</button>
+        ${isEdit ? '<button class="admin-inline-action" type="button" data-partner-offer-edit-cancel>Отмена</button>' : ''}
+      </div>
+      <p class="form-message" data-partner-form-message="${isEdit ? 'offerEdit' : 'offer'}">${escapeHtml(partnerState.formMessages[isEdit ? 'offerEdit' : 'offer'] || '')}</p>
+    </form>
+  `;
+};
+
 const renderPartnerOffersTab = () => `
-  <div class="admin-section-heading"><h4>Предложения</h4><p>Создавайте предложения и быстро скрывайте или показывайте их в каталоге.</p></div>
-  ${partnerState.offers.length ? renderTable(
-    ['Название', 'Краткая выгода', 'Описание', 'Условия', 'Базовая цена', 'Активно', 'Порядок сортировки', 'Действие'],
-    partnerState.offers.map((offer) => [
-      formatValue(offer.title),
-      formatValue(offer.benefit_text),
-      formatValue(offer.description),
-      formatValue(offer.conditions),
-      formatValue(offer.base_price),
-      renderActiveStatusBadge(offer.is_active),
-      formatValue(offer.sort_order),
-      renderPartnerOfferAction(offer),
-    ]),
-    true,
-  ) : renderPartnerEmptyState('Пока нет предложений.', 'Добавьте первое предложение, чтобы клиенты видели его в каталоге.')}
-  <form class="admin-form admin-form--inline" data-partner-form="offer">
-    <h4>Новое предложение</h4>
-    <label>Название<input name="title" required /></label>
-    <label>Краткая выгода<input name="benefit_text" /></label>
-    <label>Описание<textarea name="description" rows="3"></textarea></label>
-    <label>Условия<textarea name="conditions" rows="3"></textarea></label>
-    <label>Базовая цена<input name="base_price" inputmode="decimal" /></label>
-    <label>Скидка, %<input name="discount_percent" inputmode="decimal" /></label>
-    <label>Изображение<input name="image_url" /></label>
-    <label>Порядок сортировки<input name="sort_order" type="number" value="0" /></label>
-    <label class="checkbox-row"><input name="is_active" type="checkbox" checked /> Активно</label>
-    <button type="submit">Создать предложение</button>
-    <p class="form-message" data-partner-form-message="offer">${escapeHtml(partnerState.formMessages.offer || '')}</p>
-  </form>
+  <div class="admin-section-heading"><h4>Предложения и привилегии</h4><p>Оформите услуги так, чтобы участницы сразу понимали выгоду.</p></div>
+  ${partnerState.offers.length ? `
+    <div class="offer-card-grid">
+      ${partnerState.offers.map((offer) => renderOfferMarketplaceCard(offer, {
+        note: 'Так предложение увидит клиент',
+        actionHtml: `${renderPartnerOfferAction(offer)}<button type="button" disabled>Получить привилегию</button>`,
+      })).join('')}
+    </div>
+    ${renderTable(
+      ['Название', 'Краткая выгода', 'Описание', 'Условия', 'Базовая цена', 'Скидка, %', 'Активно', 'Порядок сортировки', 'Действие'],
+      partnerState.offers.map((offer) => [
+        formatValue(offer.title),
+        formatValue(formatPartnerBenefit(offer)),
+        formatValue(offer.description),
+        formatValue(offer.conditions),
+        formatValue(formatOfferBasePrice(offer.base_price)),
+        formatValue(formatDiscountPercent(offer.discount_percent) || '—'),
+        renderActiveStatusBadge(offer.is_active),
+        formatValue(offer.sort_order),
+        renderPartnerOfferAction(offer),
+      ]),
+      true,
+    )}
+  ` : renderPartnerEmptyState('Пока нет предложений.', 'Добавьте первое предложение, чтобы клиенты увидели вашу привилегию.')}
+  ${renderPartnerOfferForm()}
 `;
 
 const renderPartnerQrTab = () => `
@@ -2025,14 +2102,21 @@ const renderOfferEditForm = () => {
   }
 
   return `
+    <section class="offer-marketplace-preview">
+      <span class="section-kicker">Preview предложения</span>
+      ${renderOfferMarketplaceCard(offer, { note: 'Так предложение увидит клиент' })}
+    </section>
     <form class="admin-form admin-form--inline" data-admin-form="offerEdit" data-offer-id="${escapeHtml(offer.id)}">
       <h4>Редактировать предложение</h4>
       <label>Название<input name="title" required value="${escapeHtml(offer.title || '')}" /></label>
       <label>Скидка / выгода<input name="benefit_text" value="${escapeHtml(offer.benefit_text || '')}" /></label>
       <label>Описание<textarea name="description" rows="3">${escapeHtml(offer.description || '')}</textarea></label>
       <label>Условия<textarea name="conditions" rows="3">${escapeHtml(offer.conditions || '')}</textarea></label>
-      <label>Порядок сортировки<input name="sort_order" type="number" value="${escapeHtml(offer.sort_order || 0)}" /></label>
+      <label>Базовая цена<input name="base_price" type="number" step="0.01" value="${escapeHtml(offer.base_price || '')}" /></label>
+      <label>Скидка, %<input name="discount_percent" type="number" step="0.01" value="${escapeHtml(offer.discount_percent || '')}" /></label>
+      <label>URL изображения<input name="image_url" value="${escapeHtml(offer.image_url || '')}" placeholder="/uploads/offer.webp или /assets/offer.webp" /></label>
       <label class="checkbox-row"><input name="is_active" type="checkbox" ${offer.is_active ? 'checked' : ''} /> Активно</label>
+      <label>Порядок сортировки<input name="sort_order" type="number" value="${escapeHtml(offer.sort_order || 0)}" /></label>
       <div class="admin-form-actions">
         <button type="submit">Сохранить изменения</button>
         <button class="admin-inline-action" type="button" data-admin-offer-edit-cancel>Отмена</button>
@@ -2043,6 +2127,10 @@ const renderOfferEditForm = () => {
 };
 
 const renderOfferCreateForm = () => `
+  <section class="offer-marketplace-preview">
+    <span class="section-kicker">Preview предложения</span>
+    ${renderOfferMarketplaceCard({ is_active: true }, { note: 'Так предложение увидит клиент' })}
+  </section>
   <form class="admin-form admin-form--inline" data-admin-form="offer">
     <h4>Новое предложение</h4>
     <label>Название предложения<input name="title" required /></label>
@@ -2052,8 +2140,9 @@ const renderOfferCreateForm = () => `
     <label>Базовая цена<input name="base_price" type="number" step="0.01" /></label>
     <p class="form-message">Цена со скидкой рассчитывается по базовой цене и проценту скидки.</p>
     <label>Скидка, %<input name="discount_percent" type="number" step="0.01" /></label>
-    <label>Порядок сортировки<input name="sort_order" type="number" value="0" /></label>
+    <label>URL изображения<input name="image_url" placeholder="/uploads/offer.webp или /assets/offer.webp" /></label>
     <label class="checkbox-row"><input name="is_active" type="checkbox" checked /> Активен</label>
+    <label>Порядок сортировки<input name="sort_order" type="number" value="0" /></label>
     <button type="submit">Создать предложение</button>
     <p class="form-message" data-form-message="offer">${escapeHtml(adminState.formMessages.offer || '')}</p>
   </form>
@@ -2066,9 +2155,13 @@ const renderOffersTab = () => {
     <label class="admin-select-label">Партнёр${renderPartnerPicker('offers', adminState.selectedPartnerIdForOffers)}</label>
     ${adminState.selectedPartnerIdForOffers ? `
       ${renderAdminSearch('offers', 'Поиск по предложениям')}
+      ${offers.length ? `<div class="offer-card-grid">${offers.map((offer) => renderOfferMarketplaceCard(offer, {
+        note: 'Так предложение увидит клиент',
+        actionHtml: `${renderAdminOfferAction(offer)}<button type="button" disabled>Получить привилегию</button>`,
+      })).join('')}</div>` : ''}
       ${renderTable(
-        ['Название предложения', 'Описание', 'Базовая цена', 'Скидка, %', 'Активно', 'Сортировка', 'Действие'],
-        offers.map((offer) => [formatValue(offer.title), formatValue(offer.benefit_text), formatValue(offer.base_price), formatValue(offer.discount_percent), renderActiveStatusBadge(offer.is_active), formatValue(offer.sort_order), renderAdminOfferAction(offer)]),
+        ['Название предложения', 'Краткая выгода', 'Базовая цена', 'Скидка, %', 'Активно', 'Сортировка', 'Действие'],
+        offers.map((offer) => [formatValue(offer.title), formatValue(formatPartnerBenefit(offer)), formatValue(formatOfferBasePrice(offer.base_price)), formatValue(formatDiscountPercent(offer.discount_percent) || '—'), renderActiveStatusBadge(offer.is_active), formatValue(offer.sort_order), renderAdminOfferAction(offer)]),
         true,
         'admin-table--compact',
         adminState.search.offers ? 'Ничего не найдено.' : 'Пока нет данных.',
@@ -2347,20 +2440,29 @@ const submitPartnerProfile = async (form) => {
   await loadPartnerProfile();
 };
 
+const buildPartnerOfferPayload = (formData) => ({
+  title: getOptionalText(formData, 'title'),
+  benefit_text: getOptionalText(formData, 'benefit_text'),
+  description: getOptionalText(formData, 'description'),
+  conditions: getOptionalText(formData, 'conditions'),
+  base_price: decimalOrNull(formData, 'base_price'),
+  discount_percent: decimalOrNull(formData, 'discount_percent'),
+  image_url: getOptionalText(formData, 'image_url'),
+  is_active: formData.has('is_active'),
+  sort_order: Number(formData.get('sort_order') || 0),
+});
+
 const submitPartnerOffer = async (form) => {
   const formData = new FormData(form);
-  await partnerPostJson('/api/v1/partners/me/offers', {
-    title: getOptionalText(formData, 'title'),
-    benefit_text: getOptionalText(formData, 'benefit_text'),
-    description: getOptionalText(formData, 'description'),
-    conditions: getOptionalText(formData, 'conditions'),
-    base_price: decimalOrNull(formData, 'base_price'),
-    discount_percent: decimalOrNull(formData, 'discount_percent'),
-    image_url: getOptionalText(formData, 'image_url'),
-    is_active: formData.has('is_active'),
-    sort_order: Number(formData.get('sort_order') || 0),
-  });
+  await partnerPostJson('/api/v1/partners/me/offers', buildPartnerOfferPayload(formData));
   form.reset();
+  await loadPartnerOffers();
+};
+
+const submitPartnerOfferEdit = async (form) => {
+  const formData = new FormData(form);
+  await partnerPatchJson(`/api/v1/partners/me/offers/${form.dataset.offerId}`, buildPartnerOfferPayload(formData));
+  partnerState.selectedOfferIdForEdit = '';
   await loadPartnerOffers();
 };
 
@@ -2373,6 +2475,8 @@ const handlePartnerFormSubmit = async (form) => {
       await submitPartnerProfile(form);
     } else if (formType === 'offer') {
       await submitPartnerOffer(form);
+    } else if (formType === 'offerEdit') {
+      await submitPartnerOfferEdit(form);
     }
     setPartnerFormMessage(formType, 'Сохранено.');
     setPartnerPanelMessage('Сохранено.', 'success');
@@ -2667,17 +2771,16 @@ const buildOfferTextPayload = (formData) => ({
   benefit_text: getOptionalText(formData, 'benefit_text'),
   description: getOptionalText(formData, 'description'),
   conditions: getOptionalText(formData, 'conditions'),
+  base_price: decimalOrNull(formData, 'base_price'),
+  discount_percent: decimalOrNull(formData, 'discount_percent'),
+  image_url: getOptionalText(formData, 'image_url'),
   sort_order: Number(formData.get('sort_order') || 0),
   is_active: formData.has('is_active'),
 });
 
 const submitOffer = async (form) => {
   const formData = new FormData(form);
-  await postJson(`/api/v1/admin/partners/${adminState.selectedPartnerIdForOffers}/offers`, {
-    ...buildOfferTextPayload(formData),
-    base_price: decimalOrNull(formData, 'base_price'),
-    discount_percent: decimalOrNull(formData, 'discount_percent'),
-  });
+  await postJson(`/api/v1/admin/partners/${adminState.selectedPartnerIdForOffers}/offers`, buildOfferTextPayload(formData));
   form.reset();
   await loadOffers();
 };
@@ -3103,6 +3206,22 @@ root.addEventListener('click', async (event) => {
   if (adminTabButton) {
     adminState.activeTab = adminTabButton.dataset.adminTab;
     loadActiveTabData();
+    return;
+  }
+
+  const partnerOfferEditButton = event.target.closest('[data-partner-offer-edit]');
+  if (partnerOfferEditButton) {
+    partnerState.selectedOfferIdForEdit = partnerOfferEditButton.dataset.partnerOfferEdit;
+    setPartnerFormMessage('offerEdit');
+    renderPartnerLayout();
+    return;
+  }
+
+  const partnerOfferEditCancel = event.target.closest('[data-partner-offer-edit-cancel]');
+  if (partnerOfferEditCancel) {
+    partnerState.selectedOfferIdForEdit = '';
+    setPartnerFormMessage('offerEdit');
+    renderPartnerLayout();
     return;
   }
 
