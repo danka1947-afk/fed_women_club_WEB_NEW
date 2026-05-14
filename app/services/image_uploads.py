@@ -27,19 +27,40 @@ def validate_image_kind(kind: str) -> str:
 
 async def save_partner_image_upload(partner_id: int, kind: str, file: UploadFile) -> str:
     normalized_kind = validate_image_kind(kind)
+    return await _save_validated_image_upload(
+        file=file,
+        destination_parts=("partners", str(partner_id)),
+        filename_prefix=normalized_kind,
+    )
+
+
+async def save_partner_offer_image_upload(partner_id: int, offer_id: int, file: UploadFile) -> str:
+    return await _save_validated_image_upload(
+        file=file,
+        destination_parts=("partners", str(partner_id), "offers", str(offer_id)),
+        filename_prefix="offer",
+    )
+
+
+async def _save_validated_image_upload(
+    *,
+    file: UploadFile,
+    destination_parts: tuple[str, ...],
+    filename_prefix: str,
+) -> str:
     _validate_content_type(file.content_type)
     _validate_filename_extension(file.filename)
     content = await _read_upload_bytes(file)
     extension = _detect_image_extension(content)
 
-    destination_dir = Path(settings.UPLOAD_DIR) / "partners" / str(partner_id)
+    destination_dir = Path(settings.UPLOAD_DIR).joinpath(*destination_parts)
     destination_dir.mkdir(parents=True, exist_ok=True)
-    filename = f"{normalized_kind}-{token_urlsafe(16)}.{extension}"
+    filename = f"{filename_prefix}-{token_urlsafe(16)}.{extension}"
     destination_path = destination_dir / filename
     destination_path.write_bytes(content)
 
     public_prefix = settings.PUBLIC_UPLOADS_PATH.rstrip("/") or "/uploads"
-    return f"{public_prefix}/partners/{partner_id}/{filename}"
+    return f"{public_prefix}/{'/'.join(destination_parts)}/{filename}"
 
 
 def _validate_content_type(content_type: str | None) -> None:

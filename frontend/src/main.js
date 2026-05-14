@@ -818,6 +818,35 @@ const renderSafePartnerImagePreview = (url, kind, label) => {
     : `<div class="partner-image-preview ${modifier} partner-image-preview--placeholder" aria-label="${escapeHtml(label)}">${kind === 'cover' ? 'Обложка' : 'Лого'}</div>`;
 };
 
+const renderSafeOfferImagePreview = (url, label = 'Фото предложения') => {
+  const safeUrl = isSafePublicAssetUrl(url) ? url : '';
+  return safeUrl
+    ? `<div class="offer-image-preview" style="background-image: url('${escapeHtml(safeUrl)}')" role="img" aria-label="${escapeHtml(label)}"></div>`
+    : `<div class="offer-image-preview offer-image-preview--placeholder" aria-label="${escapeHtml(label)}">Фото услуги</div>`;
+};
+
+const renderOfferImageUploader = (offer, scope) => {
+  const isAdmin = scope === 'admin';
+  const offerId = offer?.id;
+  const messageKey = isAdmin ? 'offerImage' : 'offerImage';
+  const message = isAdmin ? (adminState.formMessages[messageKey] || '') : (partnerState.formMessages[messageKey] || '');
+  const inputAttr = isAdmin
+    ? `data-admin-offer-image-upload data-offer-id="${escapeHtml(offerId || '')}"`
+    : `data-partner-offer-image-upload data-offer-id="${escapeHtml(offerId || '')}"`;
+  return `
+    <section class="offer-image-uploader">
+      <div class="admin-section-heading"><h4>Фото предложения</h4><p>Загружайте JPG, PNG или WEBP до 5 МБ. В превью показываются только /uploads/ и /assets/.</p></div>
+      ${renderSafeOfferImagePreview(offer?.image_url, 'Фото предложения')}
+      <div class="offer-image-upload-actions">
+        ${offerId
+          ? `<label class="admin-inline-action">Загрузить фото предложения<input type="file" accept="image/jpeg,image/png,image/webp" ${inputAttr} /></label>`
+          : '<p class="form-message">Сначала сохраните предложение, затем загрузите фото.</p>'}
+      </div>
+      <p class="form-message offer-image-status" data-${isAdmin ? 'form-message' : 'partner-form-message'}="${messageKey}">${escapeHtml(message)}</p>
+    </section>
+  `;
+};
+
 const renderPartnerImageUploader = (partner, scope) => {
   const logoInputAttr = scope === 'admin'
     ? `data-admin-partner-image-upload="logo" data-partner-id="${escapeHtml(partner.id)}"`
@@ -1560,7 +1589,12 @@ const renderPartnerOfferForm = () => {
       <label>Условия<textarea name="conditions" rows="3">${escapeHtml(offer?.conditions || '')}</textarea></label>
       <label>Базовая цена<input name="base_price" inputmode="decimal" value="${escapeHtml(offer?.base_price || '')}" /></label>
       <label>Скидка, %<input name="discount_percent" inputmode="decimal" value="${escapeHtml(offer?.discount_percent || '')}" /></label>
-      <label>URL изображения<input name="image_url" value="${escapeHtml(offer?.image_url || '')}" placeholder="/uploads/offer.webp или /assets/offer.webp" /></label>
+      ${renderOfferImageUploader(offer, 'partner')}
+      <details class="partner-profile-advanced">
+        <summary>URL изображения предложения</summary>
+        <p class="form-message">Основной способ обновления — кнопка загрузки. URL показывается для проверки и отправляется как раньше.</p>
+        <label>URL изображения<input name="image_url" value="${escapeHtml(offer?.image_url || '')}" readonly placeholder="/uploads/offer.webp или /assets/offer.webp" /></label>
+      </details>
       <label class="checkbox-row"><input name="is_active" type="checkbox" ${offer?.is_active === false ? '' : 'checked'} /> Активно</label>
       <label>Порядок сортировки<input name="sort_order" type="number" value="${escapeHtml(offer?.sort_order || 0)}" /></label>
       <div class="admin-form-actions">
@@ -2093,6 +2127,7 @@ const renderPartnersTab = () => {
 
 const renderAdminOfferAction = (offer) => `
   <button class="admin-inline-action admin-table-action" type="button" data-admin-offer-edit="${escapeHtml(offer.id)}">Редактировать</button>
+  <label class="admin-inline-action admin-table-action">Загрузить фото предложения<input type="file" accept="image/jpeg,image/png,image/webp" data-admin-offer-image-upload data-offer-id="${escapeHtml(offer.id)}" /></label>
 `;
 
 const renderOfferEditForm = () => {
@@ -2114,7 +2149,12 @@ const renderOfferEditForm = () => {
       <label>Условия<textarea name="conditions" rows="3">${escapeHtml(offer.conditions || '')}</textarea></label>
       <label>Базовая цена<input name="base_price" type="number" step="0.01" value="${escapeHtml(offer.base_price || '')}" /></label>
       <label>Скидка, %<input name="discount_percent" type="number" step="0.01" value="${escapeHtml(offer.discount_percent || '')}" /></label>
-      <label>URL изображения<input name="image_url" value="${escapeHtml(offer.image_url || '')}" placeholder="/uploads/offer.webp или /assets/offer.webp" /></label>
+      ${renderOfferImageUploader(offer, 'admin')}
+      <details class="partner-profile-advanced">
+        <summary>URL изображения предложения</summary>
+        <p class="form-message">Основной способ обновления — кнопка загрузки. URL показывается для проверки и отправляется как раньше.</p>
+        <label>URL изображения<input name="image_url" value="${escapeHtml(offer.image_url || '')}" readonly placeholder="/uploads/offer.webp или /assets/offer.webp" /></label>
+      </details>
       <label class="checkbox-row"><input name="is_active" type="checkbox" ${offer.is_active ? 'checked' : ''} /> Активно</label>
       <label>Порядок сортировки<input name="sort_order" type="number" value="${escapeHtml(offer.sort_order || 0)}" /></label>
       <div class="admin-form-actions">
@@ -2140,7 +2180,12 @@ const renderOfferCreateForm = () => `
     <label>Базовая цена<input name="base_price" type="number" step="0.01" /></label>
     <p class="form-message">Цена со скидкой рассчитывается по базовой цене и проценту скидки.</p>
     <label>Скидка, %<input name="discount_percent" type="number" step="0.01" /></label>
-    <label>URL изображения<input name="image_url" placeholder="/uploads/offer.webp или /assets/offer.webp" /></label>
+    ${renderOfferImageUploader(null, 'admin')}
+    <details class="partner-profile-advanced">
+      <summary>URL изображения предложения</summary>
+      <p class="form-message">Сначала сохраните предложение, затем загрузите фото.</p>
+      <label>URL изображения<input name="image_url" readonly placeholder="/uploads/offer.webp или /assets/offer.webp" /></label>
+    </details>
     <label class="checkbox-row"><input name="is_active" type="checkbox" checked /> Активен</label>
     <label>Порядок сортировки<input name="sort_order" type="number" value="0" /></label>
     <button type="submit">Создать предложение</button>
@@ -2843,6 +2888,40 @@ const uploadPartnerProfileImage = async (kind, file) => {
   await loadPartnerProfile();
   return response;
 };
+const uploadAdminOfferImage = async (offerId, file) => {
+  const body = new FormData();
+  body.append('file', file);
+  const response = await apiFetch(`/api/v1/admin/offers/${offerId}/image`, {
+    method: 'POST',
+    body,
+  });
+  if (response?.url) {
+    const offer = adminState.offers.find((item) => String(item.id) === String(offerId));
+    if (offer) {
+      offer.image_url = response.url;
+    }
+  }
+  await loadOffers();
+  return response;
+};
+
+const uploadPartnerOfferImage = async (offerId, file) => {
+  const body = new FormData();
+  body.append('file', file);
+  const response = await partnerApiFetch(`/api/v1/partners/me/offers/${offerId}/image`, {
+    method: 'POST',
+    body,
+  });
+  if (response?.url) {
+    const offer = partnerState.offers.find((item) => String(item.id) === String(offerId));
+    if (offer) {
+      offer.image_url = response.url;
+    }
+  }
+  await loadPartnerOffers();
+  return response;
+};
+
 
 const handleAdminFormSubmit = async (form) => {
   const formType = form.dataset.adminForm;
@@ -3349,6 +3428,38 @@ const handlePartnerProfileImageInput = async (input) => {
   renderPartnerLayout();
 };
 
+const handleAdminOfferImageInput = async (input) => {
+  const file = input.files?.[0];
+  if (!file) return;
+  const offerId = input.dataset.offerId;
+  setFormMessage('offerImage');
+  try {
+    await uploadAdminOfferImage(offerId, file);
+    setFormMessage('offerImage', 'Фото предложения обновлено.');
+    setPanelMessage('Фото предложения обновлено.', 'success');
+  } catch (error) {
+    setFormMessage('offerImage', error.message || 'Не удалось загрузить фото предложения.');
+    setPanelMessage(error.message || 'Не удалось загрузить фото предложения.', 'error');
+  }
+  renderAdminLayout();
+};
+
+const handlePartnerOfferImageInput = async (input) => {
+  const file = input.files?.[0];
+  if (!file) return;
+  const offerId = input.dataset.offerId;
+  setPartnerFormMessage('offerImage');
+  try {
+    await uploadPartnerOfferImage(offerId, file);
+    setPartnerFormMessage('offerImage', 'Фото предложения обновлено.');
+    setPartnerPanelMessage('Фото предложения обновлено.', 'success');
+  } catch (error) {
+    setPartnerFormMessage('offerImage', error.message || 'Не удалось загрузить фото предложения.');
+    setPartnerPanelMessage(error.message || 'Не удалось загрузить фото предложения.', 'error');
+  }
+  renderPartnerLayout();
+};
+
 root.addEventListener('change', (event) => {
   const adminImageInput = event.target.closest('[data-admin-partner-image-upload]');
   if (adminImageInput) {
@@ -3359,6 +3470,18 @@ root.addEventListener('change', (event) => {
   const partnerImageInput = event.target.closest('[data-partner-image-upload]');
   if (partnerImageInput) {
     handlePartnerProfileImageInput(partnerImageInput);
+    return;
+  }
+
+  const adminOfferImageInput = event.target.closest('[data-admin-offer-image-upload]');
+  if (adminOfferImageInput) {
+    handleAdminOfferImageInput(adminOfferImageInput);
+    return;
+  }
+
+  const partnerOfferImageInput = event.target.closest('[data-partner-offer-image-upload]');
+  if (partnerOfferImageInput) {
+    handlePartnerOfferImageInput(partnerOfferImageInput);
     return;
   }
 

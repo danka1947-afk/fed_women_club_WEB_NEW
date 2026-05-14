@@ -323,3 +323,82 @@ def test_admin_partner_offer_patch_invalid_numeric_values_return_400(
 
     assert response.status_code == 400
     assert response.json()["detail"] == detail
+
+TINY_OFFER_PNG_BYTES = (
+    b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
+    b"\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\x0cIDATx\x9cc``\x00\x00"
+    b"\x00\x04\x00\x01\xf6\x178U\x00\x00\x00\x00IEND\xaeB`\x82"
+)
+
+
+def _upload_file(content: bytes, filename: str, content_type: str) -> dict[str, tuple[str, bytes, str]]:
+    return {"file": (filename, content, content_type)}
+
+
+def test_admin_uploads_valid_image_for_offer_updates_image_url(
+    admin_client: TestClient,
+    admin_token: str,
+) -> None:
+    response = admin_client.post(
+        "/api/v1/admin/offers/1/image",
+        headers=_auth_headers(admin_token),
+        files=_upload_file(TINY_OFFER_PNG_BYTES, "ignored-original-name.png", "image/png"),
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert set(data) == {"url"}
+    assert data["url"].startswith("/uploads/partners/1/offers/1/offer-")
+    assert data["url"].endswith(".png")
+
+    offer_response = admin_client.get("/api/v1/admin/offers/1", headers=_auth_headers(admin_token))
+    assert offer_response.json()["image_url"] == data["url"]
+
+
+def test_admin_offer_upload_rejects_invalid_file_type(admin_client: TestClient, admin_token: str) -> None:
+    response = admin_client.post(
+        "/api/v1/admin/offers/1/image",
+        headers=_auth_headers(admin_token),
+        files=_upload_file(b"<svg></svg>", "offer.svg", "image/svg+xml"),
+    )
+
+    assert response.status_code == 400
+
+
+def test_admin_offer_upload_rejects_invalid_image_bytes(admin_client: TestClient, admin_token: str) -> None:
+    response = admin_client.post(
+        "/api/v1/admin/offers/1/image",
+        headers=_auth_headers(admin_token),
+        files=_upload_file(b"not an image", "offer.png", "image/png"),
+    )
+
+    assert response.status_code == 400
+
+
+def test_admin_offer_upload_rejects_too_large_file(admin_client: TestClient, admin_token: str) -> None:
+    response = admin_client.post(
+        "/api/v1/admin/offers/1/image",
+        headers=_auth_headers(admin_token),
+        files=_upload_file(b"\x89PNG\r\n\x1a\n" + (b"0" * (5 * 1024 * 1024)), "offer.png", "image/png"),
+    )
+
+    assert response.status_code == 400
+
+
+def test_admin_offer_upload_rejects_unauthorized_request(admin_client: TestClient) -> None:
+    response = admin_client.post(
+        "/api/v1/admin/offers/1/image",
+        files=_upload_file(TINY_OFFER_PNG_BYTES, "offer.png", "image/png"),
+    )
+
+    assert response.status_code == 401
+
+
+def test_admin_offer_upload_missing_offer_returns_404(admin_client: TestClient, admin_token: str) -> None:
+    response = admin_client.post(
+        "/api/v1/admin/offers/9999/image",
+        headers=_auth_headers(admin_token),
+        files=_upload_file(TINY_OFFER_PNG_BYTES, "offer.png", "image/png"),
+    )
+
+    assert response.status_code == 404

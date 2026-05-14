@@ -15,7 +15,7 @@ from app.models.lead import LeadClick
 from app.models.partner import Partner, PartnerOffer, PartnerQrLink
 from app.models.verification import PrivilegeVerificationSession, PrivilegeVerificationStatus
 from app.models.user import User
-from app.services.image_uploads import save_partner_image_upload, validate_image_kind
+from app.services.image_uploads import save_partner_image_upload, save_partner_offer_image_upload, validate_image_kind
 from app.schemas.partner import (
     ConfirmVerificationResponse,
     PartnerOfferCreate,
@@ -266,6 +266,21 @@ def update_partner_offer(
     db.commit()
     db.refresh(offer)
     return _partner_offer_to_read(offer)
+
+
+@router.post("/me/offers/{offer_id}/image")
+async def upload_partner_offer_image(
+    offer_id: int,
+    file: UploadFile = File(...),
+    current_user: User = Depends(require_partner),
+    db: Session = Depends(get_db),
+) -> dict[str, str]:
+    partner = _get_current_partner_or_404(db, current_user.id)
+    offer = _get_owned_offer_or_404(db, partner.id, offer_id)
+    image_url = await save_partner_offer_image_upload(partner.id, offer.id, file)
+    offer.image_url = image_url
+    db.commit()
+    return {"url": image_url}
 
 
 def _as_aware_utc(value: datetime) -> datetime:
