@@ -34,6 +34,14 @@ async def save_partner_image_upload(partner_id: int, kind: str, file: UploadFile
     )
 
 
+async def save_partner_photo_image_upload(partner_id: int, file: UploadFile) -> str:
+    return await _save_validated_image_upload(
+        file=file,
+        destination_parts=("partners", str(partner_id), "photos"),
+        filename_prefix="photo",
+    )
+
+
 async def save_partner_offer_image_upload(partner_id: int, offer_id: int, file: UploadFile) -> str:
     return await _save_validated_image_upload(
         file=file,

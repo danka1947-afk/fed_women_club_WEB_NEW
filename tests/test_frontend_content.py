@@ -1262,3 +1262,47 @@ def test_frontend_contains_safe_offer_image_upload_markers() -> None:
     ):
         assert removed_marker not in source
         assert removed_marker not in styles
+
+
+def test_frontend_contains_partner_gallery_photo_mvp_markers() -> None:
+    source = FRONTEND_MAIN.read_text(encoding="utf-8")
+    styles = FRONTEND_STYLES.read_text(encoding="utf-8")
+
+    required_source_markers = [
+        "Галерея партнёра",
+        "Загрузить фото в галерею",
+        "Добавьте живые фото",
+        "Скрыть фото",
+        "partner-gallery",
+        "partner-gallery-grid",
+        "/api/v1/admin/partners/",
+        "/photos",
+        "/api/v1/partners/me/photos",
+        "landing-partner-gallery",
+        "/api/v1/partners/me/images?kind=${kind}",
+        "/api/v1/admin/partners/${partnerId}/images?kind=${kind}",
+        "/api/v1/partners/me/offers/${offerId}/image",
+        "/api/v1/admin/offers/${offerId}/image",
+        "partner-marketplace-card",
+        "offer-marketplace-card",
+        "setup_token",
+        "/api/v1/public/landing/partners",
+        "startsWith('/uploads/')",
+    ]
+    for marker in required_source_markers:
+        assert marker in source
+
+    for marker in [
+        ".partner-gallery",
+        ".partner-gallery-grid",
+        ".partner-gallery-item",
+        ".partner-gallery-image",
+        ".partner-gallery-actions",
+        ".partner-gallery-upload",
+        ".partner-gallery-empty",
+    ]:
+        assert marker in styles
+
+    forbidden_reference_markers = ["lotus", "Лотос", "remote image fetch"]
+    for marker in forbidden_reference_markers:
+        assert marker not in source

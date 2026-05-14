@@ -37,12 +37,31 @@ class Partner(Base):
     city: Mapped["City"] = relationship("City", back_populates="partners")
     owner_user: Mapped["User | None"] = relationship("User", back_populates="owned_partners")
     offers: Mapped[list["PartnerOffer"]] = relationship("PartnerOffer", back_populates="partner")
+    photos: Mapped[list["PartnerPhoto"]] = relationship("PartnerPhoto", back_populates="partner")
     qr_links: Mapped[list["PartnerQrLink"]] = relationship("PartnerQrLink", back_populates="partner")
     lead_clicks: Mapped[list["LeadClick"]] = relationship("LeadClick", back_populates="partner")
     verification_sessions: Mapped[list["PrivilegeVerificationSession"]] = relationship(
         "PrivilegeVerificationSession",
         back_populates="partner",
     )
+
+
+class PartnerPhoto(Base):
+    __tablename__ = "partner_photos"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    partner_id: Mapped[int] = mapped_column(ForeignKey("partners.id"), nullable=False, index=True)
+    url: Mapped[str] = mapped_column(String(512), nullable=False)
+    alt_text: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+    partner: Mapped["Partner"] = relationship("Partner", back_populates="photos")
 
 
 class PartnerOffer(Base):

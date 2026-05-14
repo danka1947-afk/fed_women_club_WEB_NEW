@@ -15,11 +15,12 @@ from app.db.session import get_db
 from app.models.category import Category
 from app.models.city import City
 from app.models.lead import LeadClick
-from app.models.partner import Partner, PartnerOffer, PartnerQrLink
+from app.models.partner import Partner, PartnerOffer, PartnerPhoto, PartnerQrLink
 from app.schemas.partner import (
     PublicLandingPartnerCard,
     PublicLandingPartnerListResponse,
     PublicLandingPartnerOffer,
+    PublicLandingPartnerPhoto,
 )
 
 router = APIRouter(tags=["public"])
@@ -80,11 +81,21 @@ def _public_landing_offer_to_read(offer: PartnerOffer) -> PublicLandingPartnerOf
     )
 
 
+def _public_landing_photo_to_read(photo: PartnerPhoto) -> PublicLandingPartnerPhoto:
+    return PublicLandingPartnerPhoto(
+        id=photo.id,
+        url=photo.url,
+        alt_text=photo.alt_text,
+        sort_order=photo.sort_order,
+    )
+
+
 def _public_landing_partner_to_read(
     partner: Partner,
     city: City,
     category: Category,
     offers: list[PartnerOffer],
+    photos: list[PartnerPhoto],
 ) -> PublicLandingPartnerCard:
     return PublicLandingPartnerCard(
         id=partner.id,
@@ -97,6 +108,7 @@ def _public_landing_partner_to_read(
         logo_url=partner.logo_url,
         cover_url=partner.cover_url,
         offers=[_public_landing_offer_to_read(offer) for offer in offers],
+        photos=[_public_landing_photo_to_read(photo) for photo in photos],
     )
 
 
@@ -192,6 +204,7 @@ def list_public_landing_partners(
     rows = db.execute(statement).all()
     partner_ids = [partner.id for partner, _city, _category in rows]
     offers_by_partner: dict[int, list[PartnerOffer]] = {partner_id: [] for partner_id in partner_ids}
+    photos_by_partner: dict[int, list[PartnerPhoto]] = {partner_id: [] for partner_id in partner_ids}
     if partner_ids:
         offers = db.execute(
             select(PartnerOffer)
@@ -203,10 +216,26 @@ def list_public_landing_partners(
         ).scalars().all()
         for offer in offers:
             offers_by_partner.setdefault(offer.partner_id, []).append(offer)
+        photos = db.execute(
+            select(PartnerPhoto)
+            .where(
+                PartnerPhoto.partner_id.in_(partner_ids),
+                PartnerPhoto.is_active.is_(True),
+            )
+            .order_by(PartnerPhoto.sort_order.asc(), PartnerPhoto.created_at.asc())
+        ).scalars().all()
+        for photo in photos:
+            photos_by_partner.setdefault(photo.partner_id, []).append(photo)
 
     return PublicLandingPartnerListResponse(
         items=[
-            _public_landing_partner_to_read(partner, city, category, offers_by_partner.get(partner.id, []))
+            _public_landing_partner_to_read(
+                partner,
+                city,
+                category,
+                offers_by_partner.get(partner.id, []),
+                photos_by_partner.get(partner.id, []),
+            )
             for partner, city, category in rows
         ]
     )

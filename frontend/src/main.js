@@ -317,6 +317,7 @@ const adminState = {
   cities: [],
   categories: [],
   partners: [],
+  partnerPhotosByPartner: {},
   offers: [],
   qrLinks: [],
   leads: [],
@@ -375,6 +376,7 @@ const partnerState = {
   activeTab: 'profile',
   user: null,
   profile: null,
+  photos: [],
   offers: [],
   qrLinks: [],
   leads: [],
@@ -802,7 +804,20 @@ const isSafePublicAssetUrl = (value) => {
   return (url.startsWith('/assets/') || url.startsWith('/uploads/')) && !/[\s'"()]/.test(url);
 };
 
+const getActivePartnerGalleryPhotos = (photos = []) => (Array.isArray(photos) ? photos : [])
+  .filter((photo) => photo?.is_active !== false && isSafePublicAssetUrl(photo?.url))
+  .sort((left, right) => Number(left.sort_order || 0) - Number(right.sort_order || 0) || Number(left.id || 0) - Number(right.id || 0));
+
 const renderLandingPartnerImage = (partner) => {
+  const photos = getActivePartnerGalleryPhotos(partner?.photos);
+  if (photos.length) {
+    return `
+      <div class="landing-partner-cover landing-partner-gallery" aria-label="Галерея партнёра">
+        <div class="landing-partner-gallery-main" style="background-image: url('${escapeHtml(photos[0].url)}')" role="img" aria-label="${escapeHtml(photos[0].alt_text || partner?.name || 'Фото партнёра')}"></div>
+        ${photos.length > 1 ? `<div class="landing-partner-gallery-thumbs">${photos.slice(0, 4).map((photo) => `<span style="background-image: url('${escapeHtml(photo.url)}')" aria-hidden="true"></span>`).join('')}</div>` : ''}
+      </div>
+    `;
+  }
   const coverUrl = isSafePublicAssetUrl(partner?.cover_url) ? partner.cover_url : '';
   if (!coverUrl) {
     return '<div class="landing-partner-cover landing-partner-cover--placeholder" aria-hidden="true">♡</div>';
@@ -878,6 +893,51 @@ const renderPartnerImageUploader = (partner, scope) => {
   `;
 };
 
+const renderPartnerGallery = (partner, photos = [], scope = 'partner') => {
+  const isAdmin = scope === 'admin';
+  const partnerId = partner?.id || '';
+  const messageKey = isAdmin ? 'partnerGallery' : 'partnerGallery';
+  const message = isAdmin ? (adminState.formMessages[messageKey] || '') : (partnerState.formMessages[messageKey] || '');
+  const uploadAttr = isAdmin
+    ? `data-admin-partner-photo-upload data-partner-id="${escapeHtml(partnerId)}"`
+    : 'data-partner-photo-upload';
+  const visiblePhotos = Array.isArray(photos) ? photos : [];
+  return `
+    <section class="partner-gallery">
+      <div class="admin-section-heading">
+        <h4>Галерея партнёра</h4>
+        <p>Добавьте живые фото, чтобы карточка выглядела привлекательнее для участниц клуба.</p>
+      </div>
+      <div class="partner-gallery-upload">
+        ${partnerId ? `<label class="admin-inline-action">Загрузить фото в галерею<input type="file" accept="image/jpeg,image/png,image/webp" ${uploadAttr} /></label>` : '<p class="form-message">Сначала сохраните партнёра, затем загрузите фото.</p>'}
+      </div>
+      ${visiblePhotos.length ? `
+        <div class="partner-gallery-grid">
+          ${visiblePhotos.map((photo) => {
+            const safeUrl = isSafePublicAssetUrl(photo.url) ? photo.url : '';
+            return `
+              <article class="partner-gallery-item ${photo.is_active ? '' : 'is-muted'}">
+                ${safeUrl ? `<div class="partner-gallery-image" style="background-image: url('${escapeHtml(safeUrl)}')" role="img" aria-label="${escapeHtml(photo.alt_text || 'Фото партнёра')}"></div>` : '<div class="partner-gallery-image partner-gallery-empty">Фото скрыто</div>'}
+                <form class="partner-gallery-actions" data-${isAdmin ? 'admin' : 'partner'}-gallery-form="photo" data-photo-id="${escapeHtml(photo.id)}">
+                  <label>Alt<input name="alt_text" value="${escapeHtml(photo.alt_text || '')}" /></label>
+                  <label>Сортировка<input name="sort_order" type="number" value="${escapeHtml(photo.sort_order || 0)}" /></label>
+                  <label class="checkbox-row"><input name="is_active" type="checkbox" ${photo.is_active ? 'checked' : ''} /> Показывать</label>
+                  <div class="admin-form-actions">
+                    <button type="submit">Сохранить</button>
+                    <button class="admin-inline-action" type="button" data-${isAdmin ? 'admin' : 'partner'}-photo-hide="${escapeHtml(photo.id)}">Скрыть фото</button>
+                  </div>
+                </form>
+              </article>
+            `;
+          }).join('')}
+        </div>
+      ` : '<div class="partner-gallery-empty">Пока нет фото. Загрузите первое фото для живой витрины.</div>'}
+      <p class="form-message" data-${isAdmin ? 'form-message' : 'partner-form-message'}="${messageKey}">${escapeHtml(message)}</p>
+    </section>
+  `;
+};
+
+
 const getPartnerPrimaryOffer = (partner, options = {}) => {
   if (options.primaryOffer) {
     return options.primaryOffer;
@@ -938,7 +998,8 @@ const renderPartnerProfileHints = (partner, options = {}) => {
 };
 
 const renderPartnerMarketplaceCard = (partner = {}, options = {}) => {
-  const coverUrl = isSafePublicAssetUrl(partner.cover_url) ? partner.cover_url : '';
+  const galleryPhotos = getActivePartnerGalleryPhotos(options.photos || partner.photos);
+  const coverUrl = galleryPhotos[0]?.url || (isSafePublicAssetUrl(partner.cover_url) ? partner.cover_url : '');
   const logoUrl = isSafePublicAssetUrl(partner.logo_url) ? partner.logo_url : '';
   const primaryOffer = getPartnerPrimaryOffer(partner, options);
   const contactItems = [
@@ -1261,6 +1322,7 @@ const clientPostJson = (path, payload = {}) => clientApiFetch(path, {
 
 const requestPartnerUserMe = () => partnerApiFetch('/api/v1/auth/user-me');
 const loadPartnerProfile = async () => { partnerState.profile = await partnerApiFetch('/api/v1/partners/me'); };
+const loadPartnerPhotos = async () => { partnerState.photos = await partnerApiFetch('/api/v1/partners/me/photos'); };
 const loadPartnerOffers = async () => {
   partnerState.offers = await partnerApiFetch('/api/v1/partners/me/offers');
   if (partnerState.selectedOfferIdForEdit && !partnerState.offers.some((offer) => String(offer.id) === String(partnerState.selectedOfferIdForEdit))) {
@@ -1527,7 +1589,7 @@ const renderPartnerProfileTab = () => {
     <div class="partner-profile-layout">
       <aside class="partner-profile-preview">
         <span class="section-kicker">Preview витрины</span>
-        ${renderPartnerMarketplaceCard(profile, { offers: partnerState.offers, note: 'Так карточку увидит клиент' })}
+        ${renderPartnerMarketplaceCard(profile, { offers: partnerState.offers, note: 'Так карточку увидит клиент', photos: partnerState.photos })}
         ${renderPartnerProfileHints(profile, { offers: partnerState.offers })}
       </aside>
       <section class="partner-profile-settings">
@@ -1550,6 +1612,7 @@ const renderPartnerProfileTab = () => {
           <label>Соцсеть<input name="social_url" value="${escapeHtml(profile.social_url || '')}" /></label>
           <label>График работы<input name="working_hours" value="${escapeHtml(profile.working_hours || '')}" /></label>
           ${renderPartnerImageUploader(profile, 'partner')}
+          ${renderPartnerGallery(profile, partnerState.photos, 'partner')}
           <details class="partner-profile-advanced">
             <summary>URL изображений</summary>
             <p class="form-message">Основной способ обновления — кнопки загрузки. URL показывается для проверки и отправляется как раньше.</p>
@@ -1708,6 +1771,11 @@ const loadCategories = async () => {
 
 const loadPartners = async () => {
   adminState.partners = await apiFetch('/api/v1/admin/partners');
+};
+
+const loadAdminPartnerPhotos = async (partnerId) => {
+  if (!partnerId) return;
+  adminState.partnerPhotosByPartner[partnerId] = await apiFetch(`/api/v1/admin/partners/${partnerId}/photos`);
 };
 
 const loadLeads = async () => {
@@ -2030,6 +2098,7 @@ const renderAdminPartnerAction = (partner) => `
 
 const renderPartnerEditForm = () => {
   const partner = adminState.partners.find((item) => String(item.id) === String(adminState.selectedPartnerIdForEdit));
+  const photos = adminState.partnerPhotosByPartner[adminState.selectedPartnerIdForEdit] || [];
   if (!partner) {
     return '';
   }
@@ -2038,7 +2107,7 @@ const renderPartnerEditForm = () => {
     <section class="partner-profile-layout partner-profile-layout--admin">
       <aside class="partner-profile-preview">
         <div class="admin-section-heading"><h4>Витрина партнёра</h4><p>Так администратор видит публичную marketplace-карточку партнёра.</p></div>
-        ${renderPartnerMarketplaceCard(partner, { note: 'Так карточку увидит клиент' })}
+        ${renderPartnerMarketplaceCard(partner, { note: 'Так карточку увидит клиент', photos })}
         ${renderPartnerProfileHints(partner)}
       </aside>
       <form class="admin-form partner-profile-settings" data-admin-form="partnerEdit" data-partner-id="${escapeHtml(partner.id)}">
@@ -2057,6 +2126,7 @@ const renderPartnerEditForm = () => {
         <label class="checkbox-row"><input name="is_active" type="checkbox" ${partner.is_active ? 'checked' : ''} /> Активен</label>
         <label class="checkbox-row"><input name="is_verified" type="checkbox" ${partner.is_verified ? 'checked' : ''} /> Проверен</label>
         ${renderPartnerImageUploader(partner, 'admin')}
+        ${renderPartnerGallery(partner, photos, 'admin')}
         <details class="partner-profile-advanced">
           <summary>URL изображения</summary>
           <p class="form-message">Загрузка логотипа и обложки — основной способ обновления изображений. Ручной URL оставлен как дополнительное поле для уже поддерживаемых /uploads/ и /assets/.</p>
@@ -2428,7 +2498,7 @@ const loadActivePartnerTabData = async () => {
 
   try {
     if (partnerState.activeTab === 'profile') {
-      await Promise.all([loadPartnerProfile(), loadPartnerOffers()]);
+      await Promise.all([loadPartnerProfile(), loadPartnerOffers(), loadPartnerPhotos()]);
     } else if (partnerState.activeTab === 'offers') {
       await loadPartnerOffers();
     } else if (partnerState.activeTab === 'qr') {
@@ -2860,6 +2930,48 @@ const submitQrEdit = async (form) => {
   await loadLeads();
 };
 
+const uploadAdminPartnerPhoto = async (partnerId, file) => {
+  const body = new FormData();
+  body.append('file', file);
+  const response = await apiFetch(`/api/v1/admin/partners/${partnerId}/photos`, { method: 'POST', body });
+  await loadAdminPartnerPhotos(partnerId);
+  return response;
+};
+
+const uploadPartnerPhoto = async (file) => {
+  const body = new FormData();
+  body.append('file', file);
+  const response = await partnerApiFetch('/api/v1/partners/me/photos', { method: 'POST', body });
+  await loadPartnerPhotos();
+  return response;
+};
+
+const buildPartnerPhotoPayload = (formData) => ({
+  alt_text: getOptionalText(formData, 'alt_text'),
+  sort_order: Number(formData.get('sort_order') || 0),
+  is_active: formData.has('is_active'),
+});
+
+const submitAdminPartnerPhoto = async (form) => {
+  await patchJson(`/api/v1/admin/partner-photos/${form.dataset.photoId}`, buildPartnerPhotoPayload(new FormData(form)));
+  await loadAdminPartnerPhotos(adminState.selectedPartnerIdForEdit);
+};
+
+const submitPartnerPhoto = async (form) => {
+  await partnerPatchJson(`/api/v1/partners/me/photos/${form.dataset.photoId}`, buildPartnerPhotoPayload(new FormData(form)));
+  await loadPartnerPhotos();
+};
+
+const hideAdminPartnerPhoto = async (photoId) => {
+  await patchJson(`/api/v1/admin/partner-photos/${photoId}`, { is_active: false });
+  await loadAdminPartnerPhotos(adminState.selectedPartnerIdForEdit);
+};
+
+const hidePartnerPhoto = async (photoId) => {
+  await partnerPatchJson(`/api/v1/partners/me/photos/${photoId}`, { is_active: false });
+  await loadPartnerPhotos();
+};
+
 const uploadAdminPartnerImage = async (partnerId, kind, file) => {
   const body = new FormData();
   body.append('file', file);
@@ -3229,6 +3341,12 @@ root.addEventListener('click', async (event) => {
   if (partnerEditButton) {
     adminState.selectedPartnerIdForEdit = partnerEditButton.dataset.adminPartnerEdit;
     setFormMessage('partnerEdit');
+    setFormMessage('partnerGallery');
+    try {
+      await loadAdminPartnerPhotos(adminState.selectedPartnerIdForEdit);
+    } catch (error) {
+      setFormMessage('partnerGallery', error.message || 'Не удалось загрузить галерею.');
+    }
     renderAdminLayout();
     return;
   }
@@ -3270,6 +3388,36 @@ root.addEventListener('click', async (event) => {
     adminState.selectedQrLinkIdForEdit = '';
     setFormMessage('qrEdit');
     renderAdminLayout();
+    return;
+  }
+
+  const adminPhotoHide = event.target.closest('[data-admin-photo-hide]');
+  if (adminPhotoHide) {
+    setFormMessage('partnerGallery');
+    try {
+      await hideAdminPartnerPhoto(adminPhotoHide.dataset.adminPhotoHide);
+      setFormMessage('partnerGallery', 'Фото скрыто.');
+      setPanelMessage('Фото скрыто без удаления файла.', 'success');
+    } catch (error) {
+      setFormMessage('partnerGallery', error.message || 'Не удалось скрыть фото.');
+      setPanelMessage(error.message || 'Не удалось скрыть фото.', 'error');
+    }
+    renderAdminLayout();
+    return;
+  }
+
+  const partnerPhotoHide = event.target.closest('[data-partner-photo-hide]');
+  if (partnerPhotoHide) {
+    setPartnerFormMessage('partnerGallery');
+    try {
+      await hidePartnerPhoto(partnerPhotoHide.dataset.partnerPhotoHide);
+      setPartnerFormMessage('partnerGallery', 'Фото скрыто.');
+      setPartnerPanelMessage('Фото скрыто без удаления файла.', 'success');
+    } catch (error) {
+      setPartnerFormMessage('partnerGallery', error.message || 'Не удалось скрыть фото.');
+      setPartnerPanelMessage(error.message || 'Не удалось скрыть фото.', 'error');
+    }
+    renderPartnerLayout();
     return;
   }
 
@@ -3395,6 +3543,63 @@ root.addEventListener('input', (event) => {
 });
 
 
+const handleAdminPartnerPhotoInput = async (input) => {
+  const file = input.files?.[0];
+  if (!file) return;
+  const partnerId = input.dataset.partnerId;
+  setFormMessage('partnerGallery');
+  try {
+    await uploadAdminPartnerPhoto(partnerId, file);
+    setFormMessage('partnerGallery', 'Фото добавлено в галерею.');
+    setPanelMessage('Фото добавлено в галерею партнёра.', 'success');
+  } catch (error) {
+    setFormMessage('partnerGallery', error.message || 'Не удалось загрузить фото в галерею.');
+    setPanelMessage(error.message || 'Не удалось загрузить фото в галерею.', 'error');
+  }
+  renderAdminLayout();
+};
+
+const handlePartnerPhotoInput = async (input) => {
+  const file = input.files?.[0];
+  if (!file) return;
+  setPartnerFormMessage('partnerGallery');
+  try {
+    await uploadPartnerPhoto(file);
+    setPartnerFormMessage('partnerGallery', 'Фото добавлено в галерею.');
+    setPartnerPanelMessage('Фото добавлено в галерею партнёра.', 'success');
+  } catch (error) {
+    setPartnerFormMessage('partnerGallery', error.message || 'Не удалось загрузить фото в галерею.');
+    setPartnerPanelMessage(error.message || 'Не удалось загрузить фото в галерею.', 'error');
+  }
+  renderPartnerLayout();
+};
+
+const handleAdminGalleryFormSubmit = async (form) => {
+  setFormMessage('partnerGallery');
+  try {
+    await submitAdminPartnerPhoto(form);
+    setFormMessage('partnerGallery', 'Фото обновлено.');
+    setPanelMessage('Настройки фото сохранены.', 'success');
+  } catch (error) {
+    setFormMessage('partnerGallery', error.message || 'Не удалось сохранить фото.');
+    setPanelMessage(error.message || 'Не удалось сохранить фото.', 'error');
+  }
+  renderAdminLayout();
+};
+
+const handlePartnerGalleryFormSubmit = async (form) => {
+  setPartnerFormMessage('partnerGallery');
+  try {
+    await submitPartnerPhoto(form);
+    setPartnerFormMessage('partnerGallery', 'Фото обновлено.');
+    setPartnerPanelMessage('Настройки фото сохранены.', 'success');
+  } catch (error) {
+    setPartnerFormMessage('partnerGallery', error.message || 'Не удалось сохранить фото.');
+    setPartnerPanelMessage(error.message || 'Не удалось сохранить фото.', 'error');
+  }
+  renderPartnerLayout();
+};
+
 const handleAdminPartnerImageInput = async (input) => {
   const file = input.files?.[0];
   if (!file) return;
@@ -3461,6 +3666,18 @@ const handlePartnerOfferImageInput = async (input) => {
 };
 
 root.addEventListener('change', (event) => {
+  const adminPhotoInput = event.target.closest('[data-admin-partner-photo-upload]');
+  if (adminPhotoInput) {
+    handleAdminPartnerPhotoInput(adminPhotoInput);
+    return;
+  }
+
+  const partnerPhotoInput = event.target.closest('[data-partner-photo-upload]');
+  if (partnerPhotoInput) {
+    handlePartnerPhotoInput(partnerPhotoInput);
+    return;
+  }
+
   const adminImageInput = event.target.closest('[data-admin-partner-image-upload]');
   if (adminImageInput) {
     handleAdminPartnerImageInput(adminImageInput);
@@ -3515,6 +3732,20 @@ root.addEventListener('submit', (event) => {
   if (login) {
     event.preventDefault();
     handleLoginSubmit(login);
+    return;
+  }
+
+  const adminGalleryForm = event.target.closest('[data-admin-gallery-form]');
+  if (adminGalleryForm) {
+    event.preventDefault();
+    handleAdminGalleryFormSubmit(adminGalleryForm);
+    return;
+  }
+
+  const partnerGalleryForm = event.target.closest('[data-partner-gallery-form]');
+  if (partnerGalleryForm) {
+    event.preventDefault();
+    handlePartnerGalleryFormSubmit(partnerGalleryForm);
     return;
   }
 
