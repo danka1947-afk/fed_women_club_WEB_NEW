@@ -292,3 +292,126 @@ def test_admin_partners_list_supports_q_search(admin_client: TestClient, admin_t
     assert response.status_code == 200
     data = response.json()
     assert [partner["name"] for partner in data] == ["Alpha Beauty"]
+
+TINY_PNG_BYTES = (
+    b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
+    b"\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\x0cIDATx\x9cc``\x00\x00"
+    b"\x00\x04\x00\x01\xf6\x178U\x00\x00\x00\x00IEND\xaeB`\x82"
+)
+TINY_JPEG_BYTES = b"\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01\x01\x01\x00H\x00H\x00\x00\xff\xd9"
+TINY_WEBP_BYTES = b"RIFF\x0c\x00\x00\x00WEBPVP8 \x00\x00\x00\x00"
+
+
+def _upload_file(content: bytes, filename: str, content_type: str) -> dict[str, tuple[str, bytes, str]]:
+    return {"file": (filename, content, content_type)}
+
+
+def test_admin_uploads_valid_png_logo_updates_partner(admin_client: TestClient, admin_token: str) -> None:
+    response = admin_client.post(
+        "/api/v1/admin/partners/1/images?kind=logo",
+        headers=_auth_headers(admin_token),
+        files=_upload_file(TINY_PNG_BYTES, "ignored-original-name.png", "image/png"),
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["kind"] == "logo"
+    assert data["url"].startswith("/uploads/partners/1/logo-")
+    assert data["url"].endswith(".png")
+
+    partner_response = admin_client.get("/api/v1/admin/partners/1", headers=_auth_headers(admin_token))
+    assert partner_response.status_code == 200
+    assert partner_response.json()["logo_url"] == data["url"]
+
+
+def test_admin_uploads_valid_jpeg_and_webp_logo(admin_client: TestClient, admin_token: str) -> None:
+    jpeg_response = admin_client.post(
+        "/api/v1/admin/partners/1/images?kind=logo",
+        headers=_auth_headers(admin_token),
+        files=_upload_file(TINY_JPEG_BYTES, "logo.jpeg", "image/jpeg"),
+    )
+    assert jpeg_response.status_code == 200
+    assert jpeg_response.json()["url"].endswith(".jpg")
+
+    webp_response = admin_client.post(
+        "/api/v1/admin/partners/1/images?kind=logo",
+        headers=_auth_headers(admin_token),
+        files=_upload_file(TINY_WEBP_BYTES, "logo.webp", "image/webp"),
+    )
+    assert webp_response.status_code == 200
+    assert webp_response.json()["url"].endswith(".webp")
+
+
+def test_admin_uploads_cover_updates_cover_url(admin_client: TestClient, admin_token: str) -> None:
+    response = admin_client.post(
+        "/api/v1/admin/partners/1/images?kind=cover",
+        headers=_auth_headers(admin_token),
+        files=_upload_file(TINY_PNG_BYTES, "cover.png", "image/png"),
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["kind"] == "cover"
+    assert data["url"].startswith("/uploads/partners/1/cover-")
+
+    partner_response = admin_client.get("/api/v1/admin/partners/1", headers=_auth_headers(admin_token))
+    assert partner_response.json()["cover_url"] == data["url"]
+
+
+def test_admin_upload_rejects_invalid_kind(admin_client: TestClient, admin_token: str) -> None:
+    response = admin_client.post(
+        "/api/v1/admin/partners/1/images?kind=gallery",
+        headers=_auth_headers(admin_token),
+        files=_upload_file(TINY_PNG_BYTES, "logo.png", "image/png"),
+    )
+
+    assert response.status_code == 400
+
+
+def test_admin_upload_rejects_invalid_content_type(admin_client: TestClient, admin_token: str) -> None:
+    response = admin_client.post(
+        "/api/v1/admin/partners/1/images?kind=logo",
+        headers=_auth_headers(admin_token),
+        files=_upload_file(b"<svg></svg>", "logo.svg", "image/svg+xml"),
+    )
+
+    assert response.status_code == 400
+
+
+def test_admin_upload_rejects_invalid_image_bytes(admin_client: TestClient, admin_token: str) -> None:
+    response = admin_client.post(
+        "/api/v1/admin/partners/1/images?kind=logo",
+        headers=_auth_headers(admin_token),
+        files=_upload_file(b"not an image", "logo.png", "image/png"),
+    )
+
+    assert response.status_code == 400
+
+
+def test_admin_upload_rejects_too_large_file(admin_client: TestClient, admin_token: str) -> None:
+    response = admin_client.post(
+        "/api/v1/admin/partners/1/images?kind=logo",
+        headers=_auth_headers(admin_token),
+        files=_upload_file(b"\x89PNG\r\n\x1a\n" + (b"0" * (5 * 1024 * 1024)), "logo.png", "image/png"),
+    )
+
+    assert response.status_code == 400
+
+
+def test_admin_upload_rejects_unauthorized_request(admin_client: TestClient) -> None:
+    response = admin_client.post(
+        "/api/v1/admin/partners/1/images?kind=logo",
+        files=_upload_file(TINY_PNG_BYTES, "logo.png", "image/png"),
+    )
+
+    assert response.status_code == 401
+
+
+def test_admin_upload_missing_partner_returns_404(admin_client: TestClient, admin_token: str) -> None:
+    response = admin_client.post(
+        "/api/v1/admin/partners/999/images?kind=logo",
+        headers=_auth_headers(admin_token),
+        files=_upload_file(TINY_PNG_BYTES, "logo.png", "image/png"),
+    )
+
+    assert response.status_code == 404

@@ -761,6 +761,45 @@ const renderLandingPartnerImage = (partner) => {
   return `<div class="landing-partner-cover" style="background-image: url('${escapeHtml(coverUrl)}')" aria-hidden="true"></div>`;
 };
 
+const renderSafePartnerImagePreview = (url, kind, label) => {
+  const safeUrl = isSafePublicAssetUrl(url) ? url : '';
+  const modifier = kind === 'cover' ? 'partner-image-preview--cover' : 'partner-image-preview--logo';
+  return safeUrl
+    ? `<div class="partner-image-preview ${modifier}" style="background-image: url('${escapeHtml(safeUrl)}')" role="img" aria-label="${escapeHtml(label)}"></div>`
+    : `<div class="partner-image-preview ${modifier} partner-image-preview--placeholder" aria-label="${escapeHtml(label)}">${kind === 'cover' ? 'Обложка' : 'Лого'}</div>`;
+};
+
+const renderPartnerImageUploader = (partner, scope) => {
+  const logoInputAttr = scope === 'admin'
+    ? `data-admin-partner-image-upload="logo" data-partner-id="${escapeHtml(partner.id)}"`
+    : 'data-partner-image-upload="logo"';
+  const coverInputAttr = scope === 'admin'
+    ? `data-admin-partner-image-upload="cover" data-partner-id="${escapeHtml(partner.id)}"`
+    : 'data-partner-image-upload="cover"';
+  return `
+    <section class="partner-image-uploader">
+      <div class="admin-section-heading"><h4>${scope === 'admin' ? 'Изображения партнёра' : 'Фотографии профиля'}</h4><p>Загружайте JPG, PNG или WEBP до 5 МБ. В превью показываются только /uploads/ и /assets/.</p></div>
+      <div class="partner-image-grid">
+        <article>
+          <span>Логотип</span>
+          ${renderSafePartnerImagePreview(partner.logo_url, 'logo', 'Логотип партнёра')}
+          <div class="partner-upload-actions">
+            <label class="admin-inline-action">Загрузить логотип<input type="file" accept="image/jpeg,image/png,image/webp" ${logoInputAttr} /></label>
+          </div>
+        </article>
+        <article>
+          <span>Обложка</span>
+          ${renderSafePartnerImagePreview(partner.cover_url, 'cover', 'Обложка партнёра')}
+          <div class="partner-upload-actions">
+            <label class="admin-inline-action">Загрузить обложку<input type="file" accept="image/jpeg,image/png,image/webp" ${coverInputAttr} /></label>
+          </div>
+        </article>
+      </div>
+      <p class="form-message upload-status" data-${scope === 'admin' ? 'form-message="partnerImage"' : 'partner-form-message="profileImages"'}>${escapeHtml(scope === 'admin' ? (adminState.formMessages.partnerImage || '') : (partnerState.formMessages.profileImages || ''))}</p>
+    </section>
+  `;
+};
+
 const renderLandingPartnerCard = (partner) => {
   const offers = Array.isArray(partner?.offers) ? partner.offers : [];
   const firstOffer = offers[0] || null;
@@ -894,7 +933,7 @@ const apiFetch = async (path, options = {}) => {
     headers.set('Authorization', `Bearer ${token}`);
   }
 
-  if (options.body && !headers.has('Content-Type')) {
+  if (options.body && !(options.body instanceof FormData) && !headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json');
   }
 
@@ -939,7 +978,7 @@ const partnerApiFetch = async (path, options = {}) => {
     headers.set('Authorization', `Bearer ${token}`);
   }
 
-  if (options.body && !headers.has('Content-Type')) {
+  if (options.body && !(options.body instanceof FormData) && !headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json');
   }
 
@@ -1318,8 +1357,9 @@ const renderPartnerProfileTab = () => {
         <label>Сайт<input name="website_url" value="${escapeHtml(profile.website_url || '')}" /></label>
         <label>Соцсеть<input name="social_url" value="${escapeHtml(profile.social_url || '')}" /></label>
         <label>График работы<input name="working_hours" value="${escapeHtml(profile.working_hours || '')}" /></label>
-        <label>Логотип<input name="logo_url" value="${escapeHtml(profile.logo_url || '')}" /></label>
-        <label>Обложка<input name="cover_url" value="${escapeHtml(profile.cover_url || '')}" /></label>
+        ${renderPartnerImageUploader(profile, 'partner')}
+        <label>Логотип URL<input name="logo_url" value="${escapeHtml(profile.logo_url || '')}" /></label>
+        <label>Обложка URL<input name="cover_url" value="${escapeHtml(profile.cover_url || '')}" /></label>
         <button type="submit">Сохранить профиль</button>
         <p class="form-message" data-partner-form-message="profile">${escapeHtml(partnerState.formMessages.profile || '')}</p>
       </form>
@@ -1779,6 +1819,7 @@ const renderPartnerEditForm = () => {
       <label>Соцсеть<input name="social_url" value="${escapeHtml(partner.social_url || '')}" /></label>
       <label class="checkbox-row"><input name="is_active" type="checkbox" ${partner.is_active ? 'checked' : ''} /> Активен</label>
       <label class="checkbox-row"><input name="is_verified" type="checkbox" ${partner.is_verified ? 'checked' : ''} /> Проверен</label>
+      ${renderPartnerImageUploader(partner, 'admin')}
       <div class="admin-form-actions">
         <button type="submit">Сохранить изменения</button>
         <button class="admin-inline-action" type="button" data-admin-partner-edit-cancel>Отмена</button>
@@ -2529,6 +2570,35 @@ const submitQrEdit = async (form) => {
   await loadLeads();
 };
 
+const uploadAdminPartnerImage = async (partnerId, kind, file) => {
+  const body = new FormData();
+  body.append('file', file);
+  const response = await apiFetch(`/api/v1/admin/partners/${partnerId}/images?kind=${kind}`, {
+    method: 'POST',
+    body,
+  });
+  await loadPartners();
+  const selectedPartner = adminState.partners.find((item) => String(item.id) === String(partnerId));
+  if (selectedPartner && response?.url) {
+    selectedPartner[`${kind}_url`] = response.url;
+  }
+  return response;
+};
+
+const uploadPartnerProfileImage = async (kind, file) => {
+  const body = new FormData();
+  body.append('file', file);
+  const response = await partnerApiFetch(`/api/v1/partners/me/images?kind=${kind}`, {
+    method: 'POST',
+    body,
+  });
+  if (partnerState.profile && response?.url) {
+    partnerState.profile[`${kind}_url`] = response.url;
+  }
+  await loadPartnerProfile();
+  return response;
+};
+
 const handleAdminFormSubmit = async (form) => {
   const formType = form.dataset.adminForm;
   const message = form.querySelector(`[data-form-message="${formType}"]`);
@@ -2984,7 +3054,53 @@ root.addEventListener('input', (event) => {
   });
 });
 
+
+const handleAdminPartnerImageInput = async (input) => {
+  const file = input.files?.[0];
+  if (!file) return;
+  const kind = input.dataset.adminPartnerImageUpload;
+  const partnerId = input.dataset.partnerId;
+  setFormMessage('partnerImage');
+  try {
+    await uploadAdminPartnerImage(partnerId, kind, file);
+    setFormMessage('partnerImage', 'Фото обновлено.');
+    setPanelMessage('Фото партнёра обновлено.', 'success');
+  } catch (error) {
+    setFormMessage('partnerImage', error.message || 'Не удалось загрузить фото.');
+    setPanelMessage(error.message || 'Не удалось загрузить фото.', 'error');
+  }
+  renderAdminLayout();
+};
+
+const handlePartnerProfileImageInput = async (input) => {
+  const file = input.files?.[0];
+  if (!file) return;
+  const kind = input.dataset.partnerImageUpload;
+  setPartnerFormMessage('profileImages');
+  try {
+    await uploadPartnerProfileImage(kind, file);
+    setPartnerFormMessage('profileImages', 'Фото обновлено.');
+    setPartnerPanelMessage('Фото обновлено.', 'success');
+  } catch (error) {
+    setPartnerFormMessage('profileImages', error.message || 'Не удалось загрузить фото.');
+    setPartnerPanelMessage(error.message || 'Не удалось загрузить фото.', 'error');
+  }
+  renderPartnerLayout();
+};
+
 root.addEventListener('change', (event) => {
+  const adminImageInput = event.target.closest('[data-admin-partner-image-upload]');
+  if (adminImageInput) {
+    handleAdminPartnerImageInput(adminImageInput);
+    return;
+  }
+
+  const partnerImageInput = event.target.closest('[data-partner-image-upload]');
+  if (partnerImageInput) {
+    handlePartnerProfileImageInput(partnerImageInput);
+    return;
+  }
+
   const picker = event.target.closest('[data-partner-picker]');
   if (!picker) {
     return;

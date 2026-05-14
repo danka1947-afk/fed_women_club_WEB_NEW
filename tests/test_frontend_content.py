@@ -1100,3 +1100,21 @@ def test_public_landing_uses_safe_public_partner_fetches_and_images() -> None:
     assert 'url("/assets/hero-woman.jpg")' not in styles
     assert "startsWith('/assets/')" in source
     assert "startsWith('/uploads/')" in source
+
+
+def test_frontend_contains_partner_logo_cover_upload_markers() -> None:
+    source = _frontend_main()
+    styles = _frontend_styles()
+
+    for expected in (
+        "Загрузить логотип",
+        "Загрузить обложку",
+        "Фотографии профиля",
+        "Изображения партнёра",
+        "/api/v1/admin/partners/${partnerId}/images?kind=${kind}",
+        "/api/v1/partners/me/images?kind=${kind}",
+        "partner-image-uploader",
+        "partner-image-preview",
+        "/uploads/",
+    ):
+        assert expected in source or expected in styles
