@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from decimal import Decimal
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -42,6 +42,7 @@ from app.schemas.admin import (
     PartnerUpdate,
 )
 from app.schemas.auth import AdminUserRead
+from app.services.image_uploads import save_partner_image_upload, validate_image_kind
 from app.services.qr_links import (
     generate_qr_slug,
     is_valid_qr_slug,
@@ -457,6 +458,23 @@ def update_admin_partner(
     db.commit()
     db.refresh(partner)
     return _get_partner_read_or_404(db, partner.id)
+
+
+@router.post("/partners/{partner_id}/images")
+async def upload_admin_partner_image(
+    partner_id: int,
+    kind: str,
+    file: UploadFile = File(...),
+    admin: AdminUser = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> dict[str, str]:
+    _ = admin
+    partner = _ensure_partner_exists(db, partner_id)
+    normalized_kind = validate_image_kind(kind)
+    image_url = await save_partner_image_upload(partner.id, normalized_kind, file)
+    setattr(partner, f"{normalized_kind}_url", image_url)
+    db.commit()
+    return {"url": image_url, "kind": normalized_kind}
 
 
 @router.post("/partners/{partner_id}/qr-links", response_model=PartnerQrLinkRead)

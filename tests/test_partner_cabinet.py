@@ -450,3 +450,53 @@ def test_partner_offer_patch_can_clear_optional_text_to_null(partner_client: Tes
     assert data["benefit_text"] is None
     assert data["conditions"] is None
     assert data["image_url"] == "https://example.com/new.png"
+
+TINY_PROFILE_PNG_BYTES = (
+    b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
+    b"\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\x0cIDATx\x9cc``\x00\x00"
+    b"\x00\x04\x00\x01\xf6\x178U\x00\x00\x00\x00IEND\xaeB`\x82"
+)
+
+
+def test_partner_uploads_own_logo_updates_own_profile(partner_client: TestClient) -> None:
+    token = _partner_token(partner_client)
+
+    response = partner_client.post(
+        "/api/v1/partners/me/images?kind=logo",
+        headers=_auth_headers(token),
+        files={"file": ("logo.png", TINY_PROFILE_PNG_BYTES, "image/png")},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["kind"] == "logo"
+    assert data["url"].startswith("/uploads/partners/1/logo-")
+
+    profile_response = partner_client.get("/api/v1/partners/me", headers=_auth_headers(token))
+    assert profile_response.json()["logo_url"] == data["url"]
+
+
+def test_partner_uploads_me_endpoint_does_not_update_another_partner(partner_client: TestClient, admin_token: str) -> None:
+    token = _partner_token(partner_client)
+
+    response = partner_client.post(
+        "/api/v1/partners/me/images?kind=cover",
+        headers=_auth_headers(token),
+        files={"file": ("cover.png", TINY_PROFILE_PNG_BYTES, "image/png")},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["url"].startswith("/uploads/partners/1/cover-")
+
+    other_response = partner_client.get("/api/v1/admin/partners/2", headers=_auth_headers(admin_token))
+    assert other_response.status_code == 200
+    assert other_response.json()["cover_url"] is None
+
+
+def test_partner_upload_rejects_unauthorized_request(partner_client: TestClient) -> None:
+    response = partner_client.post(
+        "/api/v1/partners/me/images?kind=logo",
+        files={"file": ("logo.png", TINY_PROFILE_PNG_BYTES, "image/png")},
+    )
+
+    assert response.status_code == 401

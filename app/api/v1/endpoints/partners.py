@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from decimal import Decimal
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -15,6 +15,7 @@ from app.models.lead import LeadClick
 from app.models.partner import Partner, PartnerOffer, PartnerQrLink
 from app.models.verification import PrivilegeVerificationSession, PrivilegeVerificationStatus
 from app.models.user import User
+from app.services.image_uploads import save_partner_image_upload, validate_image_kind
 from app.schemas.partner import (
     ConfirmVerificationResponse,
     PartnerOfferCreate,
@@ -70,6 +71,21 @@ def update_partner_me(
     db.commit()
     db.refresh(partner)
     return _get_partner_profile_read(db, partner.id)
+
+
+@router.post("/me/images")
+async def upload_partner_me_image(
+    kind: str,
+    file: UploadFile = File(...),
+    current_user: User = Depends(require_partner),
+    db: Session = Depends(get_db),
+) -> dict[str, str]:
+    partner = _get_current_partner_or_404(db, current_user.id)
+    normalized_kind = validate_image_kind(kind)
+    image_url = await save_partner_image_upload(partner.id, normalized_kind, file)
+    setattr(partner, f"{normalized_kind}_url", image_url)
+    db.commit()
+    return {"url": image_url, "kind": normalized_kind}
 
 
 @router.get("/me/qr-links", response_model=list[PartnerQrLinkRead])
