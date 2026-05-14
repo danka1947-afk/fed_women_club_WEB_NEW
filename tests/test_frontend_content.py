@@ -1028,10 +1028,12 @@ def test_public_landing_contains_smm_hero_menu_directions_and_partner_modal() ->
     styles = _frontend_styles()
 
     for expected in (
-        "hero-visual",
-        "hero-visual-card",
-        "hero-visual-image",
-        "hero-visual-caption",
+        "hero-card",
+        "для себя",
+        "Красота, забота и вдохновение",
+        "Скидки, подарки и специальные предложения у партнёров клуба.",
+        "formatPartnerBenefit",
+        "Специальное предложение",
         "landing-menu",
         "landing-menu-toggle",
         "landing-menu-panel",
@@ -1065,9 +1067,8 @@ def test_public_landing_contains_smm_hero_menu_directions_and_partner_modal() ->
         assert expected in source or expected in styles
 
     for expected_style in (
-        ".hero-visual",
-        ".hero-visual-card",
-        ".hero-visual-image",
+        ".hero-card",
+        ".pill",
         ".landing-menu-panel",
         ".landing-direction-button",
         ".landing-partner-modal",
@@ -1075,6 +1076,12 @@ def test_public_landing_contains_smm_hero_menu_directions_and_partner_modal() ->
         ".landing-carousel-button",
     ):
         assert expected_style in styles
+
+    assert "Красота, забота и привилегии рядом с вами" not in source
+    assert "hero-visual" not in source
+    assert "hero-visual-image" not in styles
+    assert "1E+1" not in source
+    assert "-1E+1%" not in source
 
 
 def test_public_landing_uses_safe_public_partner_fetches_and_images() -> None:
@@ -1087,8 +1094,9 @@ def test_public_landing_uses_safe_public_partner_fetches_and_images() -> None:
     assert "/api/v1/public/landing/partners" in source
     assert "/api/v1/admin/partners" not in public_landing_source
     assert "/api/v1/clients/catalog/partners" not in public_landing_source
-    assert "http://" not in _css_block(styles, ".hero-visual-image")
-    assert "https://" not in _css_block(styles, ".hero-visual-image")
-    assert 'url("/assets/hero-woman.jpg")' in styles
+    assert "Красота, забота и привилегии рядом с вами" not in source
+    assert "hero-visual" not in source
+    assert "hero-visual-image" not in styles
+    assert 'url("/assets/hero-woman.jpg")' not in styles
     assert "startsWith('/assets/')" in source
     assert "startsWith('/uploads/')" in source

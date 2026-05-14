@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import re
 
 from decimal import Decimal
 
@@ -45,17 +46,35 @@ def _normalize_slug_query_value(value: str | None) -> str | None:
     return normalized or None
 
 
+_SCIENTIFIC_NOTATION_PATTERN = re.compile(r"[+-]?\d+(?:[.,]\d+)?e[+-]?\d+%?", re.IGNORECASE)
+PUBLIC_OFFER_BENEFIT_FALLBACK = "Специальное предложение"
+
+
+def _has_scientific_notation(value: str | None) -> bool:
+    return bool(value and _SCIENTIFIC_NOTATION_PATTERN.search(value.strip()))
+
+
 def _format_discount_percent(value: Decimal | None) -> str | None:
     if value is None:
         return None
-    normalized = value.normalize()
-    return f"-{normalized}%"
+    normalized = value.copy_abs().normalize()
+    formatted = format(normalized, "f")
+    if "." in formatted:
+        formatted = formatted.rstrip("0").rstrip(".")
+    return f"-{formatted}%" if formatted else None
+
+
+def format_public_offer_benefit(benefit_text: str | None, discount_percent: Decimal | None) -> str:
+    normalized_benefit = (benefit_text or "").strip()
+    if normalized_benefit and not _has_scientific_notation(normalized_benefit):
+        return normalized_benefit
+    return _format_discount_percent(discount_percent) or PUBLIC_OFFER_BENEFIT_FALLBACK
 
 
 def _public_landing_offer_to_read(offer: PartnerOffer) -> PublicLandingPartnerOffer:
     return PublicLandingPartnerOffer(
         title=offer.title,
-        discount_text=offer.benefit_text or _format_discount_percent(offer.discount_percent),
+        discount_text=format_public_offer_benefit(offer.benefit_text, offer.discount_percent),
         description=offer.description,
         terms=offer.conditions,
     )

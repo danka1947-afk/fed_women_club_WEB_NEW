@@ -84,9 +84,24 @@ def public_client() -> Generator[TestClient, None, None]:
                 PartnerOffer(
                     partner_id=partners[5].id,
                     title="Пробная тренировка",
+                    benefit_text="-1E+1%",
                     discount_percent=Decimal("10"),
                     is_active=True,
                     sort_order=10,
+                ),
+                PartnerOffer(
+                    partner_id=partners[5].id,
+                    title="Подарок клуба",
+                    benefit_text="Подарок",
+                    is_active=True,
+                    sort_order=20,
+                ),
+                PartnerOffer(
+                    partner_id=partners[5].id,
+                    title="Особые условия",
+                    benefit_text="2E+1",
+                    is_active=True,
+                    sort_order=30,
                 ),
             ]
         )
@@ -134,6 +149,38 @@ def test_public_landing_partners_returns_only_safe_active_public_data(public_cli
     serialized = str(item)
     for forbidden_key in ("owner_user_id", "owner_email", "phone", "social_url"):
         assert forbidden_key not in serialized
+
+
+def test_public_landing_partners_formats_offer_benefits_without_scientific_notation(public_client: TestClient) -> None:
+    response = public_client.get("/api/v1/public/landing/partners?category_slug=fitnes-yoga&city_slug=cherepovets")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert [item["name"] for item in data["items"]] == ["Yoga Active"]
+    offers = data["items"][0]["offers"]
+    assert offers == [
+        {
+            "title": "Пробная тренировка",
+            "discount_text": "-10%",
+            "description": None,
+            "terms": None,
+        },
+        {
+            "title": "Подарок клуба",
+            "discount_text": "Подарок",
+            "description": None,
+            "terms": None,
+        },
+        {
+            "title": "Особые условия",
+            "discount_text": "Специальное предложение",
+            "description": None,
+            "terms": None,
+        },
+    ]
+    serialized = str(data)
+    assert "1E+1" not in serialized
+    assert "-1E+1%" not in serialized
 
 
 def test_public_landing_partners_excludes_inactive_unverified_and_inactive_relations(public_client: TestClient) -> None:

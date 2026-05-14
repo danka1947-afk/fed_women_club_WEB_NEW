@@ -184,12 +184,11 @@ const renderPublicApp = () => {
           </div>
         </section>
 
-        <aside class="hero-visual" aria-label="Визуальная карточка клуба">
-          <div class="hero-visual-card">
-            <div class="hero-visual-image" role="img" aria-label="Нежный beauty-образ клуба"></div>
-            <p class="hero-visual-caption">Красота, забота и привилегии рядом с вами</p>
-          </div>
-        </aside>
+        <div class="hero-card">
+          <span class="pill">для себя</span>
+          <h2>Красота, забота и вдохновение</h2>
+          <p>Скидки, подарки и специальные предложения у партнёров клуба.</p>
+        </div>
       </div>
     </header>
 
@@ -505,6 +504,25 @@ const formatValue = (value) => {
   if (value === null || value === undefined || value === '') return '—';
   return escapeHtml(value);
 };
+const hasScientificNotation = (value) => /[+-]?\d+(?:[.,]\d+)?e[+-]?\d+%?/i.test(String(value || ''));
+const formatDiscountPercent = (value) => {
+  if (value === null || value === undefined || value === '') return '';
+  const normalized = Number(String(value).replace(',', '.'));
+  if (!Number.isFinite(normalized)) return '';
+  const formatted = Math.abs(normalized).toLocaleString('ru-RU', {
+    maximumFractionDigits: 2,
+    useGrouping: false,
+  });
+  return `-${formatted}%`;
+};
+const formatPartnerBenefit = (offer) => {
+  const benefitText = String(offer?.discount_text || offer?.benefit_text || '').trim();
+  if (benefitText && !hasScientificNotation(benefitText)) {
+    return benefitText;
+  }
+  return formatDiscountPercent(offer?.discount_percent) || 'Специальное предложение';
+};
+
 const renderDisplayValue = (value) => String(value || '').startsWith('<span class="status-badge') ? value : formatValue(value);
 const formatDate = (value) => (value ? new Date(value).toLocaleString('ru-RU') : '—');
 
@@ -761,7 +779,7 @@ const renderLandingPartnerCard = (partner) => {
         <p>${escapeHtml(partner?.address || 'Адрес появится в карточке партнёра')}</p>
         ${firstOffer ? `
           <div class="landing-partner-offer">
-            <strong>${escapeHtml(firstOffer.discount_text || firstOffer.title)}</strong>
+            <strong>${escapeHtml(formatPartnerBenefit(firstOffer))}</strong>
             <span>${escapeHtml(firstOffer.title)}</span>
             <p>${escapeHtml(firstOffer.description || 'Подробности привилегии уточняйте у партнёра.')}</p>
             ${firstOffer.terms ? `<small>${escapeHtml(firstOffer.terms)}</small>` : ''}
