@@ -1178,13 +1178,17 @@ def test_frontend_contains_offer_marketplace_cards() -> None:
         "Базовая цена",
         "Скидка, %",
         "Получить привилегию",
+        "Карточка привилегии партнёра",
         "Фото услуги",
         "Специальное предложение",
+        "/uploads/offer.webp",
+        "/assets/offer.webp",
     ):
         assert expected in source or expected in styles
 
     assert "startsWith('/uploads/')" in source
     assert "startsWith('/assets/')" in source
+    assert "image_url: getOptionalText(formData, 'image_url')" in source
     assert "partner-marketplace-card" in source or "partner-marketplace-card" in styles
     assert "Загрузить логотип" in source
     assert "Загрузить обложку" in source
