@@ -42,7 +42,7 @@ from app.schemas.admin import (
     PartnerUpdate,
 )
 from app.schemas.auth import AdminUserRead
-from app.services.image_uploads import save_partner_image_upload, validate_image_kind
+from app.services.image_uploads import save_partner_image_upload, save_partner_offer_image_upload, validate_image_kind
 from app.services.qr_links import (
     generate_qr_slug,
     is_valid_qr_slug,
@@ -644,6 +644,24 @@ def get_admin_partner_offer(
 ) -> PartnerOfferRead:
     _ = admin
     return _get_partner_offer_read_or_404(db, offer_id)
+
+
+@router.post("/offers/{offer_id}/image")
+async def upload_admin_partner_offer_image(
+    offer_id: int,
+    file: UploadFile = File(...),
+    admin: AdminUser = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> dict[str, str]:
+    _ = admin
+    offer = db.get(PartnerOffer, offer_id)
+    if offer is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Offer not found")
+
+    image_url = await save_partner_offer_image_upload(offer.partner_id, offer.id, file)
+    offer.image_url = image_url
+    db.commit()
+    return {"url": image_url}
 
 
 @router.patch("/offers/{offer_id}", response_model=PartnerOfferRead)

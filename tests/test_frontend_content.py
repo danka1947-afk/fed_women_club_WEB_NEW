@@ -1210,3 +1210,55 @@ def test_frontend_contains_offer_marketplace_cards() -> None:
     ):
         assert removed_marker not in source
         assert removed_marker not in styles
+
+
+def test_frontend_contains_safe_offer_image_upload_markers() -> None:
+    source = _frontend_main()
+    styles = _frontend_styles()
+
+    for expected in (
+        "Фото предложения",
+        "Загрузить фото предложения",
+        "Сначала сохраните предложение, затем загрузите фото.",
+        "/api/v1/admin/offers/",
+        "/image",
+        "/api/v1/partners/me/offers/",
+        "offer-image-uploader",
+        "offer-image-preview",
+        "offer-image-upload-actions",
+        "offer-image-status",
+        "/uploads/",
+        "renderOfferMarketplaceCard",
+        "offer-marketplace-card",
+        "offer-marketplace-image",
+        "Загрузить логотип",
+        "Загрузить обложку",
+        "partner-image-uploader",
+        "partner-image-preview",
+        "/api/v1/public/landing/partners",
+        "data-landing-partner-modal",
+        "landing-directions",
+        "setup_token",
+        "womenClubAdminAccessToken",
+        "womenclub_partner_token",
+        "womenclub_client_token",
+        "dashboard-shell",
+        "dashboard-topbar",
+        "dashboard-sidebar",
+        "dashboard-main",
+    ):
+        assert expected in source or expected in styles
+
+    assert "startsWith('/uploads/')" in source
+    assert "startsWith('/assets/')" in source
+
+    for removed_marker in (
+        "reference-lotus-layer",
+        "lotus-layer",
+        "lotus-decor",
+        "--user-lotus-reference-svg",
+        "--lotus-reference-background",
+        "/assets/lotus-bg.png",
+    ):
+        assert removed_marker not in source
+        assert removed_marker not in styles

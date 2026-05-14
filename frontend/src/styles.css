@@ -2633,6 +2633,58 @@ body.is-dashboard {
   color: var(--color-rose-dark);
 }
 
+.offer-image-uploader {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid rgba(201, 130, 120, 0.24);
+  border-radius: 22px;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.72), rgba(255, 247, 245, 0.86));
+  box-shadow: 0 14px 36px rgba(201, 130, 120, 0.1);
+}
+
+.offer-image-preview {
+  display: grid;
+  min-height: 160px;
+  aspect-ratio: 16 / 9;
+  place-items: center;
+  overflow: hidden;
+  border: 1px dashed rgba(201, 130, 120, 0.38);
+  border-radius: 20px;
+  background-color: rgba(255, 250, 248, 0.92);
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+  color: var(--color-muted);
+  font-weight: 900;
+}
+
+.offer-image-preview--placeholder {
+  background:
+    radial-gradient(circle at 28% 24%, rgba(246, 216, 210, 0.78), transparent 7rem),
+    linear-gradient(135deg, rgba(255, 250, 248, 0.94), rgba(246, 216, 210, 0.52));
+}
+
+.offer-image-upload-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.offer-image-upload-actions input[type="file"],
+.admin-inline-action input[type="file"] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+
+.offer-image-status {
+  color: var(--color-rose-dark);
+}
+
 @media (max-width: 720px) {
   .partner-image-grid {
     grid-template-columns: 1fr;

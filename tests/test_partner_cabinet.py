@@ -500,3 +500,44 @@ def test_partner_upload_rejects_unauthorized_request(partner_client: TestClient)
     )
 
     assert response.status_code == 401
+
+
+def test_partner_uploads_own_offer_image_updates_offer(partner_client: TestClient) -> None:
+    token = _partner_token(partner_client)
+
+    response = partner_client.post(
+        "/api/v1/partners/me/offers/1/image",
+        headers=_auth_headers(token),
+        files={"file": ("ignored-original-name.png", TINY_PROFILE_PNG_BYTES, "image/png")},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert set(data) == {"url"}
+    assert data["url"].startswith("/uploads/partners/1/offers/1/offer-")
+    assert data["url"].endswith(".png")
+
+    offers_response = partner_client.get("/api/v1/partners/me/offers", headers=_auth_headers(token))
+    uploaded_offer = next(offer for offer in offers_response.json() if offer["id"] == 1)
+    assert uploaded_offer["image_url"] == data["url"]
+
+
+def test_partner_cannot_upload_another_partners_offer_image(partner_client: TestClient) -> None:
+    token = _partner_token(partner_client)
+
+    response = partner_client.post(
+        "/api/v1/partners/me/offers/4/image",
+        headers=_auth_headers(token),
+        files={"file": ("offer.png", TINY_PROFILE_PNG_BYTES, "image/png")},
+    )
+
+    assert response.status_code == 404
+
+
+def test_partner_offer_upload_rejects_unauthorized_request(partner_client: TestClient) -> None:
+    response = partner_client.post(
+        "/api/v1/partners/me/offers/1/image",
+        files={"file": ("offer.png", TINY_PROFILE_PNG_BYTES, "image/png")},
+    )
+
+    assert response.status_code == 401
