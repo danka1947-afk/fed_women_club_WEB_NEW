@@ -1118,3 +1118,42 @@ def test_frontend_contains_partner_logo_cover_upload_markers() -> None:
         "/uploads/",
     ):
         assert expected in source or expected in styles
+
+
+def test_frontend_contains_partner_marketplace_profile_preview() -> None:
+    source = _frontend_main()
+    styles = _frontend_styles()
+
+    for expected in (
+        "renderPartnerMarketplaceCard",
+        "partner-marketplace-card",
+        "partner-marketplace-cover",
+        "partner-marketplace-logo",
+        "partner-marketplace-body",
+        "partner-marketplace-meta",
+        "partner-marketplace-offer",
+        "partner-profile-layout",
+        "partner-profile-preview",
+        "partner-profile-settings",
+        "partner-profile-hints",
+        "Профиль партнёра",
+        "Настройте, как ваша карточка будет выглядеть",
+        "Так карточку увидит клиент",
+        "Название, город и категорию редактирует администратор",
+        "График работы",
+        "Витрина партнёра",
+        "Заполненность профиля",
+        "Загрузить логотип",
+        "Загрузить обложку",
+        "/api/v1/partners/me/images",
+        "/api/v1/admin/partners/",
+        "/images?kind=",
+        "working_hours",
+        "logo_url",
+        "cover_url",
+        "sort_order",
+    ):
+        assert expected in source or expected in styles
+
+    assert "startsWith('/uploads/')" in source
+    assert "startsWith('/assets/')" in source
