@@ -800,6 +800,117 @@ const renderPartnerImageUploader = (partner, scope) => {
   `;
 };
 
+const getPartnerPrimaryOffer = (partner, options = {}) => {
+  if (options.primaryOffer) {
+    return options.primaryOffer;
+  }
+  if (Array.isArray(options.offers) && options.offers.length) {
+    return options.offers[0];
+  }
+  if (Array.isArray(partner?.offers) && partner.offers.length) {
+    return partner.offers[0];
+  }
+  if (partner?.primary_offer || partner?.benefit_text || partner?.discount_text) {
+    return {
+      title: partner.primary_offer || 'Главная привилегия',
+      benefit_text: partner.benefit_text || partner.discount_text,
+      description: partner.offer_description,
+    };
+  }
+  return null;
+};
+
+const getPartnerMarketplaceCompleteness = (partner, options = {}) => {
+  const primaryOffer = getPartnerPrimaryOffer(partner, options);
+  const items = [
+    ['Обложка', isSafePublicAssetUrl(partner?.cover_url), 'Добавьте обложку'],
+    ['Логотип', isSafePublicAssetUrl(partner?.logo_url), 'Добавьте логотип'],
+    ['Описание', Boolean(String(partner?.description || '').trim()), 'Добавьте описание'],
+    ['Адрес', Boolean(String(partner?.address || '').trim()), 'Добавьте адрес'],
+    ['График', Boolean(String(partner?.working_hours || '').trim()), 'Добавьте график работы'],
+    ['Контакты', Boolean(String(partner?.phone || partner?.website_url || partner?.social_url || '').trim()), 'Добавьте контакты'],
+    ['Предложение', Boolean(primaryOffer), 'Добавьте предложение'],
+  ];
+  return {
+    items,
+    filled: items.filter(([, value]) => value).length,
+    total: items.length,
+    recommendations: items.filter(([, value]) => !value).map(([, , recommendation]) => recommendation),
+  };
+};
+
+const renderPartnerProfileHints = (partner, options = {}) => {
+  const completeness = getPartnerMarketplaceCompleteness(partner, options);
+  return `
+    <section class="partner-profile-hints">
+      <div>
+        <span class="section-kicker">Заполненность профиля</span>
+        <h4>Профиль заполнен на ${escapeHtml(completeness.filled)} из ${escapeHtml(completeness.total)}</h4>
+      </div>
+      <ul>
+        ${completeness.items.map(([label, isFilled, recommendation]) => `
+          <li class="${isFilled ? 'is-complete' : ''}">
+            <span>${isFilled ? '✓' : '＋'}</span>
+            ${escapeHtml(isFilled ? label : recommendation)}
+          </li>
+        `).join('')}
+      </ul>
+    </section>
+  `;
+};
+
+const renderPartnerMarketplaceCard = (partner = {}, options = {}) => {
+  const coverUrl = isSafePublicAssetUrl(partner.cover_url) ? partner.cover_url : '';
+  const logoUrl = isSafePublicAssetUrl(partner.logo_url) ? partner.logo_url : '';
+  const primaryOffer = getPartnerPrimaryOffer(partner, options);
+  const contactItems = [
+    ['Телефон', partner.phone],
+    ['Сайт', partner.website_url],
+    ['Соцсеть', partner.social_url],
+  ].filter(([, value]) => String(value || '').trim());
+  const cityAddress = [partner.city_name || partner.city, partner.address].filter(Boolean).join(' · ');
+
+  return `
+    <article class="partner-marketplace-card">
+      <div class="partner-marketplace-cover ${coverUrl ? '' : 'partner-marketplace-cover--placeholder'}" ${coverUrl ? `style="background-image: url('${escapeHtml(coverUrl)}')"` : ''} aria-hidden="true">
+        ${coverUrl ? '' : '<span>Обложка витрины</span>'}
+      </div>
+      <div class="partner-marketplace-body">
+        <div class="partner-marketplace-heading">
+          <div class="partner-marketplace-logo ${logoUrl ? '' : 'partner-marketplace-logo--placeholder'}" ${logoUrl ? `style="background-image: url('${escapeHtml(logoUrl)}')"` : ''} aria-hidden="true">${logoUrl ? '' : '♡'}</div>
+          <div>
+            <div class="partner-marketplace-badges">
+              ${partner.is_active === undefined ? '' : renderActiveStatusBadge(partner.is_active)}
+              ${partner.is_verified === undefined ? '' : renderVerifiedStatusBadge(partner.is_verified)}
+            </div>
+            <h3>${escapeHtml(partner.name || 'Название партнёра')}</h3>
+            <p class="partner-marketplace-category">${escapeHtml(formatPartnerCategory(partner))}</p>
+          </div>
+        </div>
+        <dl class="partner-marketplace-meta">
+          <div><dt>Город и адрес</dt><dd>${cityAddress ? escapeHtml(cityAddress) : 'Адрес появится в карточке'}</dd></div>
+          <div><dt>График работы</dt><dd>${escapeHtml(partner.working_hours || 'График работы появится после заполнения')}</dd></div>
+        </dl>
+        <p class="partner-marketplace-description">${escapeHtml(partner.description || 'Коротко расскажите, чем вы полезны участницам клуба и какую атмосферу получит клиент.')}</p>
+        ${contactItems.length ? `
+          <div class="partner-marketplace-contacts">
+            ${contactItems.map(([label, value]) => `<span><strong>${escapeHtml(label)}:</strong> ${escapeHtml(value)}</span>`).join('')}
+          </div>
+        ` : '<div class="partner-marketplace-contacts"><span>Добавьте телефон, сайт или соцсеть для связи</span></div>'}
+        <div class="partner-marketplace-offer">
+          <span>Главная выгода</span>
+          <strong>${escapeHtml(primaryOffer ? formatPartnerBenefit(primaryOffer) : 'Добавьте предложение')}</strong>
+          <small>${escapeHtml(primaryOffer?.title || primaryOffer?.description || 'Так клиент быстро поймёт, какую привилегию можно получить.')}</small>
+        </div>
+        <div class="partner-marketplace-cta">
+          <span>${escapeHtml(options.note || 'Так карточку увидит клиент')}</span>
+          <button type="button" disabled>${escapeHtml(options.cta || 'Получить привилегию')}</button>
+        </div>
+      </div>
+    </article>
+  `;
+};
+
 const renderLandingPartnerCard = (partner) => {
   const offers = Array.isArray(partner?.offers) ? partner.offers : [];
   const firstOffer = offers[0] || null;
@@ -1330,39 +1441,46 @@ const renderPartnerTabContent = () => {
 const renderPartnerProfileTab = () => {
   const profile = partnerState.profile || {};
   return `
-    <div class="admin-two-column admin-two-column--wide">
-      <div>
-        <div class="admin-section-heading"><h4>Профиль</h4><p>Основная информация партнёра и поля, доступные для самостоятельного обновления.</p></div>
+    <div class="admin-section-heading">
+      <h4>Профиль партнёра</h4>
+      <p>Настройте, как ваша карточка будет выглядеть для участниц клуба.</p>
+    </div>
+    <div class="partner-profile-layout">
+      <aside class="partner-profile-preview">
+        <span class="section-kicker">Preview витрины</span>
+        ${renderPartnerMarketplaceCard(profile, { offers: partnerState.offers, note: 'Так карточку увидит клиент' })}
+        ${renderPartnerProfileHints(profile, { offers: partnerState.offers })}
+      </aside>
+      <section class="partner-profile-settings">
         <div class="partner-profile-grid">
           ${[
             ['Название', profile.name],
             ['Город', profile.city_name],
             ['Категория', formatPartnerCategory(profile)],
-            ['Адрес', profile.address],
-            ['Телефон', profile.phone],
-            ['Сайт / соцсеть', profile.website_url || profile.social_url],
             ['Активность', renderBoolStatusBadge(profile.is_active)],
             ['Проверка', renderVerifiedStatusBadge(profile.is_verified)],
-            ['Описание', profile.description],
-            ['График', profile.working_hours],
           ].map(([label, value]) => `<article class="summary-card"><span>${escapeHtml(label)}</span><strong>${renderDisplayValue(value)}</strong></article>`).join('')}
         </div>
-      </div>
-      <form class="admin-form" data-partner-form="profile">
-        <h4>Обновить профиль</h4>
-        <p class="form-message">Название, город, категория, активность и проверка редактируются администратором.</p>
-        <label>Описание<textarea name="description" rows="4">${escapeHtml(profile.description || '')}</textarea></label>
-        <label>Адрес<input name="address" value="${escapeHtml(profile.address || '')}" /></label>
-        <label>Телефон<input name="phone" autocomplete="tel" value="${escapeHtml(profile.phone || '')}" /></label>
-        <label>Сайт<input name="website_url" value="${escapeHtml(profile.website_url || '')}" /></label>
-        <label>Соцсеть<input name="social_url" value="${escapeHtml(profile.social_url || '')}" /></label>
-        <label>График работы<input name="working_hours" value="${escapeHtml(profile.working_hours || '')}" /></label>
-        ${renderPartnerImageUploader(profile, 'partner')}
-        <label>Логотип URL<input name="logo_url" value="${escapeHtml(profile.logo_url || '')}" /></label>
-        <label>Обложка URL<input name="cover_url" value="${escapeHtml(profile.cover_url || '')}" /></label>
-        <button type="submit">Сохранить профиль</button>
-        <p class="form-message" data-partner-form-message="profile">${escapeHtml(partnerState.formMessages.profile || '')}</p>
-      </form>
+        <p class="form-message partner-profile-admin-note">Название, город и категорию редактирует администратор. Активность и проверка тоже контролируются администратором.</p>
+        <form class="admin-form" data-partner-form="profile">
+          <h4>Настройка витрины</h4>
+          <label>Описание<textarea name="description" rows="4">${escapeHtml(profile.description || '')}</textarea></label>
+          <label>Адрес<input name="address" value="${escapeHtml(profile.address || '')}" /></label>
+          <label>Телефон<input name="phone" autocomplete="tel" value="${escapeHtml(profile.phone || '')}" /></label>
+          <label>Сайт<input name="website_url" value="${escapeHtml(profile.website_url || '')}" /></label>
+          <label>Соцсеть<input name="social_url" value="${escapeHtml(profile.social_url || '')}" /></label>
+          <label>График работы<input name="working_hours" value="${escapeHtml(profile.working_hours || '')}" /></label>
+          ${renderPartnerImageUploader(profile, 'partner')}
+          <details class="partner-profile-advanced">
+            <summary>URL изображений</summary>
+            <p class="form-message">Основной способ обновления — кнопки загрузки. URL показывается для проверки и отправляется как раньше.</p>
+            <label>Логотип URL<input name="logo_url" value="${escapeHtml(profile.logo_url || '')}" readonly /></label>
+            <label>Обложка URL<input name="cover_url" value="${escapeHtml(profile.cover_url || '')}" readonly /></label>
+          </details>
+          <button type="submit">Сохранить профиль</button>
+          <p class="form-message" data-partner-form-message="profile">${escapeHtml(partnerState.formMessages.profile || '')}</p>
+        </form>
+      </section>
     </div>
   `;
 };
@@ -1806,26 +1924,41 @@ const renderPartnerEditForm = () => {
   }
 
   return `
-    <form class="admin-form" data-admin-form="partnerEdit" data-partner-id="${escapeHtml(partner.id)}">
-      <h4>Редактировать партнёра</h4>
-      <label>Город${renderSelect('city_id', adminState.cities.map((city) => [city.id, city.name]), true, partner.city_id)}</label>
-      <label>Категория${renderSelect('category_slug', adminState.categories.map((category) => [category.slug, category.title]), false, partner.category_slug)}</label>
-      <label>Владелец${renderSelect('owner_user_id', adminState.users.filter((item) => item.role === 'partner').map((item) => [item.id, item.email || item.phone || `Партнёр #${item.id}`]), false, partner.owner_user_id || '', 'Без владельца')}</label>
-      <label>Название<input name="name" required value="${escapeHtml(partner.name || '')}" /></label>
-      <label>Описание<textarea name="description" rows="3">${escapeHtml(partner.description || '')}</textarea></label>
-      <label>Адрес<input name="address" value="${escapeHtml(partner.address || '')}" /></label>
-      <label>Телефон<input name="phone" value="${escapeHtml(partner.phone || '')}" /></label>
-      <label>Сайт<input name="website_url" value="${escapeHtml(partner.website_url || '')}" /></label>
-      <label>Соцсеть<input name="social_url" value="${escapeHtml(partner.social_url || '')}" /></label>
-      <label class="checkbox-row"><input name="is_active" type="checkbox" ${partner.is_active ? 'checked' : ''} /> Активен</label>
-      <label class="checkbox-row"><input name="is_verified" type="checkbox" ${partner.is_verified ? 'checked' : ''} /> Проверен</label>
-      ${renderPartnerImageUploader(partner, 'admin')}
-      <div class="admin-form-actions">
-        <button type="submit">Сохранить изменения</button>
-        <button class="admin-inline-action" type="button" data-admin-partner-edit-cancel>Отмена</button>
-      </div>
-      <p class="form-message" data-form-message="partnerEdit">${escapeHtml(adminState.formMessages.partnerEdit || '')}</p>
-    </form>
+    <section class="partner-profile-layout partner-profile-layout--admin">
+      <aside class="partner-profile-preview">
+        <div class="admin-section-heading"><h4>Витрина партнёра</h4><p>Так администратор видит публичную marketplace-карточку партнёра.</p></div>
+        ${renderPartnerMarketplaceCard(partner, { note: 'Так карточку увидит клиент' })}
+        ${renderPartnerProfileHints(partner)}
+      </aside>
+      <form class="admin-form partner-profile-settings" data-admin-form="partnerEdit" data-partner-id="${escapeHtml(partner.id)}">
+        <h4>Редактировать партнёра</h4>
+        <label>Город${renderSelect('city_id', adminState.cities.map((city) => [city.id, city.name]), true, partner.city_id)}</label>
+        <label>Категория${renderSelect('category_slug', adminState.categories.map((category) => [category.slug, category.title]), false, partner.category_slug)}</label>
+        <label>Владелец${renderSelect('owner_user_id', adminState.users.filter((item) => item.role === 'partner').map((item) => [item.id, item.email || item.phone || `Партнёр #${item.id}`]), false, partner.owner_user_id || '', 'Без владельца')}</label>
+        <label>Название<input name="name" required value="${escapeHtml(partner.name || '')}" /></label>
+        <label>Описание<textarea name="description" rows="3">${escapeHtml(partner.description || '')}</textarea></label>
+        <label>Адрес<input name="address" value="${escapeHtml(partner.address || '')}" /></label>
+        <label>Телефон<input name="phone" value="${escapeHtml(partner.phone || '')}" /></label>
+        <label>Сайт<input name="website_url" value="${escapeHtml(partner.website_url || '')}" /></label>
+        <label>Соцсеть<input name="social_url" value="${escapeHtml(partner.social_url || '')}" /></label>
+        <label>График работы<input name="working_hours" value="${escapeHtml(partner.working_hours || '')}" /></label>
+        <label>Порядок сортировки<input name="sort_order" type="number" value="${escapeHtml(partner.sort_order ?? 0)}" /></label>
+        <label class="checkbox-row"><input name="is_active" type="checkbox" ${partner.is_active ? 'checked' : ''} /> Активен</label>
+        <label class="checkbox-row"><input name="is_verified" type="checkbox" ${partner.is_verified ? 'checked' : ''} /> Проверен</label>
+        ${renderPartnerImageUploader(partner, 'admin')}
+        <details class="partner-profile-advanced">
+          <summary>URL изображения</summary>
+          <p class="form-message">Загрузка логотипа и обложки — основной способ обновления изображений. Ручной URL оставлен как дополнительное поле для уже поддерживаемых /uploads/ и /assets/.</p>
+          <label>Логотип URL<input name="logo_url" value="${escapeHtml(partner.logo_url || '')}" /></label>
+          <label>Обложка URL<input name="cover_url" value="${escapeHtml(partner.cover_url || '')}" /></label>
+        </details>
+        <div class="admin-form-actions">
+          <button type="submit">Сохранить изменения</button>
+          <button class="admin-inline-action" type="button" data-admin-partner-edit-cancel>Отмена</button>
+        </div>
+        <p class="form-message" data-form-message="partnerEdit">${escapeHtml(adminState.formMessages.partnerEdit || '')}</p>
+      </form>
+    </section>
   `;
 };
 
@@ -2157,7 +2290,7 @@ const loadActivePartnerTabData = async () => {
 
   try {
     if (partnerState.activeTab === 'profile') {
-      await loadPartnerProfile();
+      await Promise.all([loadPartnerProfile(), loadPartnerOffers()]);
     } else if (partnerState.activeTab === 'offers') {
       await loadPartnerOffers();
     } else if (partnerState.activeTab === 'qr') {
@@ -2486,8 +2619,12 @@ const buildPartnerPayload = (formData) => ({
   phone: getOptionalText(formData, 'phone'),
   website_url: getOptionalText(formData, 'website_url'),
   social_url: getOptionalText(formData, 'social_url'),
+  working_hours: getOptionalText(formData, 'working_hours'),
+  logo_url: getOptionalText(formData, 'logo_url'),
+  cover_url: getOptionalText(formData, 'cover_url'),
   is_active: formData.has('is_active'),
   is_verified: formData.has('is_verified'),
+  sort_order: Number(formData.get('sort_order') || 0),
 });
 
 const submitPartner = async (form) => {
@@ -2499,10 +2636,15 @@ const submitPartner = async (form) => {
     description: getOptionalText(formData, 'description'),
     address: getOptionalText(formData, 'address'),
     phone: getOptionalText(formData, 'phone'),
+    website_url: getOptionalText(formData, 'website_url'),
     social_url: getOptionalText(formData, 'social_url'),
+    working_hours: getOptionalText(formData, 'working_hours'),
+    logo_url: getOptionalText(formData, 'logo_url'),
+    cover_url: getOptionalText(formData, 'cover_url'),
     owner_user_id: formData.get('owner_user_id') ? Number(formData.get('owner_user_id')) : null,
     is_active: formData.has('is_active'),
     is_verified: formData.has('is_verified'),
+    sort_order: Number(formData.get('sort_order') || 0),
   });
   form.reset();
   await loadPartners();

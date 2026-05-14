@@ -2638,3 +2638,294 @@ body.is-dashboard {
     grid-template-columns: 1fr;
   }
 }
+
+.partner-profile-layout {
+  display: grid;
+  grid-template-columns: minmax(300px, 420px) minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+
+.partner-profile-layout--admin {
+  grid-template-columns: minmax(300px, 420px) minmax(320px, 420px);
+}
+
+.partner-profile-preview,
+.partner-profile-settings {
+  min-width: 0;
+}
+
+.partner-profile-preview {
+  display: grid;
+  gap: 14px;
+}
+
+.partner-profile-settings {
+  display: grid;
+  gap: 16px;
+}
+
+.partner-profile-admin-note,
+.partner-profile-advanced {
+  padding: 12px 14px;
+  border: 1px solid rgba(201, 130, 120, 0.2);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.68);
+}
+
+.partner-profile-advanced {
+  display: grid;
+  gap: 10px;
+}
+
+.partner-profile-advanced summary {
+  color: var(--color-rose-dark);
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.partner-marketplace-card {
+  overflow: hidden;
+  border: 1px solid rgba(201, 130, 120, 0.22);
+  border-radius: 30px;
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: 0 22px 52px rgba(143, 81, 75, 0.14);
+}
+
+.partner-marketplace-cover {
+  display: grid;
+  min-height: 170px;
+  place-items: center;
+  background:
+    linear-gradient(135deg, rgba(246, 216, 210, 0.36), rgba(255, 250, 248, 0.72));
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+  color: var(--color-rose-dark);
+  font-weight: 900;
+}
+
+.partner-marketplace-cover--placeholder {
+  background:
+    radial-gradient(circle at 18% 24%, rgba(255, 255, 255, 0.72), transparent 6rem),
+    linear-gradient(135deg, rgba(201, 130, 120, 0.32), rgba(246, 216, 210, 0.62));
+}
+
+.partner-marketplace-cover span {
+  padding: 8px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.58);
+  border-radius: 999px;
+  background: rgba(255, 250, 248, 0.68);
+}
+
+.partner-marketplace-body {
+  display: grid;
+  gap: 16px;
+  padding: 0 20px 20px;
+}
+
+.partner-marketplace-heading {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 14px;
+  align-items: end;
+  margin-top: -34px;
+}
+
+.partner-marketplace-logo {
+  display: grid;
+  width: 78px;
+  height: 78px;
+  place-items: center;
+  border: 4px solid rgba(255, 255, 255, 0.92);
+  border-radius: 24px;
+  background: #fffaf8 center / cover no-repeat;
+  color: var(--color-rose-dark);
+  font-size: 1.4rem;
+  font-weight: 900;
+  box-shadow: 0 14px 28px rgba(143, 81, 75, 0.16);
+}
+
+.partner-marketplace-logo--placeholder {
+  background:
+    radial-gradient(circle at 30% 25%, rgba(246, 216, 210, 0.82), transparent 2.4rem),
+    #fffaf8;
+}
+
+.partner-marketplace-heading h3 {
+  margin: 6px 0 2px;
+  color: var(--color-rose-dark);
+  font-size: clamp(1.35rem, 4vw, 1.85rem);
+  line-height: 1.05;
+}
+
+.partner-marketplace-category,
+.partner-marketplace-description {
+  margin: 0;
+}
+
+.partner-marketplace-category {
+  color: var(--color-muted);
+  font-weight: 850;
+}
+
+.partner-marketplace-badges,
+.partner-marketplace-contacts,
+.partner-marketplace-cta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.partner-marketplace-meta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+}
+
+.partner-marketplace-meta div,
+.partner-marketplace-contacts span,
+.partner-marketplace-offer {
+  padding: 12px;
+  border: 1px solid rgba(201, 130, 120, 0.16);
+  border-radius: 18px;
+  background: rgba(255, 250, 248, 0.78);
+}
+
+.partner-marketplace-meta dt,
+.partner-marketplace-offer span {
+  color: var(--color-muted);
+  font-size: 0.76rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.partner-marketplace-meta dd {
+  margin: 4px 0 0;
+  color: var(--color-rose-dark);
+  font-weight: 850;
+  overflow-wrap: anywhere;
+}
+
+.partner-marketplace-description {
+  color: var(--color-text);
+  line-height: 1.55;
+}
+
+.partner-marketplace-contacts span {
+  color: var(--color-rose-dark);
+  font-size: 0.9rem;
+  overflow-wrap: anywhere;
+}
+
+.partner-marketplace-offer {
+  display: grid;
+  gap: 4px;
+  background:
+    radial-gradient(circle at top right, rgba(246, 216, 210, 0.6), transparent 7rem),
+    rgba(255, 250, 248, 0.9);
+}
+
+.partner-marketplace-offer strong {
+  color: var(--color-rose-dark);
+  font-size: 1.18rem;
+}
+
+.partner-marketplace-offer small {
+  color: var(--color-muted);
+}
+
+.partner-marketplace-cta {
+  justify-content: space-between;
+  padding-top: 2px;
+}
+
+.partner-marketplace-cta span {
+  color: var(--color-muted);
+  font-weight: 850;
+}
+
+.partner-marketplace-cta button {
+  min-height: 40px;
+  padding: 10px 16px;
+  border: 0;
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--color-rose), var(--color-rose-dark));
+  color: #fffaf8;
+  font: inherit;
+  font-weight: 900;
+  opacity: 0.78;
+}
+
+.partner-profile-hints {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid rgba(201, 130, 120, 0.22);
+  border-radius: 24px;
+  background: rgba(255, 250, 248, 0.82);
+  box-shadow: 0 14px 34px rgba(143, 81, 75, 0.08);
+}
+
+.partner-profile-hints h4 {
+  margin: 6px 0 0;
+  color: var(--color-rose-dark);
+}
+
+.partner-profile-hints ul {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.partner-profile-hints li {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  color: var(--color-rose-dark);
+  font-weight: 800;
+}
+
+.partner-profile-hints li span {
+  display: inline-grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  border-radius: 999px;
+  background: rgba(246, 216, 210, 0.6);
+}
+
+.partner-profile-hints li.is-complete {
+  color: #597a55;
+}
+
+.partner-profile-hints li.is-complete span {
+  background: rgba(237, 246, 231, 0.92);
+}
+
+@media (max-width: 960px) {
+  .partner-profile-layout,
+  .partner-profile-layout--admin {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .partner-marketplace-body {
+    padding-inline: 16px;
+  }
+
+  .partner-marketplace-heading,
+  .partner-marketplace-meta {
+    grid-template-columns: 1fr;
+  }
+
+  .partner-marketplace-logo {
+    margin-bottom: -4px;
+  }
+}
