@@ -2549,6 +2549,54 @@ const renderAdminPartnerAction = (partner) => `
   <button class="admin-inline-action admin-table-action" type="button" data-admin-partner-edit="${escapeHtml(partner.id)}">Редактировать</button>
 `;
 
+const getAdminLoadedOffersForPartner = (partner) => {
+  const partnerId = String(partner?.id || '');
+  const inlineOffers = Array.isArray(partner?.offers) ? partner.offers : [];
+  const selectedOffers = String(adminState.selectedPartnerIdForOffers || '') === partnerId ? adminState.offers : [];
+  const relatedLoadedOffers = adminState.offers.filter((offer) => offer?.partner_id && String(offer.partner_id) === partnerId);
+  return [...inlineOffers, ...selectedOffers, ...relatedLoadedOffers];
+};
+
+const renderPublishReadinessItem = (label, isOk) => `
+  <li class="publish-readiness-item publish-readiness-item--${isOk ? 'ok' : 'warn'}">
+    <span aria-hidden="true">${isOk ? '✅' : '⚠️'}</span>
+    <span>${label}</span>
+  </li>
+`;
+
+const renderPublishReadiness = (partner) => {
+  const loadedOffers = getAdminLoadedOffersForPartner(partner);
+  const checks = [
+    ['Обложка добавлена', Boolean(partner.cover_url)],
+    ['Логотип добавлен', Boolean(partner.logo_url)],
+    ['Описание заполнено', Boolean(partner.description)],
+    ['Адрес заполнен', Boolean(partner.address)],
+    ['График работы заполнен', Boolean(partner.working_hours)],
+    ['Есть активное предложение', loadedOffers.some((offer) => offer?.is_active === true)],
+    ['Партнёр активен', partner.is_active === true],
+    ['Партнёр проверен', partner.is_verified === true],
+  ];
+  const isReady = partner.is_active === true
+    && partner.is_verified === true
+    && Boolean(partner.description)
+    && Boolean(partner.address)
+    && loadedOffers.some((offer) => offer?.is_active === true)
+    && (Boolean(partner.cover_url) || Boolean(partner.logo_url));
+
+  return `
+    <section class="publish-readiness" aria-label="Готовность к публикации">
+      <div class="admin-section-heading">
+        <h4>Готовность к публикации</h4>
+        <p>Проверьте базовые элементы витрины перед публикацией партнёра.</p>
+      </div>
+      <div class="publish-readiness-status">${isReady ? 'Готов к публикации' : 'Нужно доработать'}</div>
+      <ul class="publish-readiness-checklist">
+        ${checks.map(([label, isOk]) => renderPublishReadinessItem(label, isOk)).join('')}
+      </ul>
+    </section>
+  `;
+};
+
 const renderPartnerEditForm = () => {
   const partner = adminState.partners.find((item) => String(item.id) === String(adminState.selectedPartnerIdForEdit));
   const photos = adminState.partnerPhotosByPartner[adminState.selectedPartnerIdForEdit] || [];
@@ -2580,6 +2628,7 @@ const renderPartnerEditForm = () => {
         <label class="checkbox-row"><input name="is_verified" type="checkbox" ${partner.is_verified ? 'checked' : ''} /> Проверен</label>
         ${renderPartnerImageUploader(partner, 'admin')}
         ${renderPartnerGallery(partner, photos, 'admin')}
+        ${renderPublishReadiness(partner)}
         ${renderAnalyticsSection(adminState.selectedPartnerAnalytics, {
           title: 'Аналитика партнёра',
           loading: adminState.partnerAnalyticsLoading,

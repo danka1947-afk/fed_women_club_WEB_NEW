@@ -1610,6 +1610,78 @@ def test_frontend_contains_derived_activity_feed_ui_markers() -> None:
         assert removed_lotus_marker not in styles
 
 
+def test_frontend_contains_admin_publish_readiness_markers() -> None:
+    source = _frontend_main()
+    styles = _frontend_styles()
+
+    for expected in (
+        "Готовность к публикации",
+        "Готов к публикации",
+        "Нужно доработать",
+        "Проверьте базовые элементы витрины",
+        "Обложка добавлена",
+        "Логотип добавлен",
+        "Описание заполнено",
+        "Адрес заполнен",
+        "График работы заполнен",
+        "Есть активное предложение",
+        "Партнёр активен",
+        "Партнёр проверен",
+        "renderPublishReadiness",
+        "getAdminLoadedOffersForPartner",
+    ):
+        assert expected in source
+
+    for expected_style in (
+        "publish-readiness",
+        "publish-readiness-checklist",
+        "publish-readiness-item--ok",
+        "publish-readiness-item--warn",
+    ):
+        assert expected_style in source or expected_style in styles
+
+    for preserved_marker in (
+        "content-review",
+        "content-review-card",
+        "content-review-preview",
+        "/api/v1/admin/content-review",
+        "offer-image-uploader",
+        "partner-image-uploader",
+        "partner-gallery",
+        "partner-gallery-grid",
+        "offer-marketplace-card",
+        "partner-marketplace-card",
+        "analytics-grid",
+        "analytics-card",
+        "analyticsLoading",
+        "/api/v1/admin/activity",
+        "activity-feed",
+        "data-privilege-success-panel",
+        "data-client-privilege-card",
+        "data-partner-confirmation-card",
+        "setup_token",
+        "/api/v1/auth/password-setup/complete",
+        "/api/v1/public/landing/partners",
+        "/api/v1/clients/catalog/partners",
+        "womenclub_partner_token",
+        "womenclub_client_token",
+        "womenClubAdminAccessToken",
+        "startsWith('/uploads/')",
+    ):
+        assert preserved_marker in source or preserved_marker in styles
+
+    for removed_lotus_marker in (
+        "reference-lotus-layer",
+        "lotus-layer",
+        "lotus-decor",
+        "--user-lotus-reference-svg",
+        "--lotus-reference-background",
+        "/assets/lotus-bg.png",
+    ):
+        assert removed_lotus_marker not in source
+        assert removed_lotus_marker not in styles
+
+
 def test_frontend_contains_admin_content_review_queue_markers() -> None:
     source = _frontend_main()
     styles = _frontend_styles()
