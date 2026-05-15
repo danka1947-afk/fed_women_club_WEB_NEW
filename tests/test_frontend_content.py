@@ -138,6 +138,45 @@ def test_public_landing_cards_use_frosted_translucent_backgrounds() -> None:
         assert not re.search(r"(^|\s)opacity\s*:", block)
 
 
+def test_frontend_selects_use_rose_glass_native_styling() -> None:
+    styles = _frontend_styles()
+
+    for expected_marker in (
+        "Rose glass native select styling",
+        ".form-select",
+        ".app-select",
+        ".select-field",
+        "select option",
+        "select:focus",
+        "select:disabled",
+    ):
+        assert expected_marker in styles
+
+    select_block = styles.split("/* Rose glass native select styling", 1)[1].split("\n}\n", 1)[0]
+    for expected_style in (
+        "min-height: 46px;",
+        "border-radius: 16px;",
+        "rgba(255, 250, 248, 0.92)",
+        "background-image:",
+        "data:image/svg+xml",
+        "appearance: none;",
+        "var(--color-text)",
+    ):
+        assert expected_style in select_block
+
+    focus_block = _css_block(styles, "select:focus-visible")
+    assert "border-color: var(--color-rose);" in focus_block
+    assert "0 0 0 4px rgba(246, 216, 210, 0.7)" in focus_block
+
+    disabled_block = _css_block(styles, "select:disabled")
+    assert "cursor: not-allowed;" in disabled_block
+    assert "opacity: 1;" in disabled_block
+
+    option_block = _css_block(styles, "select option")
+    assert "background: #fffaf8;" in option_block
+    assert "color: var(--color-text);" in option_block
+
+
 def test_frontend_adds_subtle_center_sakura_motion() -> None:
     source = _frontend_main()
     styles = _frontend_styles()
