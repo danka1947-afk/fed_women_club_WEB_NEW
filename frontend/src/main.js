@@ -318,6 +318,10 @@ const adminState = {
   categories: [],
   partners: [],
   partnerPhotosByPartner: {},
+  partnerAnalyticsById: {},
+  selectedPartnerAnalytics: null,
+  partnerAnalyticsLoading: false,
+  partnerAnalyticsError: '',
   offers: [],
   qrLinks: [],
   leads: [],
@@ -370,6 +374,7 @@ const partnerTabs = [
   { id: 'offers', label: 'Предложения', icon: '%' },
   { id: 'qr', label: 'QR / лиды', icon: 'QR' },
   { id: 'verifications', label: 'Подтверждения', icon: '✓' },
+  { id: 'analytics', label: 'Аналитика', icon: '↗' },
 ];
 
 const partnerState = {
@@ -381,6 +386,9 @@ const partnerState = {
   qrLinks: [],
   leads: [],
   verifications: [],
+  analytics: null,
+  analyticsLoading: false,
+  analyticsError: '',
   panelMessage: '',
   formMessages: {},
   selectedOfferIdForEdit: '',
@@ -641,6 +649,84 @@ const renderEmptyState = (title, text, icon = '♡') => `
     <p>${escapeHtml(text)}</p>
   </article>
 `;
+
+
+const analyticsCardDefinitions = [
+  ['qr_links_count', 'QR-ссылки', 'count'],
+  ['lead_clicks_count', 'Переходы по QR', 'count'],
+  ['privileges_created_count', 'Получено привилегий', 'count'],
+  ['privileges_confirmed_count', 'Подтверждено', 'count'],
+  ['active_privileges_count', 'Активные привилегии', 'count'],
+  ['expired_privileges_count', 'Истекшие привилегии', 'count'],
+  ['conversion_to_privilege_percent', 'Конверсия в привилегию', 'percent'],
+  ['confirmation_rate_percent', 'Процент подтверждения', 'percent'],
+];
+
+const formatAnalyticsCount = (value) => {
+  const numberValue = Number(value || 0);
+  return Number.isFinite(numberValue) ? String(numberValue) : '0';
+};
+
+const formatAnalyticsPercent = (value) => {
+  const numberValue = Number(value || 0);
+  if (!Number.isFinite(numberValue)) return '0%';
+  const rounded = Math.round(numberValue * 10) / 10;
+  return `${Number.isInteger(rounded) ? rounded.toFixed(0) : rounded.toFixed(1)}%`;
+};
+
+const isAnalyticsEmpty = (analytics = {}) => analyticsCardDefinitions.every(([key]) => Number(analytics?.[key] || 0) === 0);
+
+const renderAnalyticsCards = (analytics = {}) => `
+  <div class="analytics-grid">
+    ${analyticsCardDefinitions.map(([key, label, type]) => `
+      <article class="analytics-card">
+        <strong class="analytics-value">${escapeHtml(type === 'percent' ? formatAnalyticsPercent(analytics?.[key]) : formatAnalyticsCount(analytics?.[key]))}</strong>
+        <span class="analytics-label">${escapeHtml(label)}</span>
+      </article>
+    `).join('')}
+  </div>
+`;
+
+const renderAnalyticsSection = (analytics, options = {}) => {
+  const title = options.title || 'Аналитика';
+  const loading = options.loading || false;
+  const error = options.error || '';
+
+  if (loading) {
+    return `
+      <section class="analytics-panel" aria-live="polite">
+        <div class="admin-section-heading"><h4>${escapeHtml(title)}</h4><p class="analytics-hint">Аналитика помогает понять, сколько клиентов пришли из клуба и сколько привилегий реально использовали.</p></div>
+        <p class="analytics-hint">Загружаем аналитику…</p>
+      </section>
+    `;
+  }
+
+  if (error) {
+    return `
+      <section class="analytics-panel" aria-live="polite">
+        <div class="admin-section-heading"><h4>${escapeHtml(title)}</h4><p class="analytics-hint">Аналитика помогает понять, сколько клиентов пришли из клуба и сколько привилегий реально использовали.</p></div>
+        <p class="analytics-empty">${escapeHtml(error)}</p>
+      </section>
+    `;
+  }
+
+  if (!analytics) {
+    return `
+      <section class="analytics-panel" aria-live="polite">
+        <div class="admin-section-heading"><h4>${escapeHtml(title)}</h4><p class="analytics-hint">Аналитика помогает понять, сколько клиентов пришли из клуба и сколько привилегий реально использовали.</p></div>
+        <p class="analytics-empty">Выберите партнёра, чтобы увидеть аналитику.</p>
+      </section>
+    `;
+  }
+
+  return `
+    <section class="analytics-panel" aria-live="polite">
+      <div class="admin-section-heading"><h4>${escapeHtml(title)}</h4><p class="analytics-hint">Аналитика помогает понять, сколько клиентов пришли из клуба и сколько привилегий реально использовали.</p></div>
+      ${renderAnalyticsCards(analytics)}
+      ${isAnalyticsEmpty(analytics) ? '<p class="analytics-empty">Данных пока нет. Разместите QR-код и добавьте предложения, чтобы начать получать статистику.</p>' : ''}
+    </section>
+  `;
+};
 
 const renderClientEmptyState = (title, text) => renderEmptyState(title, text);
 const renderPartnerEmptyState = (title, text) => renderEmptyState(title, text, '✦');
@@ -1344,6 +1430,17 @@ const loadPartnerOffers = async () => {
 const loadPartnerQrLinks = async () => { partnerState.qrLinks = await partnerApiFetch('/api/v1/partners/me/qr-links'); };
 const loadPartnerLeads = async () => { partnerState.leads = await partnerApiFetch('/api/v1/partners/me/leads'); };
 const loadPartnerVerifications = async () => { partnerState.verifications = await partnerApiFetch('/api/v1/partners/me/verifications'); };
+const loadPartnerAnalytics = async () => {
+  partnerState.analyticsLoading = true;
+  partnerState.analyticsError = '';
+  try {
+    partnerState.analytics = await partnerApiFetch('/api/v1/partners/me/analytics');
+  } catch (error) {
+    partnerState.analyticsError = error.message || 'Не удалось загрузить аналитику.';
+  } finally {
+    partnerState.analyticsLoading = false;
+  }
+};
 
 const requestClientUserMe = () => clientApiFetch('/api/v1/auth/user-me');
 const loadClientProfile = async () => { clientState.profile = await clientApiFetch('/api/v1/clients/me'); };
@@ -1702,6 +1799,9 @@ const renderPartnerTabContent = () => {
   if (partnerState.activeTab === 'verifications') {
     return renderPartnerVerificationsTab();
   }
+  if (partnerState.activeTab === 'analytics') {
+    return renderPartnerAnalyticsTab();
+  }
   return renderPartnerProfileTab();
 };
 
@@ -1873,6 +1973,12 @@ const renderPartnerVerificationsTab = () => `
     : renderPartnerEmptyState('Пока нет подтверждений.', 'Когда клиент покажет код привилегии, подтверждение появится здесь.')}
 `;
 
+const renderPartnerAnalyticsTab = () => renderAnalyticsSection(partnerState.analytics, {
+  title: 'Аналитика',
+  loading: partnerState.analyticsLoading,
+  error: partnerState.analyticsError,
+});
+
 const requestAdminMe = () => apiFetch('/api/v1/admin/me');
 
 const postJson = (path, payload) => apiFetch(path, {
@@ -1910,6 +2016,22 @@ const loadPartners = async () => {
 const loadAdminPartnerPhotos = async (partnerId) => {
   if (!partnerId) return;
   adminState.partnerPhotosByPartner[partnerId] = await apiFetch(`/api/v1/admin/partners/${partnerId}/photos`);
+};
+
+const loadAdminPartnerAnalytics = async (partnerId) => {
+  if (!partnerId) return;
+  adminState.partnerAnalyticsLoading = true;
+  adminState.partnerAnalyticsError = '';
+  adminState.selectedPartnerAnalytics = adminState.partnerAnalyticsById[partnerId] || null;
+  try {
+    const analytics = await apiFetch(`/api/v1/admin/partners/${partnerId}/analytics`);
+    adminState.partnerAnalyticsById[partnerId] = analytics;
+    adminState.selectedPartnerAnalytics = analytics;
+  } catch (error) {
+    adminState.partnerAnalyticsError = error.message || 'Не удалось загрузить аналитику партнёра.';
+  } finally {
+    adminState.partnerAnalyticsLoading = false;
+  }
 };
 
 const loadLeads = async () => {
@@ -2261,6 +2383,11 @@ const renderPartnerEditForm = () => {
         <label class="checkbox-row"><input name="is_verified" type="checkbox" ${partner.is_verified ? 'checked' : ''} /> Проверен</label>
         ${renderPartnerImageUploader(partner, 'admin')}
         ${renderPartnerGallery(partner, photos, 'admin')}
+        ${renderAnalyticsSection(adminState.selectedPartnerAnalytics, {
+          title: 'Аналитика партнёра',
+          loading: adminState.partnerAnalyticsLoading,
+          error: adminState.partnerAnalyticsError,
+        })}
         <details class="partner-profile-advanced">
           <summary>URL изображения</summary>
           <p class="form-message">Загрузка логотипа и обложки — основной способ обновления изображений. Ручной URL оставлен как дополнительное поле для уже поддерживаемых /uploads/ и /assets/.</p>
@@ -2639,6 +2766,8 @@ const loadActivePartnerTabData = async () => {
       await Promise.all([loadPartnerQrLinks(), loadPartnerLeads()]);
     } else if (partnerState.activeTab === 'verifications') {
       await loadPartnerVerifications();
+    } else if (partnerState.activeTab === 'analytics') {
+      await loadPartnerAnalytics();
     }
   } catch (error) {
     if (!getPartnerToken()) {
@@ -3476,8 +3605,13 @@ root.addEventListener('click', async (event) => {
     adminState.selectedPartnerIdForEdit = partnerEditButton.dataset.adminPartnerEdit;
     setFormMessage('partnerEdit');
     setFormMessage('partnerGallery');
+    adminState.selectedPartnerAnalytics = adminState.partnerAnalyticsById[adminState.selectedPartnerIdForEdit] || null;
+    adminState.partnerAnalyticsError = '';
     try {
-      await loadAdminPartnerPhotos(adminState.selectedPartnerIdForEdit);
+      await Promise.all([
+        loadAdminPartnerPhotos(adminState.selectedPartnerIdForEdit),
+        loadAdminPartnerAnalytics(adminState.selectedPartnerIdForEdit),
+      ]);
     } catch (error) {
       setFormMessage('partnerGallery', error.message || 'Не удалось загрузить галерею.');
     }
@@ -3488,6 +3622,9 @@ root.addEventListener('click', async (event) => {
   const partnerEditCancel = event.target.closest('[data-admin-partner-edit-cancel]');
   if (partnerEditCancel) {
     adminState.selectedPartnerIdForEdit = '';
+    adminState.selectedPartnerAnalytics = null;
+    adminState.partnerAnalyticsError = '';
+    adminState.partnerAnalyticsLoading = false;
     setFormMessage('partnerEdit');
     renderAdminLayout();
     return;
