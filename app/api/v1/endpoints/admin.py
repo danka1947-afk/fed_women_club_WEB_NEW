@@ -45,7 +45,9 @@ from app.schemas.admin import (
     PartnerUpdate,
 )
 from app.schemas.auth import AdminUserRead
+from app.schemas.partner import PartnerAnalyticsRead
 from app.services.image_uploads import save_partner_image_upload, save_partner_offer_image_upload, save_partner_photo_image_upload, validate_image_kind
+from app.services.partner_analytics import build_partner_analytics
 from app.services.qr_links import (
     generate_qr_slug,
     is_valid_qr_slug,
@@ -410,6 +412,17 @@ def create_admin_partner(
     db.commit()
     db.refresh(partner)
     return _get_partner_read_or_404(db, partner.id)
+
+
+@router.get("/partners/{partner_id}/analytics", response_model=PartnerAnalyticsRead)
+def read_admin_partner_analytics(
+    partner_id: int,
+    admin: AdminUser = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> PartnerAnalyticsRead:
+    _ = admin
+    partner = _ensure_partner_exists(db, partner_id)
+    return build_partner_analytics(db, partner)
 
 
 @router.get("/partners/{partner_id}", response_model=PartnerRead)
