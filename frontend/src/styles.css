@@ -3986,3 +3986,248 @@ body.is-dashboard {
   font-weight: 850;
   text-align: center;
 }
+
+/* Admin action readability and offers layout refinements */
+.admin-action-button,
+.admin-dashboard .admin-action-button,
+.admin-dashboard .admin-inline-action,
+.admin-form .admin-action-button,
+.admin-form button[type="submit"] {
+  display: inline-flex;
+  width: fit-content;
+  min-width: 132px;
+  min-height: 40px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin: 0;
+  padding: 9px 14px;
+  border: 1px solid rgba(143, 81, 75, 0.26);
+  border-radius: 999px;
+  background: linear-gradient(135deg, #fffdfc, #fff1ed);
+  color: var(--color-rose-dark);
+  font: inherit;
+  font-weight: 900;
+  line-height: 1.15;
+  text-align: center;
+  text-decoration: none;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+  box-shadow: 0 10px 22px rgba(143, 81, 75, 0.12);
+}
+
+.admin-dashboard .admin-action-button:hover,
+.admin-dashboard .admin-action-button:focus-visible,
+.admin-dashboard .admin-inline-action:hover,
+.admin-dashboard .admin-inline-action:focus-visible,
+.admin-form button[type="submit"]:hover,
+.admin-form button[type="submit"]:focus-visible {
+  border-color: rgba(143, 81, 75, 0.38);
+  background: linear-gradient(135deg, #fff7f4, #f7ddd7);
+  color: #713b36;
+  outline: none;
+  box-shadow: 0 14px 28px rgba(143, 81, 75, 0.18);
+  transform: translateY(-1px);
+}
+
+.admin-dashboard button:disabled,
+.admin-dashboard .admin-action-button:disabled,
+.admin-dashboard .admin-inline-action:disabled,
+.admin-dashboard .admin-action-button[aria-disabled="true"] {
+  border-color: rgba(125, 111, 107, 0.26);
+  background: linear-gradient(135deg, rgba(255, 250, 248, 0.92), rgba(240, 232, 229, 0.92));
+  color: #6f625f;
+  cursor: not-allowed;
+  opacity: 1;
+  box-shadow: none;
+  transform: none;
+}
+
+.admin-table--compact {
+  min-width: 760px;
+}
+
+.admin-table--compact .admin-table-cell--actions {
+  width: 168px;
+  min-width: 168px;
+  max-width: 188px;
+  white-space: normal;
+}
+
+.admin-table-actions,
+.admin-actions-stack,
+.admin-table--compact .admin-inline-actions {
+  display: grid;
+  width: 100%;
+  min-width: 132px;
+  max-width: 100%;
+  grid-template-columns: 1fr;
+  gap: 8px;
+  align-items: stretch;
+  justify-items: stretch;
+}
+
+.admin-table-action,
+.admin-table-actions .admin-action-button,
+.admin-table-actions .admin-inline-action {
+  width: 100%;
+  min-width: 132px;
+  max-width: 100%;
+  min-height: 38px;
+  padding: 8px 12px;
+  border: 1px solid rgba(143, 81, 75, 0.24);
+  background: linear-gradient(135deg, #fffdfc, #ffece7);
+  color: var(--color-rose-dark);
+  font-size: 0.78rem;
+  font-weight: 950;
+  line-height: 1.15;
+  white-space: normal;
+  box-shadow: 0 8px 18px rgba(143, 81, 75, 0.1);
+}
+
+.admin-table-action:hover,
+.admin-table-action:focus-visible,
+.admin-table-actions .admin-action-button:hover,
+.admin-table-actions .admin-action-button:focus-visible {
+  background: linear-gradient(135deg, #fff7f4, #f6d8d2);
+  color: #713b36;
+}
+
+.admin-table-action:disabled,
+.admin-table-actions .admin-action-button:disabled {
+  background: linear-gradient(135deg, rgba(255, 250, 248, 0.94), rgba(240, 232, 229, 0.94));
+  color: #6f625f;
+}
+
+.admin-table--partners .admin-table-cell--actions,
+.admin-table--offers .admin-table-cell--actions {
+  width: 184px;
+  min-width: 184px;
+  max-width: 204px;
+}
+
+.admin-offers-layout {
+  display: grid;
+  gap: 18px;
+}
+
+.admin-offers-toolbar,
+.admin-offers-preview-panel,
+.admin-offers-table-panel,
+.admin-offers-form-panel {
+  display: grid;
+  min-width: 0;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid rgba(201, 130, 120, 0.2);
+  border-radius: 26px;
+  background:
+    radial-gradient(circle at top right, rgba(246, 216, 210, 0.34), transparent 12rem),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.88), rgba(255, 247, 245, 0.82));
+  box-shadow: 0 16px 38px rgba(143, 81, 75, 0.09);
+}
+
+.admin-offers-toolbar {
+  grid-template-columns: 1fr;
+  align-items: start;
+}
+
+.admin-offers-toolbar .admin-toolbar {
+  margin: 0;
+}
+
+.admin-offers-preview-panel .offer-marketplace-card {
+  max-width: 720px;
+}
+
+.admin-offers-preview-panel .offer-marketplace-image,
+.admin-offers-preview-panel .offer-image-preview {
+  min-height: 120px;
+  max-height: 220px;
+}
+
+.admin-offers-preview-panel .offer-marketplace-meta {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.admin-offers-preview-panel .offer-marketplace-preview {
+  align-items: flex-start;
+}
+
+.admin-offers-preview-panel .admin-table-actions {
+  flex: 1 1 180px;
+  width: min(100%, 220px);
+}
+
+.admin-offer-form {
+  grid-template-columns: repeat(2, minmax(220px, 1fr));
+  margin-top: 0;
+}
+
+.admin-offer-form h4,
+.admin-offer-form .offer-image-uploader,
+.admin-offer-form .partner-profile-advanced,
+.admin-offer-form .checkbox-row,
+.admin-offer-form .admin-form-actions,
+.admin-offer-form > button[type="submit"],
+.admin-offer-form > .form-message,
+.admin-offer-form label:has(textarea) {
+  grid-column: 1 / -1;
+}
+
+.admin-form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.offer-image-upload-actions,
+.partner-upload-actions,
+.content-review-actions {
+  align-items: stretch;
+}
+
+.offer-image-upload-actions .admin-action-button,
+.partner-upload-actions .admin-action-button,
+.content-review-actions .admin-action-button,
+.content-review-actions .admin-inline-action {
+  flex: 1 1 150px;
+  min-width: 150px;
+}
+
+.offer-marketplace-preview {
+  align-items: stretch;
+}
+
+.offer-marketplace-preview button,
+.offer-marketplace-preview .admin-inline-action,
+.offer-marketplace-preview .admin-action-button {
+  min-width: 150px;
+  border: 1px solid rgba(143, 81, 75, 0.26);
+  background: linear-gradient(135deg, #fffdfc, #ffece7);
+  color: var(--color-rose-dark);
+  box-shadow: 0 10px 22px rgba(143, 81, 75, 0.12);
+}
+
+.offer-marketplace-preview button:not(:disabled):hover,
+.offer-marketplace-preview .admin-inline-action:hover,
+.offer-marketplace-preview .admin-action-button:hover {
+  background: linear-gradient(135deg, #fff7f4, #f6d8d2);
+  color: #713b36;
+}
+
+.offer-marketplace-preview button:disabled {
+  border-color: rgba(125, 111, 107, 0.24);
+  background: linear-gradient(135deg, rgba(255, 250, 248, 0.96), rgba(240, 232, 229, 0.9));
+  color: #6f625f;
+  opacity: 1;
+}
+
+@media (max-width: 980px) {
+  .admin-offer-form,
+  .admin-offers-preview-panel .offer-marketplace-meta {
+    grid-template-columns: 1fr;
+  }
+}
