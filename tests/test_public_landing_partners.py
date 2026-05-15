@@ -216,6 +216,9 @@ def test_public_landing_partners_excludes_inactive_unverified_and_inactive_relat
     assert "Unverified" not in names
     assert "Hidden City" not in names
     assert "Hidden Category" not in names
+    sakura = next(item for item in response.json()["items"] if item["name"] == "Beauty Studio Sakura")
+    assert [offer["title"] for offer in sakura["offers"]] == ["Скидка на первый визит"]
+    assert [photo["url"] for photo in sakura["photos"]] == ["/uploads/partners/1/photos/photo-visible.webp"]
 
 
 def test_public_landing_category_and_city_filters_work(public_client: TestClient) -> None:

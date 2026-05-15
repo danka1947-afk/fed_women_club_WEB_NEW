@@ -110,7 +110,7 @@ async def upload_partner_photo(
         url=photo_url,
         alt_text=_normalize_optional_text(alt_text),
         sort_order=sort_order,
-        is_active=True,
+        is_active=False,
     )
     db.add(photo)
     db.commit()
@@ -152,9 +152,10 @@ def update_partner_photo(
     update_data = payload.model_dump(exclude_unset=True)
     if "alt_text" in update_data:
         photo.alt_text = _normalize_optional_text(update_data["alt_text"])
-    for field in ("sort_order", "is_active"):
-        if field in update_data:
-            setattr(photo, field, update_data[field])
+    if "sort_order" in update_data:
+        photo.sort_order = update_data["sort_order"]
+    if update_data.get("is_active") is False:
+        photo.is_active = False
     db.commit()
     db.refresh(photo)
     return photo
@@ -321,7 +322,7 @@ def create_partner_offer(
         title=_strip_offer_title(payload.title),
         base_price=payload.base_price,
         discount_percent=payload.discount_percent,
-        is_active=payload.is_active,
+        is_active=False,
         sort_order=payload.sort_order,
     )
     for field in PARTNER_OFFER_TEXT_FIELDS:
@@ -350,9 +351,11 @@ def update_partner_offer(
     for field in PARTNER_OFFER_TEXT_FIELDS:
         if field in update_data:
             setattr(offer, field, _normalize_optional_text(update_data[field]))
-    for field in ("base_price", "discount_percent", "is_active", "sort_order"):
+    for field in ("base_price", "discount_percent", "sort_order"):
         if field in update_data:
             setattr(offer, field, update_data[field])
+    if update_data.get("is_active") is False:
+        offer.is_active = False
 
     db.commit()
     db.refresh(offer)

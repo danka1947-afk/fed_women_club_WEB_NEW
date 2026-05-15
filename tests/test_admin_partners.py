@@ -435,6 +435,7 @@ def test_admin_uploads_partner_photo_lists_sorted_and_patches(admin_client: Test
     assert second.status_code == 200
     assert first.json()["url"].startswith("/uploads/partners/1/photos/photo-")
     assert first.json()["url"].endswith(".png")
+    assert first.json()["is_active"] is True
 
     list_response = admin_client.get("/api/v1/admin/partners/1/photos", headers=_auth_headers(admin_token))
     assert list_response.status_code == 200

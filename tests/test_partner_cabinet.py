@@ -14,7 +14,7 @@ from app.db.base import Base
 from app.db.session import get_db
 from app.main import app
 from app.models.city import City
-from app.models.partner import Partner, PartnerOffer
+from app.models.partner import Partner, PartnerOffer, PartnerPhoto
 from app.models.user import AdminUser, User, UserRole
 
 
@@ -346,8 +346,49 @@ def test_partner_offer_create_under_own_partner(partner_client: TestClient) -> N
     assert data["base_price"] in ("1000.00", 1000.0)
     assert data["discount_percent"] in ("15.50", 15.5)
     assert data["image_url"] == "https://example.com/offer.png"
-    assert data["is_active"] is True
+    assert data["is_active"] is False
     assert data["sort_order"] == 5
+
+
+def test_partner_created_offer_is_inactive_even_if_payload_says_true(partner_client: TestClient) -> None:
+    token = _partner_token(partner_client)
+
+    response = partner_client.post(
+        "/api/v1/partners/me/offers",
+        headers=_auth_headers(token),
+        json=_offer_payload(is_active=True),
+    )
+
+    assert response.status_code == 200
+    assert response.json()["is_active"] is False
+
+
+def test_partner_cannot_activate_inactive_offer_via_patch(partner_client: TestClient) -> None:
+    token = _partner_token(partner_client)
+
+    response = partner_client.patch(
+        "/api/v1/partners/me/offers/3",
+        headers=_auth_headers(token),
+        json={"title": "Still pending", "is_active": True},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["title"] == "Still pending"
+    assert data["is_active"] is False
+
+
+def test_partner_can_deactivate_active_own_offer(partner_client: TestClient) -> None:
+    token = _partner_token(partner_client)
+
+    response = partner_client.patch(
+        "/api/v1/partners/me/offers/1",
+        headers=_auth_headers(token),
+        json={"is_active": False},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["is_active"] is False
 
 
 def test_partner_offer_create_empty_title_returns_400(partner_client: TestClient) -> None:
@@ -575,6 +616,52 @@ def test_partner_uploads_own_gallery_photo_lists_sorted_and_patches(partner_clie
     assert patch_response.status_code == 200
     assert patch_response.json()["alt_text"] == "Скрытая"
     assert patch_response.json()["is_active"] is False
+
+
+def test_partner_cannot_activate_inactive_photo_via_patch(partner_client: TestClient) -> None:
+    token = _partner_token(partner_client)
+
+    response = partner_client.post(
+        "/api/v1/partners/me/photos",
+        headers=_auth_headers(token),
+        data={"alt_text": "На проверке", "sort_order": "1"},
+        files={"file": ("gallery.png", TINY_PROFILE_PNG_BYTES, "image/png")},
+    )
+    assert response.status_code == 200
+    assert response.json()["is_active"] is False
+
+    patch_response = partner_client.patch(
+        f"/api/v1/partners/me/photos/{response.json()['id']}",
+        headers=_auth_headers(token),
+        json={"alt_text": "Still pending", "is_active": True},
+    )
+
+    assert patch_response.status_code == 200
+    assert patch_response.json()["alt_text"] == "Still pending"
+    assert patch_response.json()["is_active"] is False
+
+
+def test_partner_can_deactivate_active_own_photo(partner_client: TestClient) -> None:
+    token = _partner_token(partner_client)
+    with next(app.dependency_overrides[get_db]()) as session:
+        photo = PartnerPhoto(
+            partner_id=1,
+            url="/uploads/partners/1/photos/active.webp",
+            alt_text="Active",
+            is_active=True,
+        )
+        session.add(photo)
+        session.commit()
+        photo_id = photo.id
+
+    response = partner_client.patch(
+        f"/api/v1/partners/me/photos/{photo_id}",
+        headers=_auth_headers(token),
+        json={"is_active": False},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["is_active"] is False
 
 
 def test_partner_cannot_update_another_partner_photo(partner_client: TestClient, admin_token: str) -> None:
