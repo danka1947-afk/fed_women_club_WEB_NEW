@@ -1239,6 +1239,106 @@ h2 {
   outline: none;
 }
 
+/* Rose glass native select styling: keep browser dropdown behavior while polishing closed controls. */
+.form-select,
+.app-select,
+.select-field,
+select {
+  width: 100%;
+  min-height: 46px;
+  padding: 12px 46px 12px 14px;
+  border: 1px solid rgba(201, 130, 120, 0.34);
+  border-radius: 16px;
+  background-color: rgba(255, 250, 248, 0.92);
+  background-image:
+    url("data:image/svg+xml,%3Csvg width='18' height='18' viewBox='0 0 18 18' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M4.5 6.75L9 11.25L13.5 6.75' stroke='%238f514b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.96), rgba(255, 242, 239, 0.88));
+  background-repeat: no-repeat, no-repeat;
+  background-position: right 16px center, 0 0;
+  background-size: 16px 16px, 100% 100%;
+  color: var(--color-text);
+  font: inherit;
+  font-weight: 750;
+  line-height: 1.25;
+  outline: none;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 12px 26px rgba(143, 81, 75, 0.08);
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+  transition:
+    background-color 180ms ease,
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    color 180ms ease,
+    transform 180ms ease;
+}
+
+.form-select:hover:not(:disabled),
+.app-select:hover:not(:disabled),
+.select-field:hover:not(:disabled),
+select:hover:not(:disabled) {
+  border-color: rgba(201, 130, 120, 0.58);
+  background-color: rgba(255, 247, 245, 0.98);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.96),
+    0 16px 30px rgba(201, 130, 120, 0.13);
+}
+
+.form-select:focus,
+.form-select:focus-visible,
+.app-select:focus,
+.app-select:focus-visible,
+.select-field:focus,
+.select-field:focus-visible,
+select:focus,
+select:focus-visible {
+  border-color: var(--color-rose);
+  background-color: #fffdfc;
+  box-shadow:
+    0 0 0 4px rgba(246, 216, 210, 0.7),
+    0 16px 32px rgba(143, 81, 75, 0.14);
+}
+
+.form-select:disabled,
+.app-select:disabled,
+.select-field:disabled,
+select:disabled {
+  border-color: rgba(125, 111, 107, 0.2);
+  background-color: rgba(246, 238, 235, 0.78);
+  background-image:
+    url("data:image/svg+xml,%3Csvg width='18' height='18' viewBox='0 0 18 18' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M4.5 6.75L9 11.25L13.5 6.75' stroke='%237d6f6b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"),
+    linear-gradient(145deg, rgba(255, 250, 248, 0.82), rgba(239, 230, 227, 0.78));
+  color: rgba(47, 43, 43, 0.58);
+  cursor: not-allowed;
+  opacity: 1;
+  box-shadow: none;
+}
+
+.form-select option,
+.app-select option,
+.select-field option,
+select option {
+  background: #fffaf8;
+  color: var(--color-text);
+}
+
+.form-select option:checked,
+.app-select option:checked,
+.select-field option:checked,
+select option:checked {
+  background: #f6d8d2;
+  color: var(--color-rose-dark);
+}
+
+.form-select::-ms-expand,
+.app-select::-ms-expand,
+.select-field::-ms-expand,
+select::-ms-expand {
+  display: none;
+}
+
 .checkbox-row {
   display: flex !important;
   grid-template-columns: none !important;
