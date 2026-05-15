@@ -19,6 +19,7 @@ from app.models.lead import LeadClick
 from app.models.partner import Partner, PartnerOffer, PartnerPhoto, PartnerQrLink
 from app.models.user import AdminUser, User, UserRole
 from app.models.verification import PrivilegeVerificationSession
+from app.schemas.activity import ActivityFeedRead
 from app.schemas.admin import (
     AdminManagedUserCreate,
     AdminManagedUserRead,
@@ -46,6 +47,7 @@ from app.schemas.admin import (
 )
 from app.schemas.auth import AdminUserRead
 from app.schemas.partner import PartnerAnalyticsRead
+from app.services.activity_feed import build_admin_activity_feed
 from app.services.image_uploads import save_partner_image_upload, save_partner_offer_image_upload, save_partner_photo_image_upload, validate_image_kind
 from app.services.partner_analytics import build_partner_analytics
 from app.services.qr_links import (
@@ -77,6 +79,18 @@ PARTNER_OFFER_TEXT_FIELDS = ("description", "benefit_text", "conditions", "image
 @router.get("/me", response_model=AdminUserRead)
 def read_admin_me(admin: AdminUser = Depends(require_admin)) -> AdminUser:
     return admin
+
+
+@router.get("/activity", response_model=ActivityFeedRead)
+def read_admin_activity(
+    limit: int = 30,
+    event_type: str | None = None,
+    partner_id: int | None = None,
+    admin: AdminUser = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> ActivityFeedRead:
+    _ = admin
+    return build_admin_activity_feed(db, limit=limit, event_type=event_type, partner_id=partner_id)
 
 
 @router.get("/verifications", response_model=list[AdminVerificationRead])

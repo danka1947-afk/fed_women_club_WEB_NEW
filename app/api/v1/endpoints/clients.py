@@ -16,6 +16,7 @@ from app.models.partner import Partner, PartnerOffer, PartnerPhoto
 from app.models.payment import Subscription, SubscriptionStatus
 from app.models.verification import PrivilegeVerificationSession, PrivilegeVerificationStatus
 from app.models.user import User
+from app.schemas.activity import ActivityFeedRead
 from app.schemas.client import (
     ClientCreateVerificationRequest,
     ClientPartnerCatalogItem,
@@ -27,6 +28,7 @@ from app.schemas.client import (
     SubscriptionRead,
 )
 from app.schemas.vk import VkLinkCodeRead
+from app.services.activity_feed import build_client_activity_feed
 
 router = APIRouter(prefix="/clients", tags=["clients"])
 
@@ -101,6 +103,16 @@ def create_client_vk_link_code(
     db.commit()
     db.refresh(link_code)
     return _vk_link_code_to_read(link_code)
+
+
+@router.get("/me/activity", response_model=ActivityFeedRead)
+def read_client_activity(
+    limit: int = 30,
+    current_user: User = Depends(require_client),
+    db: Session = Depends(get_db),
+) -> ActivityFeedRead:
+    profile = _get_or_create_client_profile(db, current_user.id)
+    return build_client_activity_feed(db, profile.id, limit=limit)
 
 
 @router.get("/me/subscription", response_model=SubscriptionRead | None)
