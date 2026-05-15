@@ -2546,7 +2546,9 @@ const renderCategoriesTab = () => {
 };
 
 const renderAdminPartnerAction = (partner) => `
-  <button class="admin-inline-action admin-table-action" type="button" data-admin-partner-edit="${escapeHtml(partner.id)}">Редактировать</button>
+  <div class="admin-inline-actions admin-partner-actions">
+    <button class="admin-inline-action admin-table-action" type="button" data-admin-partner-edit="${escapeHtml(partner.id)}">Редактировать</button>
+  </div>
 `;
 
 const getAdminLoadedOffersForPartner = (partner) => {
@@ -2605,50 +2607,118 @@ const renderPartnerEditForm = () => {
   }
 
   return `
-    <section class="partner-profile-layout partner-profile-layout--admin">
-      <aside class="partner-profile-preview">
-        <div class="admin-section-heading"><h4>Витрина партнёра</h4><p>Так администратор видит публичную marketplace-карточку партнёра.</p></div>
-        ${renderPartnerMarketplaceCard(partner, { note: 'Так карточку увидит клиент', photos })}
-        ${renderPartnerProfileHints(partner)}
-      </aside>
-      <form class="admin-form partner-profile-settings" data-admin-form="partnerEdit" data-partner-id="${escapeHtml(partner.id)}">
-        <h4>Редактировать партнёра</h4>
-        <label>Город${renderSelect('city_id', adminState.cities.map((city) => [city.id, city.name]), true, partner.city_id)}</label>
-        <label>Категория${renderSelect('category_slug', adminState.categories.map((category) => [category.slug, category.title]), false, partner.category_slug)}</label>
-        <label>Владелец${renderSelect('owner_user_id', adminState.users.filter((item) => item.role === 'partner').map((item) => [item.id, item.email || item.phone || `Партнёр #${item.id}`]), false, partner.owner_user_id || '', 'Без владельца')}</label>
-        <label>Название<input name="name" required value="${escapeHtml(partner.name || '')}" /></label>
-        <label>Описание<textarea name="description" rows="3">${escapeHtml(partner.description || '')}</textarea></label>
-        <label>Адрес<input name="address" value="${escapeHtml(partner.address || '')}" /></label>
-        <label>Телефон<input name="phone" value="${escapeHtml(partner.phone || '')}" /></label>
-        <label>Сайт<input name="website_url" value="${escapeHtml(partner.website_url || '')}" /></label>
-        <label>Соцсеть<input name="social_url" value="${escapeHtml(partner.social_url || '')}" /></label>
-        <label>График работы<input name="working_hours" value="${escapeHtml(partner.working_hours || '')}" /></label>
-        <label>Порядок сортировки<input name="sort_order" type="number" value="${escapeHtml(partner.sort_order ?? 0)}" /></label>
-        <label class="checkbox-row"><input name="is_active" type="checkbox" ${partner.is_active ? 'checked' : ''} /> Активен</label>
-        <label class="checkbox-row"><input name="is_verified" type="checkbox" ${partner.is_verified ? 'checked' : ''} /> Проверен</label>
-        ${renderPartnerImageUploader(partner, 'admin')}
-        ${renderPartnerGallery(partner, photos, 'admin')}
-        ${renderPublishReadiness(partner)}
-        ${renderAnalyticsSection(adminState.selectedPartnerAnalytics, {
-          title: 'Аналитика партнёра',
-          loading: adminState.partnerAnalyticsLoading,
-          error: adminState.partnerAnalyticsError,
-        })}
-        <details class="partner-profile-advanced">
-          <summary>URL изображения</summary>
-          <p class="form-message">Загрузка логотипа и обложки — основной способ обновления изображений. Ручной URL оставлен как дополнительное поле для уже поддерживаемых /uploads/ и /assets/.</p>
-          <label>Логотип URL<input name="logo_url" value="${escapeHtml(partner.logo_url || '')}" /></label>
-          <label>Обложка URL<input name="cover_url" value="${escapeHtml(partner.cover_url || '')}" /></label>
-        </details>
-        <div class="admin-form-actions">
-          <button type="submit">Сохранить изменения</button>
-          <button class="admin-inline-action" type="button" data-admin-partner-edit-cancel>Отмена</button>
+    <section class="admin-partner-detail">
+      <div class="admin-partner-detail-header">
+        <button class="admin-back-button" type="button" data-admin-partner-edit-cancel>← Назад к списку партнёров</button>
+        <div class="admin-partner-detail-title">
+          <p class="section-kicker">Партнёры</p>
+          <h4>Редактирование партнёра</h4>
+          <strong>${escapeHtml(partner.name || 'Партнёр без названия')}</strong>
         </div>
-        <p class="form-message" data-form-message="partnerEdit">${escapeHtml(adminState.formMessages.partnerEdit || '')}</p>
-      </form>
+        <div class="admin-partner-detail-badges" aria-label="Статусы партнёра">
+          ${renderBoolStatusBadge(partner.is_active)}
+          ${renderVerifiedStatusBadge(partner.is_verified)}
+        </div>
+      </div>
+      <div class="admin-partner-detail-grid">
+        <div class="admin-partner-detail-main">
+          <section class="admin-partner-detail-section">
+            <form class="admin-form partner-profile-settings" data-admin-form="partnerEdit" data-partner-id="${escapeHtml(partner.id)}">
+              <div class="admin-section-heading"><h4>Основные данные</h4><p>Редактировать партнёра: профиль, контакты и статусы партнёра для каталога.</p></div>
+              <label>Город${renderSelect('city_id', adminState.cities.map((city) => [city.id, city.name]), true, partner.city_id)}</label>
+              <label>Категория${renderSelect('category_slug', adminState.categories.map((category) => [category.slug, category.title]), false, partner.category_slug)}</label>
+              <label>Владелец${renderSelect('owner_user_id', adminState.users.filter((item) => item.role === 'partner').map((item) => [item.id, item.email || item.phone || `Партнёр #${item.id}`]), false, partner.owner_user_id || '', 'Без владельца')}</label>
+              <label>Название<input name="name" required value="${escapeHtml(partner.name || '')}" /></label>
+              <label>Описание<textarea name="description" rows="3">${escapeHtml(partner.description || '')}</textarea></label>
+              <label>Адрес<input name="address" value="${escapeHtml(partner.address || '')}" /></label>
+              <label>Телефон<input name="phone" value="${escapeHtml(partner.phone || '')}" /></label>
+              <label>Сайт<input name="website_url" value="${escapeHtml(partner.website_url || '')}" /></label>
+              <label>Соцсеть<input name="social_url" value="${escapeHtml(partner.social_url || '')}" /></label>
+              <label>График работы<input name="working_hours" value="${escapeHtml(partner.working_hours || '')}" /></label>
+              <label>Порядок сортировки<input name="sort_order" type="number" value="${escapeHtml(partner.sort_order ?? 0)}" /></label>
+              <label class="checkbox-row"><input name="is_active" type="checkbox" ${partner.is_active ? 'checked' : ''} /> Активен</label>
+              <label class="checkbox-row"><input name="is_verified" type="checkbox" ${partner.is_verified ? 'checked' : ''} /> Проверен</label>
+              <details class="partner-profile-advanced">
+                <summary>URL изображения</summary>
+                <p class="form-message">Загрузка логотипа и обложки — основной способ обновления изображений. URL оставлен как дополнительное поле для уже поддерживаемых /uploads/ и /assets/.</p>
+                <label>Логотип URL<input name="logo_url" value="${escapeHtml(partner.logo_url || '')}" /></label>
+                <label>Обложка URL<input name="cover_url" value="${escapeHtml(partner.cover_url || '')}" /></label>
+              </details>
+              <div class="admin-partner-detail-actions admin-form-actions">
+                <button type="submit">Сохранить изменения</button>
+                <button class="admin-inline-action" type="button" data-admin-partner-edit-cancel>Отмена</button>
+              </div>
+              <p class="form-message" data-form-message="partnerEdit">${escapeHtml(adminState.formMessages.partnerEdit || '')}</p>
+            </form>
+          </section>
+          <section class="admin-partner-detail-section">
+            ${renderPartnerImageUploader(partner, 'admin')}
+          </section>
+          <section class="admin-partner-detail-section">
+            ${renderPartnerGallery(partner, photos, 'admin')}
+          </section>
+        </div>
+        <aside class="admin-partner-detail-side">
+          <section class="admin-partner-detail-section">
+            <div class="admin-section-heading"><h4>Витрина партнёра</h4><p>Так партнёр будет выглядеть в клиентском каталоге.</p></div>
+            ${renderPartnerMarketplaceCard(partner, { note: 'Так карточку увидит клиент', photos })}
+            ${renderPartnerProfileHints(partner)}
+          </section>
+          <section class="admin-partner-detail-section">
+            ${renderPublishReadiness(partner)}
+          </section>
+          <section class="admin-partner-detail-section">
+            ${renderAnalyticsSection(adminState.selectedPartnerAnalytics, {
+              title: 'Аналитика партнёра',
+              loading: adminState.partnerAnalyticsLoading,
+              error: adminState.partnerAnalyticsError,
+            })}
+          </section>
+        </aside>
+      </div>
     </section>
   `;
 };
+
+const renderPartnerCreateForm = () => `
+  <form class="admin-form" data-admin-form="partner">
+    <h4>Новый партнёр</h4>
+    <label>Город${renderSelect('city_id', adminState.cities.map((city) => [city.id, city.name]), true)}</label>
+    <label>Владелец / аккаунт партнёра${renderSelect('owner_user_id', adminState.users.filter((item) => item.role === 'partner').map((item) => [item.id, item.email || item.phone || `Партнёр #${item.id}`]), false, '', 'Без владельца')}</label>
+    <label>Категория${renderSelect('category_slug', adminState.categories.map((category) => [category.slug, category.title]), false)}</label>
+    <label>Название партнёра<input name="name" required /></label>
+    <label>Описание<textarea name="description" rows="3"></textarea></label>
+    <label>Адрес<input name="address" /></label>
+    <label>Телефон<input name="phone" /></label>
+    <label>Ссылка на соцсеть / сайт<input name="social_url" /></label>
+    <label class="checkbox-row"><input name="is_active" type="checkbox" checked /> Активен</label>
+    <label class="checkbox-row"><input name="is_verified" type="checkbox" /> Проверен</label>
+    <button type="submit">Создать партнёра</button>
+    <p class="form-message" data-form-message="partner">${escapeHtml(adminState.formMessages.partner || '')}</p>
+  </form>
+`;
+
+const renderPartnersList = (partners) => `
+  <div>
+    <div class="admin-section-heading"><h4>Партнёры</h4><p>Базовый список партнёров клуба.</p></div>
+    ${renderAdminSearch('partners', 'Поиск по партнёрам')}
+    ${renderTable(
+      ['Партнёр', 'Город', 'Категория', 'Владелец', 'Активен', 'Проверен', 'Действие'],
+      partners.map((partner) => [
+        formatValue(partner.name),
+        formatValue(partner.city_name),
+        formatValue(partner.category_slug),
+        formatValue(partner.owner_email),
+        renderBoolStatusBadge(partner.is_active),
+        renderVerifiedStatusBadge(partner.is_verified),
+        renderAdminPartnerAction(partner),
+      ]),
+      true,
+      'admin-table--compact admin-table--partners',
+      adminState.search.partners ? 'Ничего не найдено.' : 'Пока нет данных.',
+    )}
+  </div>
+`;
 
 const renderPartnersTab = () => {
   const partners = filterAdminRows(adminState.partners, adminState.search.partners, [
@@ -2660,44 +2730,14 @@ const renderPartnersTab = () => {
     (partner) => searchableBool(partner.is_active),
     (partner) => (partner.is_verified ? 'verified проверен проверенный true' : 'unverified не проверен непроверенный false'),
   ]);
+  if (adminState.selectedPartnerIdForEdit) {
+    return renderPartnerEditForm();
+  }
+
   return `
     <div class="admin-two-column admin-two-column--wide">
-      <div>
-        <div class="admin-section-heading"><h4>Партнёры</h4><p>Базовый список партнёров клуба.</p></div>
-        ${renderAdminSearch('partners', 'Поиск по партнёрам')}
-        ${renderTable(
-          ['Партнёр', 'Город', 'Категория', 'Владелец', 'Активен', 'Проверен', 'Действие'],
-          partners.map((partner) => [
-            formatValue(partner.name),
-            formatValue(partner.city_name),
-            formatValue(partner.category_slug),
-            formatValue(partner.owner_email),
-            renderBoolStatusBadge(partner.is_active),
-            renderVerifiedStatusBadge(partner.is_verified),
-            renderAdminPartnerAction(partner),
-          ]),
-          true,
-          'admin-table--compact',
-          adminState.search.partners ? 'Ничего не найдено.' : 'Пока нет данных.',
-        )}
-      </div>
-      ${adminState.selectedPartnerIdForEdit ? renderPartnerEditForm() : `
-    <form class="admin-form" data-admin-form="partner">
-      <h4>Новый партнёр</h4>
-      <label>Город${renderSelect('city_id', adminState.cities.map((city) => [city.id, city.name]), true)}</label>
-      <label>Владелец / аккаунт партнёра${renderSelect('owner_user_id', adminState.users.filter((item) => item.role === 'partner').map((item) => [item.id, item.email || item.phone || `Партнёр #${item.id}`]), false, '', 'Без владельца')}</label>
-      <label>Категория${renderSelect('category_slug', adminState.categories.map((category) => [category.slug, category.title]), false)}</label>
-      <label>Название партнёра<input name="name" required /></label>
-      <label>Описание<textarea name="description" rows="3"></textarea></label>
-      <label>Адрес<input name="address" /></label>
-      <label>Телефон<input name="phone" /></label>
-      <label>Ссылка на соцсеть / сайт<input name="social_url" /></label>
-      <label class="checkbox-row"><input name="is_active" type="checkbox" checked /> Активен</label>
-      <label class="checkbox-row"><input name="is_verified" type="checkbox" /> Проверен</label>
-      <button type="submit">Создать партнёра</button>
-      <p class="form-message" data-form-message="partner">${escapeHtml(adminState.formMessages.partner || '')}</p>
-    </form>
-    `}
+      ${renderPartnersList(partners)}
+      ${renderPartnerCreateForm()}
     </div>
   `;
 };

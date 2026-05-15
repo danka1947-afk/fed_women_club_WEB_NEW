@@ -1624,6 +1624,47 @@ def test_frontend_contains_derived_activity_feed_ui_markers() -> None:
         assert removed_lotus_marker not in styles
 
 
+def test_frontend_contains_admin_partner_detail_screen_markers() -> None:
+    source = _frontend_main()
+    styles = _frontend_styles()
+
+    for expected in (
+        "Назад к списку партнёров",
+        "Редактирование партнёра",
+        "Основные данные",
+        "Изображения партнёра",
+        "Галерея партнёра",
+        "Так партнёр будет выглядеть в клиентском каталоге",
+    ):
+        assert expected in source
+
+    for expected_style in (
+        "admin-partner-detail",
+        "admin-partner-detail-header",
+        "admin-partner-detail-grid",
+        "admin-partner-detail-main",
+        "admin-partner-detail-side",
+        "admin-partner-detail-section",
+        "admin-back-button",
+    ):
+        assert expected_style in source or expected_style in styles
+
+    for preserved_marker in (
+        "partner-marketplace-card",
+        "publish-readiness",
+        "partner-gallery",
+        "partner-image-uploader",
+        "content-review",
+        "content-review-preview",
+        "analytics-grid",
+        "analytics-card",
+        "offer-image-uploader",
+        "setup_token",
+        "/api/v1/public/landing/partners",
+    ):
+        assert preserved_marker in source or preserved_marker in styles
+
+
 def test_frontend_contains_admin_publish_readiness_markers() -> None:
     source = _frontend_main()
     styles = _frontend_styles()
