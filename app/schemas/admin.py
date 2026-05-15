@@ -199,6 +199,32 @@ class PartnerPhotoUpdate(BaseModel):
     is_active: bool | None = None
 
 
+class ContentReviewOfferRead(BaseModel):
+    id: int
+    partner_id: int
+    partner_name: str
+    title: str
+    benefit_text: str | None
+    description: str | None
+    image_url: str | None
+    created_at: datetime
+
+
+class ContentReviewPhotoRead(BaseModel):
+    id: int
+    partner_id: int
+    partner_name: str
+    url: str
+    alt_text: str | None
+    sort_order: int
+    created_at: datetime
+
+
+class ContentReviewRead(BaseModel):
+    offers: list[ContentReviewOfferRead]
+    photos: list[ContentReviewPhotoRead]
+
+
 class PartnerPhotoUploadResponse(PartnerPhotoRead):
     pass
 
