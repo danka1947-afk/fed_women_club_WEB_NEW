@@ -18,6 +18,7 @@ from app.models.user import User
 from app.services.image_uploads import save_partner_image_upload, save_partner_offer_image_upload, save_partner_photo_image_upload, validate_image_kind
 from app.schemas.partner import (
     ConfirmVerificationResponse,
+    PartnerAnalyticsRead,
     PartnerOfferCreate,
     PartnerOfferRead,
     LeadStatsRead,
@@ -30,6 +31,7 @@ from app.schemas.partner import (
     PartnerProfileUpdate,
     PartnerVerificationRead,
 )
+from app.services.partner_analytics import build_partner_analytics
 from app.services.qr_links import qr_link_to_read
 
 router = APIRouter(prefix="/partners", tags=["partners"])
@@ -154,6 +156,15 @@ def update_partner_photo(
     db.commit()
     db.refresh(photo)
     return photo
+
+
+@router.get("/me/analytics", response_model=PartnerAnalyticsRead)
+def read_partner_analytics(
+    current_user: User = Depends(require_partner),
+    db: Session = Depends(get_db),
+) -> PartnerAnalyticsRead:
+    partner = _get_current_partner_or_404(db, current_user.id)
+    return build_partner_analytics(db, partner)
 
 
 @router.get("/me/qr-links", response_model=list[PartnerQrLinkRead])

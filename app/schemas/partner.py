@@ -100,6 +100,19 @@ class PartnerPhotoUploadResponse(PartnerPhotoRead):
     pass
 
 
+class PartnerAnalyticsRead(BaseModel):
+    partner_id: int
+    partner_name: str | None = None
+    qr_links_count: int
+    lead_clicks_count: int
+    privileges_created_count: int
+    privileges_confirmed_count: int
+    active_privileges_count: int
+    expired_privileges_count: int
+    conversion_to_privilege_percent: float
+    confirmation_rate_percent: float
+
+
 class PartnerVerificationRead(BaseModel):
     id: int
     client_id: int
