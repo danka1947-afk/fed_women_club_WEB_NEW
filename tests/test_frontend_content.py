@@ -1481,3 +1481,85 @@ def test_frontend_contains_partner_analytics_ui_markers() -> None:
     ):
         assert removed_lotus_marker not in source
         assert removed_lotus_marker not in styles
+
+
+def test_frontend_contains_derived_activity_feed_ui_markers() -> None:
+    source = _frontend_main()
+    styles = _frontend_styles()
+
+    for expected in (
+        "Активность",
+        "Событий пока нет.",
+        "Загружаем события",
+        "Не удалось загрузить события",
+        "Здесь появятся ваши действия",
+        "Лента помогает быстро видеть",
+        "Все события",
+        "QR-переходы",
+        "/api/v1/clients/me/activity",
+        "/api/v1/partners/me/activity",
+        "/api/v1/admin/activity",
+        "renderActivityFeed",
+        "renderActivityItem",
+        "formatActivityDate",
+        "privilege_created",
+        "privilege_confirmed",
+        "privilege_expired",
+        "qr_clicked",
+        "partner_created",
+        "offer_created",
+        "qr_link_created",
+    ):
+        assert expected in source
+
+    for expected_style in (
+        "activity-feed",
+        "activity-item",
+        "activity-badge",
+        "activity-badge--privilege",
+        "activity-badge--confirmed",
+        "activity-badge--expired",
+        "activity-badge--qr",
+        "activity-badge--partner",
+        "activity-meta",
+        "activity-empty",
+        "activity-filter",
+    ):
+        assert expected_style in source or expected_style in styles
+
+    for preserved_marker in (
+        "partner-marketplace-card",
+        "offer-marketplace-card",
+        "partner-gallery",
+        "partner-gallery-grid",
+        "data-privilege-success-panel",
+        "data-client-privilege-card",
+        "data-partner-confirmation-card",
+        "analytics-grid",
+        "analytics-card",
+        "analyticsLoading",
+        "setup_token",
+        "/api/v1/auth/password-setup/complete",
+        "/api/v1/public/landing/partners",
+        "/api/v1/clients/catalog/partners",
+        "dashboard-shell",
+        "dashboard-topbar",
+        "dashboard-sidebar",
+        "dashboard-main",
+        "womenclub_partner_token",
+        "womenclub_client_token",
+        "womenClubAdminAccessToken",
+        "startsWith('/uploads/')",
+    ):
+        assert preserved_marker in source or preserved_marker in styles
+
+    for removed_lotus_marker in (
+        "reference-lotus-layer",
+        "lotus-layer",
+        "lotus-decor",
+        "--user-lotus-reference-svg",
+        "--lotus-reference-background",
+        "/assets/lotus-bg.png",
+    ):
+        assert removed_lotus_marker not in source
+        assert removed_lotus_marker not in styles
