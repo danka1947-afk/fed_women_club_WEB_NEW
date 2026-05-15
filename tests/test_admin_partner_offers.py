@@ -153,6 +153,17 @@ def test_admin_partner_offer_create_for_existing_partner(admin_client: TestClien
     assert data["sort_order"] == 5
 
 
+def test_admin_created_offer_can_be_active_as_before(admin_client: TestClient, admin_token: str) -> None:
+    response = admin_client.post(
+        "/api/v1/admin/partners/1/offers",
+        headers=_auth_headers(admin_token),
+        json=_offer_payload(is_active=True),
+    )
+
+    assert response.status_code == 200
+    assert response.json()["is_active"] is True
+
+
 def test_admin_partner_offer_create_empty_title_returns_400(
     admin_client: TestClient,
     admin_token: str,

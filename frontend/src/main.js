@@ -483,6 +483,7 @@ const statusBadgeMappings = {
   'неактивен': { label: 'Неактивен', tone: 'muted' },
   'неактивно': { label: 'Неактивно', tone: 'muted' },
   'неактивна': { label: 'Неактивна', tone: 'muted' },
+  'на проверке': { label: 'На проверке', tone: 'warning' },
   'проверен': { label: 'Проверен', tone: 'success' },
   'не проверен': { label: 'Не проверен', tone: 'warning' },
   'подтверждено': { label: 'Подтверждено', tone: 'success' },
@@ -519,6 +520,7 @@ const renderStatusBadge = (label, tone = '') => {
 
 const renderBoolStatusBadge = (value) => renderStatusBadge(formatBool(value));
 const renderActiveStatusBadge = (value) => renderStatusBadge(formatActiveStatus(value));
+const renderPartnerReviewStatusBadge = (value) => (value ? renderActiveStatusBadge(value) : renderStatusBadge('На проверке'));
 const renderActiveStatusFeminineBadge = (value) => renderStatusBadge(formatActiveStatusFeminine(value));
 const renderVerifiedStatusBadge = (value) => renderStatusBadge(formatVerifiedStatus(value));
 const formatRole = (role) => ({
@@ -1092,7 +1094,7 @@ const renderPartnerGallery = (partner, photos = [], scope = 'partner') => {
     <section class="partner-gallery">
       <div class="admin-section-heading">
         <h4>Галерея партнёра</h4>
-        <p>Добавьте живые фото, чтобы карточка выглядела привлекательнее для участниц клуба.</p>
+        <p>${isAdmin ? 'Добавьте живые фото, чтобы карточка выглядела привлекательнее для участниц клуба. Неактивные материалы не видны клиентам.' : 'Новые фото появятся в витрине после проверки и активации администратором.'}</p>
       </div>
       <div class="partner-gallery-upload">
         ${partnerId ? `<label class="admin-inline-action">Загрузить фото в галерею<input type="file" accept="image/jpeg,image/png,image/webp" ${uploadAttr} /></label>` : '<p class="form-message">Сначала сохраните партнёра, затем загрузите фото.</p>'}
@@ -1103,11 +1105,12 @@ const renderPartnerGallery = (partner, photos = [], scope = 'partner') => {
             const safeUrl = isSafePublicAssetUrl(photo.url) ? photo.url : '';
             return `
               <article class="partner-gallery-item ${photo.is_active ? '' : 'is-muted'}">
+                ${!photo.is_active ? '<div class="partner-gallery-status">' + renderStatusBadge('На проверке') + '<small>Ожидает активации администратором.</small></div>' : ''}
                 ${safeUrl ? `<div class="partner-gallery-image" style="background-image: url('${escapeHtml(safeUrl)}')" role="img" aria-label="${escapeHtml(photo.alt_text || 'Фото партнёра')}"></div>` : '<div class="partner-gallery-image partner-gallery-empty">Фото скрыто</div>'}
                 <form class="partner-gallery-actions" data-${isAdmin ? 'admin' : 'partner'}-gallery-form="photo" data-photo-id="${escapeHtml(photo.id)}">
                   <label>Alt<input name="alt_text" value="${escapeHtml(photo.alt_text || '')}" /></label>
                   <label>Сортировка<input name="sort_order" type="number" value="${escapeHtml(photo.sort_order || 0)}" /></label>
-                  <label class="checkbox-row"><input name="is_active" type="checkbox" ${photo.is_active ? 'checked' : ''} /> Показывать</label>
+                  <label class="checkbox-row"><input name="is_active" type="checkbox" ${photo.is_active ? 'checked' : ''} ${!isAdmin && !photo.is_active ? 'disabled' : ''} /> Показывать</label>
                   <div class="admin-form-actions">
                     <button type="submit">Сохранить</button>
                     <button class="admin-inline-action" type="button" data-${isAdmin ? 'admin' : 'partner'}-photo-hide="${escapeHtml(photo.id)}">Скрыть фото</button>
@@ -1984,15 +1987,15 @@ const renderPartnerProfileTab = () => {
 
 const renderPartnerOfferAction = (offer) => `
   <button class="admin-inline-action" type="button" data-partner-offer-edit="${escapeHtml(offer.id)}">Редактировать</button>
-  <button class="admin-inline-action" type="button" data-partner-offer-toggle="${escapeHtml(offer.id)}">
-    ${offer.is_active ? 'Скрыть' : 'Показать'}
-  </button>
+  ${offer.is_active
+    ? `<button class="admin-inline-action" type="button" data-partner-offer-toggle="${escapeHtml(offer.id)}">Скрыть</button>`
+    : '<button class="admin-inline-action" type="button" disabled>На проверке</button>'}
 `;
 
 const renderPartnerOfferForm = () => {
   const offer = partnerState.offers.find((item) => String(item.id) === String(partnerState.selectedOfferIdForEdit));
   const isEdit = Boolean(offer);
-  const previewOffer = isEdit ? offer : { is_active: true };
+  const previewOffer = isEdit ? offer : { is_active: false };
 
   return `
     <section class="offer-marketplace-preview">
@@ -2001,6 +2004,8 @@ const renderPartnerOfferForm = () => {
     </section>
     <form class="admin-form admin-form--inline" data-partner-form="${isEdit ? 'offerEdit' : 'offer'}" ${isEdit ? `data-offer-id="${escapeHtml(offer.id)}"` : ''}>
       <h4>${isEdit ? 'Редактировать предложение' : 'Новое предложение'}</h4>
+      <p class="form-message">Новое предложение появится у клиентов после проверки и активации администратором.</p>
+      ${isEdit && offer?.is_active === false ? '<p class="form-message">Ожидает активации администратором.</p>' : ''}
       <label>Название<input name="title" required value="${escapeHtml(offer?.title || '')}" /></label>
       <label>Краткая выгода<input name="benefit_text" value="${escapeHtml(offer?.benefit_text || '')}" /></label>
       <label>Описание<textarea name="description" rows="3">${escapeHtml(offer?.description || '')}</textarea></label>
@@ -2013,7 +2018,7 @@ const renderPartnerOfferForm = () => {
         <p class="form-message">Основной способ обновления — кнопка загрузки. URL показывается для проверки и отправляется как раньше.</p>
         <label>URL изображения<input name="image_url" value="${escapeHtml(offer?.image_url || '')}" readonly placeholder="/uploads/offer.webp или /assets/offer.webp" /></label>
       </details>
-      <label class="checkbox-row"><input name="is_active" type="checkbox" ${offer?.is_active === false ? '' : 'checked'} /> Активно</label>
+      ${isEdit ? `<label class="checkbox-row"><input name="is_active" type="checkbox" ${offer?.is_active === false ? '' : 'checked'} ${offer?.is_active === false ? 'disabled' : ''} /> Активно</label>` : ''}
       <label>Порядок сортировки<input name="sort_order" type="number" value="${escapeHtml(offer?.sort_order || 0)}" /></label>
       <div class="admin-form-actions">
         <button type="submit">${isEdit ? 'Сохранить изменения' : 'Создать предложение'}</button>
@@ -2025,11 +2030,11 @@ const renderPartnerOfferForm = () => {
 };
 
 const renderPartnerOffersTab = () => `
-  <div class="admin-section-heading"><h4>Предложения и привилегии</h4><p>Оформите услуги так, чтобы участницы сразу понимали выгоду.</p></div>
+  <div class="admin-section-heading"><h4>Предложения и привилегии</h4><p>Оформите услуги так, чтобы участницы сразу понимали выгоду. Новое предложение появится у клиентов после проверки и активации администратором.</p></div>
   ${partnerState.offers.length ? `
     <div class="offer-card-grid">
       ${partnerState.offers.map((offer) => renderOfferMarketplaceCard(offer, {
-        note: 'Так предложение увидит клиент',
+        note: offer.is_active ? 'Так предложение увидит клиент' : 'Ожидает активации администратором.',
         actionHtml: `${renderPartnerOfferAction(offer)}<button type="button" disabled>Получить привилегию</button>`,
       })).join('')}
     </div>
@@ -2042,7 +2047,7 @@ const renderPartnerOffersTab = () => `
         formatValue(offer.conditions),
         formatValue(formatOfferBasePrice(offer.base_price)),
         formatValue(formatDiscountPercent(offer.discount_percent) || '—'),
-        renderActiveStatusBadge(offer.is_active),
+        renderPartnerReviewStatusBadge(offer.is_active),
         formatValue(offer.sort_order),
         renderPartnerOfferAction(offer),
       ]),
@@ -3026,6 +3031,8 @@ const buildPartnerOfferPayload = (formData) => ({
 const submitPartnerOffer = async (form) => {
   const formData = new FormData(form);
   await partnerPostJson('/api/v1/partners/me/offers', buildPartnerOfferPayload(formData));
+  setPartnerFormMessage('offer', 'Предложение отправлено на проверку. После активации администратором оно появится у клиентов.');
+  setPartnerPanelMessage('Предложение отправлено на проверку. После активации администратором оно появится у клиентов.', 'success');
   form.reset();
   await loadPartnerOffers();
 };
@@ -3049,8 +3056,10 @@ const handlePartnerFormSubmit = async (form) => {
     } else if (formType === 'offerEdit') {
       await submitPartnerOfferEdit(form);
     }
-    setPartnerFormMessage(formType, 'Сохранено.');
-    setPartnerPanelMessage('Сохранено.', 'success');
+    if (formType !== 'offer') {
+      setPartnerFormMessage(formType, 'Сохранено.');
+      setPartnerPanelMessage('Сохранено.', 'success');
+    }
   } catch (error) {
     setPartnerFormMessage(formType, error.message || 'Не удалось сохранить.');
     setPartnerPanelMessage(error.message || 'Не удалось сохранить.', 'error');
@@ -3141,7 +3150,7 @@ const togglePartnerOffer = async (offerId) => {
   try {
     await partnerPatchJson(`/api/v1/partners/me/offers/${offerId}`, { is_active: !offer.is_active });
     await loadPartnerOffers();
-    setPartnerPanelMessage(offer.is_active ? 'Предложение скрыто.' : 'Предложение опубликовано.', 'success');
+    setPartnerPanelMessage(offer.is_active ? 'Предложение скрыто.' : 'Ожидает активации администратором.', 'success');
   } catch (error) {
     setPartnerPanelMessage(error.message || 'Не удалось обновить предложение.', 'error');
   }
@@ -4044,8 +4053,8 @@ const handlePartnerPhotoInput = async (input) => {
   setPartnerFormMessage('partnerGallery');
   try {
     await uploadPartnerPhoto(file);
-    setPartnerFormMessage('partnerGallery', 'Фото добавлено в галерею.');
-    setPartnerPanelMessage('Фото добавлено в галерею партнёра.', 'success');
+    setPartnerFormMessage('partnerGallery', 'Фото загружено и отправлено на проверку.');
+    setPartnerPanelMessage('Фото загружено и отправлено на проверку.', 'success');
   } catch (error) {
     setPartnerFormMessage('partnerGallery', error.message || 'Не удалось загрузить фото в галерею.');
     setPartnerPanelMessage(error.message || 'Не удалось загрузить фото в галерею.', 'error');

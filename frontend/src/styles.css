@@ -3206,7 +3206,20 @@ body.is-dashboard {
 }
 
 .partner-gallery-item.is-muted {
-  opacity: 0.62;
+  opacity: 0.78;
+}
+
+.partner-gallery-status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  padding: 10px 12px 0;
+}
+
+.partner-gallery-status small {
+  color: var(--color-muted);
+  font-weight: 800;
 }
 
 .partner-gallery-image {

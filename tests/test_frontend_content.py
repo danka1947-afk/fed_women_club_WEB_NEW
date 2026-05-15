@@ -1272,6 +1272,10 @@ def test_frontend_contains_partner_gallery_photo_mvp_markers() -> None:
         "Галерея партнёра",
         "Загрузить фото в галерею",
         "Добавьте живые фото",
+        "Новые фото появятся в витрине после проверки и активации администратором.",
+        "Фото загружено и отправлено на проверку.",
+        "На проверке",
+        "Ожидает активации администратором.",
         "Скрыть фото",
         "partner-gallery",
         "partner-gallery-grid",
@@ -1300,12 +1304,53 @@ def test_frontend_contains_partner_gallery_photo_mvp_markers() -> None:
         ".partner-gallery-actions",
         ".partner-gallery-upload",
         ".partner-gallery-empty",
+        ".partner-gallery-status",
     ]:
         assert marker in styles
 
     forbidden_reference_markers = ["lotus", "Лотос", "remote image fetch"]
     for marker in forbidden_reference_markers:
         assert marker not in source
+
+
+def test_frontend_contains_partner_content_moderation_markers() -> None:
+    source = _frontend_main()
+    styles = _frontend_styles()
+
+    for expected in (
+        "Новое предложение появится у клиентов после проверки и активации администратором.",
+        "Предложение отправлено на проверку. После активации администратором оно появится у клиентов.",
+        "Новые фото появятся в витрине после проверки и активации администратором.",
+        "Фото загружено и отправлено на проверку.",
+        "Ожидает активации администратором.",
+        "На проверке",
+        "partner-gallery-status",
+        "renderPartnerReviewStatusBadge",
+        "Неактивные материалы не видны клиентам.",
+        "partner-marketplace-card",
+        "offer-marketplace-card",
+        "/api/v1/partners/me/photos",
+        "/api/v1/partners/me/offers",
+        "/api/v1/partners/me/activity",
+        "/api/v1/partners/me/analytics",
+        "setup_token",
+        "dashboard-shell",
+        "womenclub_partner_token",
+        "womenclub_client_token",
+        "/api/v1/public/landing/partners",
+    ):
+        assert expected in source or expected in styles
+
+    for removed_marker in (
+        "reference-lotus-layer",
+        "lotus-layer",
+        "lotus-decor",
+        "--user-lotus-reference-svg",
+        "--lotus-reference-background",
+        "/assets/lotus-bg.png",
+    ):
+        assert removed_marker not in source
+        assert removed_marker not in styles
 
 
 def test_frontend_contains_client_marketplace_partner_catalog_markers() -> None:
