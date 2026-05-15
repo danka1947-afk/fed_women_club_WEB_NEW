@@ -1608,3 +1608,74 @@ def test_frontend_contains_derived_activity_feed_ui_markers() -> None:
     ):
         assert removed_lotus_marker not in source
         assert removed_lotus_marker not in styles
+
+
+def test_frontend_contains_admin_content_review_queue_markers() -> None:
+    source = _frontend_main()
+    styles = _frontend_styles()
+    admin_endpoints = _admin_endpoints()
+
+    for expected in (
+        "На проверке",
+        "Материалов на проверке нет",
+        "Здесь появляются новые предложения и фото",
+        "Активировать",
+        "Фото галереи",
+        "content-review",
+        "content-review-card",
+        "content-review-preview",
+        "/api/v1/admin/content-review",
+        "/api/v1/admin/offers/${offerId}",
+        "/api/v1/admin/offers/",
+        "/api/v1/admin/partner-photos/${photoId}",
+        "/api/v1/admin/partner-photos/",
+    ):
+        assert expected in source or expected in styles or expected in admin_endpoints
+
+    for expected_style in (
+        ".content-review",
+        ".content-review-section",
+        ".content-review-card",
+        ".content-review-preview",
+        ".content-review-actions",
+        ".content-review-empty",
+    ):
+        assert expected_style in styles
+
+    for preserved_marker in (
+        "Новое предложение появится у клиентов после проверки и активации администратором.",
+        "Предложение отправлено на проверку. После активации администратором оно появится у клиентов.",
+        "Новые фото появятся в витрине после проверки и активации администратором.",
+        "Фото загружено и отправлено на проверку.",
+        "Ожидает активации администратором.",
+        "/api/v1/partners/me/activity",
+        "/api/v1/partners/me/analytics",
+        "/api/v1/admin/activity",
+        "offer-image-uploader",
+        "partner-image-uploader",
+        "partner-gallery",
+        "partner-gallery-grid",
+        "offer-marketplace-card",
+        "partner-marketplace-card",
+        "data-privilege-success-panel",
+        "data-client-privilege-card",
+        "setup_token",
+        "/api/v1/auth/password-setup/complete",
+        "/api/v1/public/landing/partners",
+        "/api/v1/clients/catalog/partners",
+        "womenclub_partner_token",
+        "womenclub_client_token",
+        "womenClubAdminAccessToken",
+    ):
+        assert preserved_marker in source or preserved_marker in styles
+
+    for removed_lotus_marker in (
+        "reference-lotus-layer",
+        "lotus-layer",
+        "lotus-decor",
+        "--user-lotus-reference-svg",
+        "--lotus-reference-background",
+        "/assets/lotus-bg.png",
+    ):
+        assert removed_lotus_marker not in source
+        assert removed_lotus_marker not in styles

@@ -25,6 +25,9 @@ from app.schemas.admin import (
     AdminManagedUserRead,
     AdminManagedUserUpdate,
     AdminVerificationRead,
+    ContentReviewOfferRead,
+    ContentReviewPhotoRead,
+    ContentReviewRead,
     CategoryCreate,
     CategoryRead,
     CategoryUpdate,
@@ -128,6 +131,54 @@ def list_admin_verifications(
         _admin_verification_to_read(session, client_name, partner_name, city_id, city_name, offer_title)
         for session, client_name, partner_name, city_id, city_name, offer_title in db.execute(statement).all()
     ]
+
+
+@router.get("/content-review", response_model=ContentReviewRead)
+def read_admin_content_review(
+    admin: AdminUser = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> ContentReviewRead:
+    _ = admin
+    offer_rows = db.execute(
+        select(PartnerOffer, Partner.name.label("partner_name"))
+        .join(Partner, PartnerOffer.partner_id == Partner.id)
+        .where(PartnerOffer.is_active.is_(False))
+        .order_by(PartnerOffer.created_at.asc(), PartnerOffer.id.asc())
+    ).all()
+    photo_rows = db.execute(
+        select(PartnerPhoto, Partner.name.label("partner_name"))
+        .join(Partner, PartnerPhoto.partner_id == Partner.id)
+        .where(PartnerPhoto.is_active.is_(False))
+        .order_by(PartnerPhoto.created_at.asc(), PartnerPhoto.id.asc())
+    ).all()
+
+    return ContentReviewRead(
+        offers=[
+            ContentReviewOfferRead(
+                id=offer.id,
+                partner_id=offer.partner_id,
+                partner_name=partner_name,
+                title=offer.title,
+                benefit_text=offer.benefit_text,
+                description=offer.description,
+                image_url=offer.image_url,
+                created_at=offer.created_at,
+            )
+            for offer, partner_name in offer_rows
+        ],
+        photos=[
+            ContentReviewPhotoRead(
+                id=photo.id,
+                partner_id=photo.partner_id,
+                partner_name=partner_name,
+                url=photo.url,
+                alt_text=photo.alt_text,
+                sort_order=photo.sort_order,
+                created_at=photo.created_at,
+            )
+            for photo, partner_name in photo_rows
+        ],
+    )
 
 
 @router.get("/users", response_model=list[AdminManagedUserRead])

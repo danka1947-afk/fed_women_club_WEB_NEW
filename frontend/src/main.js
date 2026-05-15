@@ -306,6 +306,7 @@ const adminTabs = [
   { id: 'categories', label: 'Категории', icon: '✦' },
   { id: 'partners', label: 'Партнёры', icon: '♡' },
   { id: 'offers', label: 'Предложения', icon: '%' },
+  { id: 'contentReview', label: 'На проверке', icon: '◌' },
   { id: 'qr', label: 'QR / лиды', icon: 'QR' },
   { id: 'verifications', label: 'Подтверждения', icon: '✓' },
   { id: 'activity', label: 'Активность', icon: '•' },
@@ -324,6 +325,7 @@ const adminState = {
   partnerAnalyticsLoading: false,
   partnerAnalyticsError: '',
   offers: [],
+  contentReview: { offers: [], photos: [] },
   qrLinks: [],
   leads: [],
   verifications: [],
@@ -343,6 +345,7 @@ const adminState = {
     categories: '',
     partners: '',
     offers: '',
+    contentReview: '',
     qr: '',
     leads: '',
     verifications: '',
@@ -2219,6 +2222,14 @@ const loadOffers = async () => {
   }
 };
 
+const loadContentReview = async () => {
+  const data = await apiFetch('/api/v1/admin/content-review');
+  adminState.contentReview = {
+    offers: Array.isArray(data?.offers) ? data.offers : [],
+    photos: Array.isArray(data?.photos) ? data.photos : [],
+  };
+};
+
 const loadQrLinks = async () => {
   if (!adminState.selectedPartnerIdForQr) {
     adminState.qrLinks = [];
@@ -2261,6 +2272,8 @@ const renderAdminTabContent = () => {
       return renderPartnersTab();
     case 'offers':
       return renderOffersTab();
+    case 'contentReview':
+      return renderContentReviewTab();
     case 'qr':
       return renderQrTab();
     case 'verifications':
@@ -2301,6 +2314,7 @@ const renderOverviewTab = () => {
     ['users', 'Пользователи', 'Создать или активировать аккаунт'],
     ['partners', 'Партнёры', 'Добавить партнёра и владельца'],
     ['cities', 'Города', 'Настроить географию клуба'],
+    ['contentReview', 'На проверке', 'Активировать новые материалы партнёров'],
     ['qr', 'QR / лиды', 'Посмотреть QR-ссылки и лиды'],
   ];
 
@@ -2730,6 +2744,70 @@ const renderOffersTab = () => {
   `;
 };
 
+
+const renderContentReviewOfferCard = (offer) => renderOfferMarketplaceCard(
+  { ...offer, is_active: false },
+  {
+    note: `Партнёр: ${offer.partner_name || '—'}`,
+    actionHtml: `
+      <button type="button" data-content-review-offer-activate="${escapeHtml(offer.id)}">Активировать</button>
+      <button class="admin-inline-action" type="button" data-content-review-partner-open="${escapeHtml(offer.partner_id)}">Открыть партнёра</button>
+    `,
+  },
+);
+
+const renderContentReviewPhotoCard = (photo) => {
+  const safeUrl = isSafePublicAssetUrl(photo.url) ? photo.url : '';
+  return `
+    <article class="content-review-card">
+      <div class="content-review-preview ${safeUrl ? '' : 'content-review-preview--placeholder'}" ${safeUrl ? `style="background-image: url('${escapeHtml(safeUrl)}')" role="img" aria-label="${escapeHtml(photo.alt_text || 'Фото галереи')}"` : 'aria-hidden="true"'}>
+        ${safeUrl ? '' : '<span>Фото галереи</span>'}
+      </div>
+      <div class="content-review-body">
+        <span class="section-kicker">Фото галереи</span>
+        <h4>${escapeHtml(photo.partner_name || 'Партнёр')}</h4>
+        <dl class="offer-marketplace-meta">
+          <div><dt>Alt</dt><dd>${formatValue(photo.alt_text)}</dd></div>
+          <div><dt>Сортировка</dt><dd>${formatValue(photo.sort_order)}</dd></div>
+          <div><dt>Создано</dt><dd>${formatValue(formatDate(photo.created_at))}</dd></div>
+        </dl>
+        <div class="content-review-actions">
+          <button type="button" data-content-review-photo-activate="${escapeHtml(photo.id)}">Активировать</button>
+          <button class="admin-inline-action" type="button" data-content-review-partner-open="${escapeHtml(photo.partner_id)}">Открыть партнёра</button>
+        </div>
+      </div>
+    </article>
+  `;
+};
+
+const renderContentReviewSection = (title, items, renderer) => `
+  <section class="content-review-section">
+    <div class="admin-section-heading">
+      <h4>${escapeHtml(title)}</h4>
+      <p>${items.length ? `Ожидают проверки: ${items.length}` : 'Новых материалов в этой секции нет.'}</p>
+    </div>
+    ${items.length ? `<div class="content-review-grid">${items.map(renderer).join('')}</div>` : '<div class="content-review-empty">Материалов на проверке нет.</div>'}
+  </section>
+`;
+
+const renderContentReviewTab = () => {
+  const offers = adminState.contentReview.offers || [];
+  const photos = adminState.contentReview.photos || [];
+  return `
+    <div class="content-review">
+      <div class="admin-section-heading admin-page-heading">
+        <p class="section-kicker">Content review</p>
+        <h4>На проверке</h4>
+        <p>Здесь появляются новые предложения и фото, которые партнёры загрузили самостоятельно. После активации они станут видны клиентам.</p>
+      </div>
+      ${!offers.length && !photos.length ? '<div class="content-review-empty">Материалов на проверке нет.</div>' : ''}
+      ${renderContentReviewSection('Предложения', offers, renderContentReviewOfferCard)}
+      ${renderContentReviewSection('Фото галереи', photos, renderContentReviewPhotoCard)}
+      <p class="form-message" data-form-message="contentReview">${escapeHtml(adminState.formMessages.contentReview || '')}</p>
+    </div>
+  `;
+};
+
 const renderAdminQrAction = (link) => `
   <button class="admin-inline-action admin-table-action" type="button" data-admin-qr-edit="${escapeHtml(link.id)}">Редактировать</button>
 `;
@@ -2916,6 +2994,8 @@ const loadActiveTabData = async () => {
         adminState.selectedPartnerIdForOffers = String(adminState.partners[0].id);
       }
       await loadOffers();
+    } else if (adminState.activeTab === 'contentReview') {
+      await Promise.all([ensureAdminDictionaries(), loadContentReview()]);
     } else if (adminState.activeTab === 'qr') {
       await Promise.all([ensureAdminDictionaries(), loadLeads()]);
       if (!adminState.selectedPartnerIdForQr && adminState.partners[0]) {
@@ -3437,6 +3517,23 @@ const hidePartnerPhoto = async (photoId) => {
   await loadPartnerPhotos();
 };
 
+
+const activateContentReviewOffer = async (offerId) => {
+  await patchJson(`/api/v1/admin/offers/${offerId}`, { is_active: true });
+  await loadContentReview();
+  if (adminState.selectedPartnerIdForOffers) {
+    await loadOffers();
+  }
+};
+
+const activateContentReviewPhoto = async (photoId) => {
+  await patchJson(`/api/v1/admin/partner-photos/${photoId}`, { is_active: true });
+  await loadContentReview();
+  if (adminState.selectedPartnerIdForEdit) {
+    await loadAdminPartnerPhotos(adminState.selectedPartnerIdForEdit);
+  }
+};
+
 const uploadAdminPartnerImage = async (partnerId, kind, file) => {
   const body = new FormData();
   body.append('file', file);
@@ -3828,6 +3925,50 @@ root.addEventListener('click', async (event) => {
     adminState.partnerAnalyticsError = '';
     adminState.partnerAnalyticsLoading = false;
     setFormMessage('partnerEdit');
+    renderAdminLayout();
+    return;
+  }
+
+  const contentReviewOfferActivate = event.target.closest('[data-content-review-offer-activate]');
+  if (contentReviewOfferActivate) {
+    setFormMessage('contentReview');
+    try {
+      await activateContentReviewOffer(contentReviewOfferActivate.dataset.contentReviewOfferActivate);
+      setFormMessage('contentReview', 'Предложение активировано.');
+      setPanelMessage('Предложение активировано и стало видно клиентам.', 'success');
+    } catch (error) {
+      setFormMessage('contentReview', error.message || 'Не удалось активировать предложение.');
+      setPanelMessage(error.message || 'Не удалось активировать предложение.', 'error');
+    }
+    renderAdminLayout();
+    return;
+  }
+
+  const contentReviewPhotoActivate = event.target.closest('[data-content-review-photo-activate]');
+  if (contentReviewPhotoActivate) {
+    setFormMessage('contentReview');
+    try {
+      await activateContentReviewPhoto(contentReviewPhotoActivate.dataset.contentReviewPhotoActivate);
+      setFormMessage('contentReview', 'Фото активировано.');
+      setPanelMessage('Фото активировано и стало видно клиентам.', 'success');
+    } catch (error) {
+      setFormMessage('contentReview', error.message || 'Не удалось активировать фото.');
+      setPanelMessage(error.message || 'Не удалось активировать фото.', 'error');
+    }
+    renderAdminLayout();
+    return;
+  }
+
+  const contentReviewPartnerOpen = event.target.closest('[data-content-review-partner-open]');
+  if (contentReviewPartnerOpen) {
+    adminState.activeTab = 'partners';
+    adminState.selectedPartnerIdForEdit = contentReviewPartnerOpen.dataset.contentReviewPartnerOpen;
+    setFormMessage('partnerEdit');
+    await ensureAdminDictionaries();
+    await Promise.all([
+      loadAdminPartnerPhotos(adminState.selectedPartnerIdForEdit),
+      loadAdminPartnerAnalytics(adminState.selectedPartnerIdForEdit),
+    ]);
     renderAdminLayout();
     return;
   }

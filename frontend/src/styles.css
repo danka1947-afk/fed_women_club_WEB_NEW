@@ -3708,3 +3708,99 @@ body.is-dashboard {
     white-space: normal;
   }
 }
+
+.content-review {
+  display: grid;
+  gap: 18px;
+}
+
+.content-review-section {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid rgba(190, 24, 93, 0.14);
+  border-radius: 30px;
+  background:
+    radial-gradient(circle at top right, rgba(251, 207, 232, 0.48), transparent 14rem),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.84), rgba(255, 241, 248, 0.72));
+  box-shadow: 0 20px 48px rgba(190, 24, 93, 0.09);
+  backdrop-filter: blur(18px);
+}
+
+.content-review-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+.content-review-card {
+  overflow: hidden;
+  border: 1px solid rgba(190, 24, 93, 0.16);
+  border-radius: 26px;
+  background: rgba(255, 255, 255, 0.78);
+  box-shadow: 0 16px 36px rgba(143, 81, 75, 0.1);
+}
+
+.content-review-preview {
+  display: grid;
+  min-height: 170px;
+  place-items: center;
+  background:
+    linear-gradient(135deg, rgba(251, 207, 232, 0.7), rgba(255, 255, 255, 0.76));
+  background-position: center;
+  background-size: cover;
+  color: #831843;
+  font-weight: 950;
+}
+
+.content-review-preview--placeholder span {
+  padding: 8px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  border-radius: 999px;
+  background: rgba(255, 241, 248, 0.76);
+}
+
+.content-review-body {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+}
+
+.content-review-body h4 {
+  margin: 0;
+  color: var(--color-rose-dark);
+}
+
+.content-review-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.content-review-actions button,
+.content-review-actions .admin-inline-action {
+  min-height: 38px;
+  padding: 9px 14px;
+  border: 0;
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--color-rose), #b87368 55%, var(--color-rose-dark));
+  color: #fffaf8;
+  font: inherit;
+  font-weight: 900;
+  text-decoration: none;
+  box-shadow: 0 12px 24px rgba(143, 81, 75, 0.16);
+}
+
+.content-review-empty {
+  display: grid;
+  place-items: center;
+  min-height: 90px;
+  padding: 16px;
+  border: 1px dashed rgba(190, 24, 93, 0.28);
+  border-radius: 22px;
+  background: rgba(255, 241, 248, 0.72);
+  color: #9d174d;
+  font-weight: 850;
+  text-align: center;
+}
