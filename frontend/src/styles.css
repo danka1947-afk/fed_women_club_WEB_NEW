@@ -1340,6 +1340,8 @@ h2 {
 .client-partner-card,
 .client-offer-card,
 .client-verification-result,
+.client-privilege-card,
+.partner-confirmation-card,
 .client-vk-link-card {
   border: 1px solid rgba(201, 130, 120, 0.24);
   background: rgba(255, 250, 248, 0.9);
@@ -1356,6 +1358,8 @@ h2 {
 .client-partner-card h4,
 .client-offer-card h5,
 .client-verification-result h4,
+.client-privilege-card h4,
+.partner-confirmation-card h4,
 .client-vk-link-card h4 {
   margin: 0;
   color: var(--color-rose-dark);
@@ -1415,7 +1419,9 @@ h2 {
 }
 
 .client-offer-card,
-.client-verification-result {
+.client-verification-result,
+.client-privilege-card,
+.partner-confirmation-card {
   display: grid;
   gap: 8px;
   padding: 16px;
@@ -1438,6 +1444,44 @@ h2 {
   background:
     linear-gradient(145deg, rgba(255, 255, 255, 0.96), rgba(255, 247, 245, 0.96)),
     radial-gradient(circle at top right, rgba(246, 216, 210, 0.74), transparent 13rem);
+}
+
+.privilege-success-panel__heading,
+.client-privilege-card-grid,
+.partner-confirmation-card-grid {
+  display: grid;
+  gap: 14px;
+}
+.privilege-success-panel__heading {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+}
+
+.privilege-code {
+  width: fit-content;
+  padding: 14px 18px;
+  border: 1px dashed rgba(201, 130, 120, 0.48);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.78);
+  color: var(--color-rose-dark);
+  font-size: clamp(2rem, 6vw, 3.4rem);
+  font-weight: 900;
+  letter-spacing: 0.14em;
+  line-height: 1;
+}
+
+.privilege-code--card {
+  font-size: 2rem;
+}
+
+.client-privilege-card-grid,
+.partner-confirmation-card-grid {
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+
+.client-privilege-card,
+.partner-confirmation-card {
+  min-width: 0;
 }
 
 .client-vk-link-card {

@@ -1364,3 +1364,51 @@ def test_frontend_contains_client_marketplace_partner_catalog_markers() -> None:
     ):
         assert removed_marker not in source
         assert removed_marker not in styles
+
+
+def test_frontend_contains_privilege_marketplace_flow_markers() -> None:
+    source = _frontend_main()
+    styles = _frontend_styles()
+
+    for expected in (
+        "Привилегия активирована",
+        "Покажите этот код партнёру перед оплатой/получением услуги.",
+        "Мои привилегии",
+        "Для получения привилегии нужна активная подписка.",
+        "Предложение сейчас недоступно.",
+        "Подтвердить привилегию",
+        "data-privilege-success-panel",
+        "data-client-privilege-card",
+        "data-partner-confirmation-card",
+        "privilege-success-panel",
+        "client-privilege-card",
+        "partner-confirmation-card",
+        "/api/v1/clients/partners/${partnerId}/verify",
+        "/api/v1/clients/me/verifications",
+        "/api/v1/partners/me/verifications/${verificationId}/confirm",
+        "renderOfferMarketplaceCard",
+        "offer-marketplace-card",
+        "partner-gallery",
+        "setup_token",
+        "/api/v1/public/landing/partners",
+        "womenclub_client_token",
+        "womenclub_partner_token",
+    ):
+        assert expected in source or expected in styles
+
+    for expected_status in ("Активно", "Подтверждено", "Истекло", "Отменено"):
+        assert expected_status in source
+
+    assert "startsWith('/uploads/')" in source
+    assert "startsWith('/assets/')" in source
+
+    for removed_lotus_marker in (
+        "reference-lotus-layer",
+        "lotus-layer",
+        "lotus-decor",
+        "--user-lotus-reference-svg",
+        "--lotus-reference-background",
+        "/assets/lotus-bg.png",
+    ):
+        assert removed_lotus_marker not in source
+        assert removed_lotus_marker not in styles

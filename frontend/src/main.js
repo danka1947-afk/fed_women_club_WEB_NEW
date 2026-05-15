@@ -390,7 +390,7 @@ const clientTabs = [
   { id: 'profile', label: 'Профиль', icon: '♡' },
   { id: 'catalog', label: 'Каталог', icon: '✦' },
   { id: 'subscription', label: 'Моя подписка', icon: '₽' },
-  { id: 'history', label: 'История', icon: '↺' },
+  { id: 'history', label: 'Мои привилегии', icon: '↺' },
 ];
 
 const clientState = {
@@ -537,6 +537,17 @@ const formatOfferBasePrice = (value) => {
     maximumFractionDigits: 2,
   })} ₽`;
 };
+
+const formatPrivilegeErrorMessage = (message) => ({
+  'Active subscription required': 'Для получения привилегии нужна активная подписка.',
+  'Offer not found': 'Предложение сейчас недоступно.',
+  'Partner not found': 'Партнёр сейчас недоступен.',
+  'Verification session is not active': 'Эта привилегия уже не активна.',
+  'Verification session expired': 'Срок действия кода истёк.',
+  'Verification session not found': 'Код не найден для вашего кабинета.',
+}[String(message || '').trim()] || message || 'Не удалось выполнить действие. Попробуйте позже.');
+
+const formatPrivilegeStatus = (status) => getStatusBadgeMeta(status)?.label || 'Активно';
 
 const renderOfferMarketplaceCard = (offer = {}, options = {}) => {
   const imageUrl = isSafePublicAssetUrl(offer.image_url) ? offer.image_url : '';
@@ -1628,24 +1639,49 @@ const renderClientOffer = (partnerId, offer) => renderOfferMarketplaceCard(offer
 });
 
 const renderClientVerificationResult = (verification) => `
-  <div class="client-verification-result" role="status">
-    <p class="section-kicker">Привилегия подтверждена</p>
-    <h4>Код: ${formatValue(verification.code)}</h4>
-    <p>Действует до: <strong>${formatValue(formatDate(verification.expires_at))}</strong> · TTL: <strong>${formatValue(verification.ttl_seconds)}</strong> сек.</p>
-    <p>Партнёр: <strong>${formatValue(verification.partner_name)}</strong> · Предложение: <strong>${formatValue(verification.offer_title)}</strong></p>
-    <p class="client-warning">Покажите этот код сотруднику партнёра. Код действует 5 минут.</p>
+  <div class="client-verification-result privilege-success-panel" role="status" data-privilege-success-panel>
+    <p class="section-kicker">Привилегия активирована</p>
+    <div class="privilege-success-panel__heading">
+      <div>
+        <h4>${formatValue(verification.partner_name)}</h4>
+        <p>${formatValue(verification.offer_title || 'Клубная привилегия партнёра')}</p>
+      </div>
+      ${renderStatusBadge(formatPrivilegeStatus(verification.status))}
+    </div>
+    <div class="privilege-code" aria-label="Код подтверждения">${formatValue(verification.code)}</div>
+    <p class="client-warning">Покажите этот код партнёру перед оплатой/получением услуги.</p>
+    <dl class="client-card-details privilege-success-panel__meta">
+      <div><dt>Срок действия</dt><dd>${formatValue(formatDate(verification.expires_at))}</dd></div>
+      <div><dt>Создано</dt><dd>${formatValue(formatDate(verification.created_at))}</dd></div>
+    </dl>
+    <div class="client-card-actions">
+      <button type="button" data-client-dismiss-privilege>Понятно</button>
+      <button type="button" class="admin-inline-action" data-client-open-privileges>Мои привилегии</button>
+    </div>
   </div>
 `;
 
+const renderClientPrivilegeCard = (item) => `
+  <article class="client-privilege-card" data-client-privilege-card>
+    <div class="client-card-topline">
+      ${renderStatusBadge(formatPrivilegeStatus(item.status))}
+      <span>${escapeHtml(formatDate(item.created_at) || 'Дата создания не указана')}</span>
+    </div>
+    <h4>${formatValue(item.partner_name)}</h4>
+    <p>${formatValue(item.offer_title || 'Клубная привилегия партнёра')}</p>
+    <div class="privilege-code privilege-code--card" aria-label="Код подтверждения">${formatValue(item.code)}</div>
+    <dl class="client-card-details">
+      <div><dt>Срок действия</dt><dd>${formatValue(formatDate(item.expires_at))}</dd></div>
+      <div><dt>Подтверждено</dt><dd>${formatValue(formatDate(item.confirmed_at))}</dd></div>
+    </dl>
+  </article>
+`;
+
 const renderClientHistoryTab = () => `
-  <div class="admin-section-heading"><h4>История</h4><p>Ваши последние подтверждения привилегий.</p></div>
-  ${renderTable(
-    ['Код', 'Статус', 'Партнёр', 'Название предложения', 'Истекает', 'Подтверждено', 'Создано'],
-    clientState.verifications.map((item) => [formatValue(item.code), renderStatusBadge(formatStatus(item.status)), formatValue(item.partner_name), formatValue(item.offer_title), formatValue(formatDate(item.expires_at)), formatValue(formatDate(item.confirmed_at)), formatValue(formatDate(item.created_at))]),
-    true,
-    '',
-    'Пока нет подтверждений.',
-  )}
+  <div class="admin-section-heading"><h4>Мои привилегии</h4><p>История ваших активных и использованных кодов партнёрских предложений.</p></div>
+  ${clientState.verifications.length
+    ? `<div class="client-privilege-card-grid">${clientState.verifications.map(renderClientPrivilegeCard).join('')}</div>`
+    : renderClientEmptyState('Пока нет привилегий', 'Выберите оффер в каталоге и нажмите «Получить привилегию».')}
 `;
 
 const renderPartnerLayout = () => {
@@ -1810,23 +1846,31 @@ const renderPartnerQrTab = () => `
 
 const renderPartnerVerificationAction = (verification) => verification.status === 'active'
   ? `<button class="admin-inline-action" type="button" data-partner-confirm-verification="${escapeHtml(verification.id)}">Подтвердить привилегию</button>`
-  : '—';
+  : '';
+
+const renderPartnerConfirmationCard = (item) => `
+  <article class="partner-confirmation-card" data-partner-confirmation-card>
+    <div class="client-card-topline">
+      ${renderStatusBadge(formatPrivilegeStatus(item.status))}
+      <span>${escapeHtml(formatDate(item.created_at) || 'Новый код')}</span>
+    </div>
+    <h4>${formatValue(item.offer_title || 'Клубная привилегия')}</h4>
+    <p>Партнёр: <strong>${formatValue(item.partner_name)}</strong></p>
+    <div class="privilege-code privilege-code--card" aria-label="Код клиента">${formatValue(item.code)}</div>
+    <dl class="client-card-details">
+      <div><dt>Клиент</dt><dd>${formatValue(item.client_name || 'Клиент клуба')}</dd></div>
+      <div><dt>Истекает</dt><dd>${formatValue(formatDate(item.expires_at))}</dd></div>
+      <div><dt>Подтверждено</dt><dd>${formatValue(formatDate(item.confirmed_at))}</dd></div>
+    </dl>
+    ${renderPartnerVerificationAction(item) ? `<div class="client-card-actions">${renderPartnerVerificationAction(item)}</div>` : ''}
+  </article>
+`;
 
 const renderPartnerVerificationsTab = () => `
   <div class="admin-section-heading"><h4>Подтверждения</h4><p>Подтверждайте активные клиентские коды до окончания срока действия.</p></div>
-  ${partnerState.verifications.length ? renderTable(
-    ['Код', 'Статус', 'Клиент', 'Название предложения', 'Истекает', 'Подтверждено', 'Действие'],
-    partnerState.verifications.map((item) => [
-      formatValue(item.code),
-      renderStatusBadge(formatStatus(item.status)),
-      formatValue(item.client_name || item.client_id),
-      formatValue(item.offer_title),
-      formatValue(formatDate(item.expires_at)),
-      formatValue(formatDate(item.confirmed_at)),
-      renderPartnerVerificationAction(item),
-    ]),
-    true,
-  ) : renderPartnerEmptyState('Пока нет подтверждений.', 'Когда клиент покажет код привилегии, подтверждение появится здесь.')}
+  ${partnerState.verifications.length
+    ? `<div class="partner-confirmation-card-grid">${partnerState.verifications.map(renderPartnerConfirmationCard).join('')}</div>`
+    : renderPartnerEmptyState('Пока нет подтверждений.', 'Когда клиент покажет код привилегии, подтверждение появится здесь.')}
 `;
 
 const requestAdminMe = () => apiFetch('/api/v1/admin/me');
@@ -2739,9 +2783,9 @@ const createClientVerification = async (partnerId, offerId = null) => {
       ...(offerId ? { offer_id: Number(offerId) } : {}),
       source: 'web',
     });
-    setClientPanelMessage('Привилегия подтверждена.', 'success');
+    setClientPanelMessage('Привилегия активирована. Покажите код партнёру.', 'success');
   } catch (error) {
-    setClientPanelMessage(error.message || 'Не удалось подтвердить привилегию.', 'error');
+    setClientPanelMessage(formatPrivilegeErrorMessage(error.message), 'error');
   }
 
   renderClientLayout();
@@ -2789,7 +2833,7 @@ const confirmPartnerVerification = async (verificationId) => {
     await loadPartnerVerifications();
     setPartnerPanelMessage('Подтверждение выполнено.', 'success');
   } catch (error) {
-    setPartnerPanelMessage(error.message || 'Не удалось подтвердить код.', 'error');
+    setPartnerPanelMessage(formatPrivilegeErrorMessage(error.message), 'error');
   }
 
   renderPartnerLayout();
@@ -3587,6 +3631,21 @@ root.addEventListener('click', async (event) => {
   const createVkCodeButton = event.target.closest('[data-client-create-vk-code]');
   if (createVkCodeButton) {
     await createClientVkLinkCode();
+    return;
+  }
+
+  const dismissPrivilegeButton = event.target.closest('[data-client-dismiss-privilege]');
+  if (dismissPrivilegeButton) {
+    clientState.latestVerification = null;
+    renderClientLayout();
+    return;
+  }
+
+  const openPrivilegesButton = event.target.closest('[data-client-open-privileges]');
+  if (openPrivilegesButton) {
+    clientState.latestVerification = null;
+    clientState.activeTab = 'history';
+    await loadActiveClientTabData();
     return;
   }
 

@@ -13,7 +13,7 @@ from app.db.session import get_db
 from app.models.city import City
 from app.models.client import ClientProfile, VkLinkCode, VkLinkCodeStatus
 from app.models.partner import Partner, PartnerOffer, PartnerPhoto
-from app.models.payment import Subscription
+from app.models.payment import Subscription, SubscriptionStatus
 from app.models.verification import PrivilegeVerificationSession, PrivilegeVerificationStatus
 from app.models.user import User
 from app.schemas.client import (
@@ -33,6 +33,7 @@ router = APIRouter(prefix="/clients", tags=["clients"])
 CITY_NOT_FOUND_DETAIL = "City not found"
 PARTNER_NOT_FOUND_DETAIL = "Partner not found"
 OFFER_NOT_FOUND_DETAIL = "Offer not found"
+ACTIVE_SUBSCRIPTION_REQUIRED_DETAIL = "Active subscription required"
 VERIFICATION_TTL_SECONDS = 5 * 60
 VERIFICATION_CODE_ALPHABET = string.digits
 VK_LINK_CODE_TTL_SECONDS = 10 * 60
@@ -168,6 +169,22 @@ def create_client_partner_verification(
     offer = _get_active_partner_offer_or_404(db, partner.id, payload.offer_id) if payload.offer_id is not None else None
 
     now = datetime.now(timezone.utc)
+    if not _has_active_subscription(db, profile.id, now):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=ACTIVE_SUBSCRIPTION_REQUIRED_DETAIL,
+        )
+
+    existing_session = _get_existing_active_verification(
+        db,
+        profile.id,
+        partner.id,
+        offer.id if offer is not None else None,
+        now,
+    )
+    if existing_session is not None:
+        return _client_verification_to_read(existing_session, partner.name, offer.title if offer is not None else None)
+
     session = PrivilegeVerificationSession(
         client_id=profile.id,
         partner_id=partner.id,
@@ -294,6 +311,44 @@ def _ensure_aware_utc(value: datetime) -> datetime:
         return value.replace(tzinfo=timezone.utc)
     return value.astimezone(timezone.utc)
 
+
+def _has_active_subscription(db: Session, client_id: int, now: datetime) -> bool:
+    subscription = db.execute(
+        select(Subscription.id)
+        .where(
+            Subscription.client_id == client_id,
+            Subscription.status == SubscriptionStatus.active.value,
+            Subscription.starts_at <= now,
+            Subscription.ends_at > now,
+        )
+        .limit(1)
+    ).scalar_one_or_none()
+    return subscription is not None
+
+
+def _get_existing_active_verification(
+    db: Session,
+    client_id: int,
+    partner_id: int,
+    offer_id: int | None,
+    now: datetime,
+) -> PrivilegeVerificationSession | None:
+    statement = (
+        select(PrivilegeVerificationSession)
+        .where(
+            PrivilegeVerificationSession.client_id == client_id,
+            PrivilegeVerificationSession.partner_id == partner_id,
+            PrivilegeVerificationSession.status == PrivilegeVerificationStatus.active.value,
+            PrivilegeVerificationSession.expires_at > now,
+        )
+        .order_by(PrivilegeVerificationSession.created_at.desc(), PrivilegeVerificationSession.id.desc())
+        .limit(1)
+    )
+    if offer_id is None:
+        statement = statement.where(PrivilegeVerificationSession.offer_id.is_(None))
+    else:
+        statement = statement.where(PrivilegeVerificationSession.offer_id == offer_id)
+    return db.execute(statement).scalar_one_or_none()
 
 def _get_active_city_or_404(db: Session, city_id: int) -> City:
     city = db.execute(select(City).where(City.id == city_id, City.is_active.is_(True))).scalar_one_or_none()
