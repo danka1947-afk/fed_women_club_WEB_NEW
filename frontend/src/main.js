@@ -308,6 +308,7 @@ const adminTabs = [
   { id: 'offers', label: 'Предложения', icon: '%' },
   { id: 'qr', label: 'QR / лиды', icon: 'QR' },
   { id: 'verifications', label: 'Подтверждения', icon: '✓' },
+  { id: 'activity', label: 'Активность', icon: '•' },
 ];
 
 const adminState = {
@@ -346,6 +347,11 @@ const adminState = {
     leads: '',
     verifications: '',
   },
+  activityItems: [],
+  activityLoading: false,
+  activityError: '',
+  activityEventType: '',
+  selectedPartnerIdForActivity: '',
 };
 
 const normalizeSearchText = (value) => String(value ?? '').trim().toLowerCase();
@@ -375,6 +381,7 @@ const partnerTabs = [
   { id: 'qr', label: 'QR / лиды', icon: 'QR' },
   { id: 'verifications', label: 'Подтверждения', icon: '✓' },
   { id: 'analytics', label: 'Аналитика', icon: '↗' },
+  { id: 'activity', label: 'Активность', icon: '•' },
 ];
 
 const partnerState = {
@@ -389,6 +396,9 @@ const partnerState = {
   analytics: null,
   analyticsLoading: false,
   analyticsError: '',
+  activityItems: [],
+  activityLoading: false,
+  activityError: '',
   panelMessage: '',
   formMessages: {},
   selectedOfferIdForEdit: '',
@@ -399,6 +409,7 @@ const clientTabs = [
   { id: 'catalog', label: 'Каталог', icon: '✦' },
   { id: 'subscription', label: 'Моя подписка', icon: '₽' },
   { id: 'history', label: 'Мои привилегии', icon: '↺' },
+  { id: 'activity', label: 'Активность', icon: '•' },
 ];
 
 const clientState = {
@@ -415,6 +426,9 @@ const clientState = {
   vkLinkStatus: '',
   vkLinkMessage: '',
   verifications: [],
+  activityItems: [],
+  activityLoading: false,
+  activityError: '',
   catalogFilters: {
     q: '',
     category_slug: '',
@@ -597,6 +611,80 @@ const renderOfferMarketplaceCard = (offer = {}, options = {}) => {
 const renderDisplayValue = (value) => String(value || '').startsWith('<span class="status-badge') ? value : formatValue(value);
 const formatDate = (value) => (value ? new Date(value).toLocaleString('ru-RU') : '—');
 
+const activityEventMeta = {
+  privilege_created: { label: 'Привилегия', icon: '♡', tone: 'privilege' },
+  privilege_confirmed: { label: 'Подтверждение', icon: '✓', tone: 'confirmed' },
+  privilege_expired: { label: 'Истекло', icon: '⌛', tone: 'expired' },
+  qr_clicked: { label: 'QR-переход', icon: 'QR', tone: 'qr' },
+  partner_created: { label: 'Партнёр', icon: '✦', tone: 'partner' },
+  offer_created: { label: 'Предложение', icon: '%', tone: 'privilege' },
+  qr_link_created: { label: 'QR-ссылка', icon: '⌁', tone: 'qr' },
+};
+
+const activityEventFilters = [
+  { value: '', label: 'Все события' },
+  { value: 'privilege_created', label: 'Привилегии' },
+  { value: 'privilege_confirmed', label: 'Подтверждения' },
+  { value: 'privilege_expired', label: 'Истекшие' },
+  { value: 'qr_clicked', label: 'QR-переходы' },
+  { value: 'partner_created', label: 'Партнёры' },
+  { value: 'offer_created', label: 'Предложения' },
+  { value: 'qr_link_created', label: 'QR-ссылки' },
+];
+
+const formatActivityDate = (value) => formatDate(value);
+
+const getActivityEventMeta = (eventType) => activityEventMeta[eventType] || {
+  label: 'Событие',
+  icon: '•',
+  tone: 'privilege',
+};
+
+const renderActivityItem = (item = {}) => {
+  const eventMeta = getActivityEventMeta(item.event_type);
+  const metaItems = [
+    item.partner_name ? `Партнёр: ${item.partner_name}` : '',
+    item.offer_title ? `Предложение: ${item.offer_title}` : '',
+    item.qr_slug ? `QR: ${item.qr_slug}` : '',
+  ].filter(Boolean);
+
+  return `
+    <article class="activity-item">
+      <span class="activity-badge activity-badge--${escapeHtml(eventMeta.tone)}" title="${escapeHtml(eventMeta.label)}" aria-label="${escapeHtml(eventMeta.label)}">${escapeHtml(eventMeta.icon)}</span>
+      <div class="activity-item__body">
+        <div class="activity-item__heading">
+          <div>
+            <h4>${formatValue(item.title || eventMeta.label)}</h4>
+            <p>${formatValue(item.description || 'Подробности события появятся здесь.')}</p>
+          </div>
+          <time datetime="${escapeHtml(item.occurred_at || '')}">${escapeHtml(formatActivityDate(item.occurred_at))}</time>
+        </div>
+        ${(metaItems.length || item.status) ? `
+          <div class="activity-meta">
+            ${metaItems.map((meta) => `<span>${escapeHtml(meta)}</span>`).join('')}
+            ${item.status ? renderStatusBadge(formatStatus(item.status)) : ''}
+          </div>
+        ` : ''}
+      </div>
+    </article>
+  `;
+};
+
+const renderActivityFeed = (items = [], options = {}) => {
+  if (options.loading) {
+    return '<div class="activity-empty" role="status">Загружаем события…</div>';
+  }
+
+  if (options.error) {
+    return '<div class="activity-empty activity-empty--error" role="alert">Не удалось загрузить события.</div>';
+  }
+
+  if (!Array.isArray(items) || !items.length) {
+    return '<div class="activity-empty">Событий пока нет.</div>';
+  }
+
+  return `<div class="activity-feed">${items.map(renderActivityItem).join('')}</div>`;
+};
 
 const statusLabels = {
   active: 'Активно',
@@ -1430,6 +1518,19 @@ const loadPartnerOffers = async () => {
 const loadPartnerQrLinks = async () => { partnerState.qrLinks = await partnerApiFetch('/api/v1/partners/me/qr-links'); };
 const loadPartnerLeads = async () => { partnerState.leads = await partnerApiFetch('/api/v1/partners/me/leads'); };
 const loadPartnerVerifications = async () => { partnerState.verifications = await partnerApiFetch('/api/v1/partners/me/verifications'); };
+const loadPartnerActivity = async () => {
+  partnerState.activityLoading = true;
+  partnerState.activityError = '';
+  try {
+    const data = await partnerApiFetch('/api/v1/partners/me/activity');
+    partnerState.activityItems = Array.isArray(data?.items) ? data.items : [];
+  } catch (error) {
+    if (!getPartnerToken()) throw error;
+    partnerState.activityError = error.message || 'Не удалось загрузить события.';
+  } finally {
+    partnerState.activityLoading = false;
+  }
+};
 const loadPartnerAnalytics = async () => {
   partnerState.analyticsLoading = true;
   partnerState.analyticsError = '';
@@ -1446,6 +1547,19 @@ const requestClientUserMe = () => clientApiFetch('/api/v1/auth/user-me');
 const loadClientProfile = async () => { clientState.profile = await clientApiFetch('/api/v1/clients/me'); };
 const loadClientSubscription = async () => { clientState.subscription = await clientApiFetch('/api/v1/clients/me/subscription'); };
 const loadClientVerifications = async () => { clientState.verifications = await clientApiFetch('/api/v1/clients/me/verifications'); };
+const loadClientActivity = async () => {
+  clientState.activityLoading = true;
+  clientState.activityError = '';
+  try {
+    const data = await clientApiFetch('/api/v1/clients/me/activity');
+    clientState.activityItems = Array.isArray(data?.items) ? data.items : [];
+  } catch (error) {
+    if (!getClientToken()) throw error;
+    clientState.activityError = error.message || 'Не удалось загрузить события.';
+  } finally {
+    clientState.activityLoading = false;
+  }
+};
 
 const buildClientCatalogPath = () => {
   const params = new URLSearchParams();
@@ -1501,6 +1615,9 @@ const renderClientTabContent = () => {
   }
   if (clientState.activeTab === 'history') {
     return renderClientHistoryTab();
+  }
+  if (clientState.activeTab === 'activity') {
+    return renderClientActivityTab();
   }
   return renderClientProfileTab();
 };
@@ -1781,6 +1898,15 @@ const renderClientHistoryTab = () => `
     : renderClientEmptyState('Пока нет привилегий', 'Выберите оффер в каталоге и нажмите «Получить привилегию».')}
 `;
 
+const renderClientActivityTab = () => `
+  <div class="admin-section-heading admin-page-heading">
+    <p class="section-kicker">Activity feed</p>
+    <h4>Активность</h4>
+    <p>Здесь появятся ваши действия и статусы привилегий.</p>
+  </div>
+  ${renderActivityFeed(clientState.activityItems, { loading: clientState.activityLoading, error: clientState.activityError })}
+`;
+
 const renderPartnerLayout = () => {
   renderDashboardApp('partner');
   partnerDashboard.innerHTML = `
@@ -1801,6 +1927,9 @@ const renderPartnerTabContent = () => {
   }
   if (partnerState.activeTab === 'analytics') {
     return renderPartnerAnalyticsTab();
+  }
+  if (partnerState.activeTab === 'activity') {
+    return renderPartnerActivityTab();
   }
   return renderPartnerProfileTab();
 };
@@ -1979,6 +2108,15 @@ const renderPartnerAnalyticsTab = () => renderAnalyticsSection(partnerState.anal
   error: partnerState.analyticsError,
 });
 
+const renderPartnerActivityTab = () => `
+  <div class="admin-section-heading admin-page-heading">
+    <p class="section-kicker">Activity feed</p>
+    <h4>Активность</h4>
+    <p>Лента помогает быстро видеть, что происходит с клиентами, QR и привилегиями.</p>
+  </div>
+  ${renderActivityFeed(partnerState.activityItems, { loading: partnerState.activityLoading, error: partnerState.activityError })}
+`;
+
 const requestAdminMe = () => apiFetch('/api/v1/admin/me');
 
 const postJson = (path, payload) => apiFetch(path, {
@@ -2042,6 +2180,28 @@ const loadVerifications = async () => {
   adminState.verifications = await apiFetch('/api/v1/admin/verifications');
 };
 
+const buildAdminActivityPath = () => {
+  const params = new URLSearchParams();
+  if (adminState.activityEventType) params.set('event_type', adminState.activityEventType);
+  if (adminState.selectedPartnerIdForActivity) params.set('partner_id', adminState.selectedPartnerIdForActivity);
+  params.set('limit', '50');
+  return `/api/v1/admin/activity?${params.toString()}`;
+};
+
+const loadAdminActivity = async () => {
+  adminState.activityLoading = true;
+  adminState.activityError = '';
+  try {
+    const data = await apiFetch(buildAdminActivityPath());
+    adminState.activityItems = Array.isArray(data?.items) ? data.items : [];
+  } catch (error) {
+    if (!getToken()) throw error;
+    adminState.activityError = error.message || 'Не удалось загрузить события.';
+  } finally {
+    adminState.activityLoading = false;
+  }
+};
+
 const loadOffers = async () => {
   if (!adminState.selectedPartnerIdForOffers) {
     adminState.offers = [];
@@ -2100,10 +2260,28 @@ const renderAdminTabContent = () => {
       return renderQrTab();
     case 'verifications':
       return renderVerificationsTab();
+    case 'activity':
+      return renderAdminActivityTab();
     default:
       return renderOverviewTab();
   }
 };
+
+const renderAdminActivityTab = () => `
+  <div class="admin-section-heading admin-page-heading">
+    <p class="section-kicker">Activity feed</p>
+    <h4>Активность</h4>
+    <p>Общая лента событий по привилегиям, QR, партнёрам и предложениям.</p>
+  </div>
+  <form class="activity-filter" data-admin-activity-filter>
+    <label>Тип события
+      <select name="event_type" data-admin-activity-event-type>
+        ${activityEventFilters.map((filter) => `<option value="${escapeHtml(filter.value)}" ${adminState.activityEventType === filter.value ? 'selected' : ''}>${escapeHtml(filter.label)}</option>`).join('')}
+      </select>
+    </label>
+  </form>
+  ${renderActivityFeed(adminState.activityItems, { loading: adminState.activityLoading, error: adminState.activityError })}
+`;
 
 const renderOverviewTab = () => {
   const cards = [
@@ -2741,6 +2919,11 @@ const loadActiveTabData = async () => {
       await loadQrLinks();
     } else if (adminState.activeTab === 'verifications') {
       await loadVerifications();
+    } else if (adminState.activeTab === 'activity') {
+      adminState.activityLoading = true;
+      adminState.activityError = '';
+      renderAdminLayout();
+      await loadAdminActivity();
     }
   } catch (error) {
     if (!getToken()) {
@@ -2768,6 +2951,11 @@ const loadActivePartnerTabData = async () => {
       await loadPartnerVerifications();
     } else if (partnerState.activeTab === 'analytics') {
       await loadPartnerAnalytics();
+    } else if (partnerState.activeTab === 'activity') {
+      partnerState.activityLoading = true;
+      partnerState.activityError = '';
+      renderPartnerLayout();
+      await loadPartnerActivity();
     }
   } catch (error) {
     if (!getPartnerToken()) {
@@ -2792,6 +2980,11 @@ const loadActiveClientTabData = async () => {
       await loadClientSubscription();
     } else if (clientState.activeTab === 'history') {
       await loadClientVerifications();
+    } else if (clientState.activeTab === 'activity') {
+      clientState.activityLoading = true;
+      clientState.activityError = '';
+      renderClientLayout();
+      await loadClientActivity();
     }
   } catch (error) {
     if (!getClientToken()) {
@@ -3985,6 +4178,13 @@ root.addEventListener('change', (event) => {
   const partnerOfferImageInput = event.target.closest('[data-partner-offer-image-upload]');
   if (partnerOfferImageInput) {
     handlePartnerOfferImageInput(partnerOfferImageInput);
+    return;
+  }
+
+  const activityEventSelect = event.target.closest('[data-admin-activity-event-type]');
+  if (activityEventSelect) {
+    adminState.activityEventType = activityEventSelect.value;
+    loadActiveTabData();
     return;
   }
 
