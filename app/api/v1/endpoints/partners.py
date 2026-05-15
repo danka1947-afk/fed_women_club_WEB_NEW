@@ -15,6 +15,8 @@ from app.models.lead import LeadClick
 from app.models.partner import Partner, PartnerOffer, PartnerPhoto, PartnerQrLink
 from app.models.verification import PrivilegeVerificationSession, PrivilegeVerificationStatus
 from app.models.user import User
+from app.schemas.activity import ActivityFeedRead
+from app.services.activity_feed import build_partner_activity_feed
 from app.services.image_uploads import save_partner_image_upload, save_partner_offer_image_upload, save_partner_photo_image_upload, validate_image_kind
 from app.schemas.partner import (
     ConfirmVerificationResponse,
@@ -156,6 +158,16 @@ def update_partner_photo(
     db.commit()
     db.refresh(photo)
     return photo
+
+
+@router.get("/me/activity", response_model=ActivityFeedRead)
+def read_partner_activity(
+    limit: int = 30,
+    current_user: User = Depends(require_partner),
+    db: Session = Depends(get_db),
+) -> ActivityFeedRead:
+    partner = _get_current_partner_or_404(db, current_user.id)
+    return build_partner_activity_feed(db, partner.id, limit=limit)
 
 
 @router.get("/me/analytics", response_model=PartnerAnalyticsRead)
