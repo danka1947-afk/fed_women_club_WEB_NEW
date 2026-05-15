@@ -1306,3 +1306,61 @@ def test_frontend_contains_partner_gallery_photo_mvp_markers() -> None:
     forbidden_reference_markers = ["lotus", "Лотос", "remote image fetch"]
     for marker in forbidden_reference_markers:
         assert marker not in source
+
+
+def test_frontend_contains_client_marketplace_partner_catalog_markers() -> None:
+    source = _frontend_main()
+    styles = _frontend_styles()
+
+    for expected in (
+        "client-marketplace-grid",
+        "client-partner-card",
+        "client-partner-cover",
+        "client-partner-logo",
+        "client-partner-gallery",
+        "client-partner-detail",
+        "client-partner-offers",
+        "client-partner-empty",
+        "Партнёры пока не найдены",
+        "Попробуйте выбрать другой город или категорию",
+        "Предложения скоро появятся",
+        "Смотреть предложения",
+        "Получить привилегию",
+        "Проверенный партнёр",
+        "renderOfferMarketplaceCard",
+        "offer-marketplace-card",
+        "getActivePartnerGalleryPhotos(partner.photos)",
+        "isSafePublicAssetUrl(partner.cover_url)",
+        "isSafePublicAssetUrl(partner.logo_url)",
+        "openClientPartnerMarketplace",
+        "/api/v1/clients/partners/${partnerId}",
+        "/api/v1/clients/partners/${partnerId}/offers",
+        "partner-gallery",
+        "partner-gallery-grid",
+        "Загрузить фото в галерею",
+        "setup_token",
+        "womenClubAdminAccessToken",
+        "womenclub_partner_token",
+        "womenclub_client_token",
+        "dashboard-shell",
+        "dashboard-topbar",
+        "dashboard-sidebar",
+        "dashboard-main",
+        "/api/v1/public/landing/partners",
+        "data-landing-partner-modal",
+    ):
+        assert expected in source or expected in styles
+
+    assert "startsWith('/uploads/')" in source
+    assert "startsWith('/assets/')" in source
+
+    for removed_marker in (
+        "reference-lotus-layer",
+        "lotus-layer",
+        "lotus-decor",
+        "--user-lotus-reference-svg",
+        "--lotus-reference-background",
+        "/assets/lotus-bg.png",
+    ):
+        assert removed_marker not in source
+        assert removed_marker not in styles

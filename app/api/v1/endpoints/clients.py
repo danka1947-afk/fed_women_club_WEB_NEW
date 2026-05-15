@@ -12,7 +12,7 @@ from app.api.deps import require_client
 from app.db.session import get_db
 from app.models.city import City
 from app.models.client import ClientProfile, VkLinkCode, VkLinkCodeStatus
-from app.models.partner import Partner, PartnerOffer
+from app.models.partner import Partner, PartnerOffer, PartnerPhoto
 from app.models.payment import Subscription
 from app.models.verification import PrivilegeVerificationSession, PrivilegeVerificationStatus
 from app.models.user import User
@@ -20,6 +20,7 @@ from app.schemas.client import (
     ClientCreateVerificationRequest,
     ClientPartnerCatalogItem,
     ClientPartnerOfferRead,
+    ClientPartnerPhotoRead,
     ClientProfileRead,
     ClientProfileUpdate,
     ClientVerificationRead,
@@ -146,7 +147,14 @@ def list_client_catalog_partners(
         search = f"%{normalized_query}%"
         statement = statement.where(Partner.name.ilike(search))
 
-    return [_partner_to_catalog_item(partner, city_name) for partner, city_name in db.execute(statement).all()]
+    rows = db.execute(statement).all()
+    partner_ids = [partner.id for partner, _city_name in rows]
+    photos_by_partner = _active_photos_by_partner(db, partner_ids)
+    return [
+        _partner_to_catalog_item(partner, city_name, photos_by_partner.get(partner.id, []))
+        for partner, city_name in rows
+    ]
+
 
 @router.post("/partners/{partner_id}/verify", response_model=ClientVerificationRead)
 def create_client_partner_verification(
@@ -207,7 +215,7 @@ def read_client_partner(
 ) -> ClientPartnerCatalogItem:
     del current_user
     partner, city_name = _get_active_partner_row_or_404(db, partner_id)
-    return _partner_to_catalog_item(partner, city_name)
+    return _partner_to_catalog_item(partner, city_name, _active_photos_by_partner(db, [partner.id]).get(partner.id, []))
 
 
 @router.get("/partners/{partner_id}/offers", response_model=list[ClientPartnerOfferRead])
@@ -380,7 +388,35 @@ def _client_verification_to_read(
     )
 
 
-def _partner_to_catalog_item(partner: Partner, city_name: str | None) -> ClientPartnerCatalogItem:
+def _active_photos_by_partner(db: Session, partner_ids: list[int]) -> dict[int, list[ClientPartnerPhotoRead]]:
+    if not partner_ids:
+        return {}
+    photos = db.execute(
+        select(PartnerPhoto)
+        .where(PartnerPhoto.partner_id.in_(partner_ids), PartnerPhoto.is_active.is_(True))
+        .order_by(PartnerPhoto.partner_id.asc(), PartnerPhoto.sort_order.asc(), PartnerPhoto.created_at.asc())
+    ).scalars().all()
+    result: dict[int, list[ClientPartnerPhotoRead]] = {}
+    for photo in photos:
+        result.setdefault(photo.partner_id, []).append(
+            ClientPartnerPhotoRead.model_validate(
+                {
+                    "id": photo.id,
+                    "url": photo.url,
+                    "alt_text": photo.alt_text,
+                    "sort_order": photo.sort_order,
+                    "created_at": photo.created_at,
+                }
+            )
+        )
+    return result
+
+
+def _partner_to_catalog_item(
+    partner: Partner,
+    city_name: str | None,
+    photos: list[ClientPartnerPhotoRead] | None = None,
+) -> ClientPartnerCatalogItem:
     return ClientPartnerCatalogItem.model_validate(
         {
             "id": partner.id,
@@ -397,6 +433,7 @@ def _partner_to_catalog_item(partner: Partner, city_name: str | None) -> ClientP
             "logo_url": partner.logo_url,
             "cover_url": partner.cover_url,
             "is_verified": partner.is_verified,
+            "photos": photos or [],
         }
     )
 

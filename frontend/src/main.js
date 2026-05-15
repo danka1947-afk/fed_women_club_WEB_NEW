@@ -401,6 +401,7 @@ const clientState = {
   partners: [],
   offersByPartner: {},
   selectedPartner: null,
+  selectedPartnerId: '',
   latestVerification: null,
   vkLinkCode: null,
   vkLinkStatus: '',
@@ -1356,10 +1357,23 @@ const loadClientCatalog = async () => {
     await loadClientProfile();
   }
   clientState.partners = await clientApiFetch(buildClientCatalogPath());
+  if (clientState.selectedPartnerId && !clientState.partners.some((partner) => String(partner.id) === clientState.selectedPartnerId)) {
+    clientState.selectedPartner = null;
+    clientState.selectedPartnerId = '';
+  }
+};
+
+const loadClientPartnerDetail = async (partnerId) => {
+  clientState.selectedPartner = await clientApiFetch(`/api/v1/clients/partners/${partnerId}`);
+  clientState.selectedPartnerId = String(partnerId);
 };
 
 const loadClientPartnerOffers = async (partnerId) => {
   clientState.offersByPartner[partnerId] = await clientApiFetch(`/api/v1/clients/partners/${partnerId}/offers`);
+};
+
+const openClientPartnerMarketplace = async (partnerId) => {
+  await Promise.all([loadClientPartnerDetail(partnerId), loadClientPartnerOffers(partnerId)]);
 };
 
 const renderClientLayout = () => {
@@ -1499,35 +1513,111 @@ const renderClientCatalogTab = () => {
       <button type="submit">Найти</button>
     </form>
     ${clientState.latestVerification ? renderClientVerificationResult(clientState.latestVerification) : ''}
-    <div class="client-catalog-grid">
-      ${clientState.partners.length ? clientState.partners.map(renderClientPartnerCard).join('') : renderClientEmptyState('Партнёры пока не найдены', 'Попробуйте изменить город, категорию или поисковый запрос.')}
+    <div class="client-marketplace-grid client-catalog-grid">
+      ${clientState.partners.length ? clientState.partners.map(renderClientPartnerCard).join('') : renderClientEmptyState('Партнёры пока не найдены', 'Попробуйте выбрать другой город или категорию.')}
+    </div>
+    ${clientState.selectedPartner ? renderClientPartnerDetail(clientState.selectedPartner) : ''}
+  `;
+};
+
+const getClientPartnerVisuals = (partner = {}) => {
+  const photos = getActivePartnerGalleryPhotos(partner.photos);
+  return {
+    photos,
+    coverUrl: photos[0]?.url || (isSafePublicAssetUrl(partner.cover_url) ? partner.cover_url : ''),
+    logoUrl: isSafePublicAssetUrl(partner.logo_url) ? partner.logo_url : '',
+  };
+};
+
+const renderClientPartnerCover = (partner = {}, className = 'client-partner-cover') => {
+  const { coverUrl } = getClientPartnerVisuals(partner);
+  return `
+    <div class="${className} ${coverUrl ? '' : `${className}--placeholder`}" ${coverUrl ? `style="background-image: url('${escapeHtml(coverUrl)}')" role="img" aria-label="${escapeHtml(partner.name || 'Партнёр')}"` : 'aria-hidden="true"'}>
+      ${coverUrl ? '' : '<span>Фото витрины</span>'}
+    </div>
+  `;
+};
+
+const renderClientPartnerLogo = (partner = {}) => {
+  const { logoUrl } = getClientPartnerVisuals(partner);
+  return `<div class="client-partner-logo ${logoUrl ? '' : 'client-partner-logo--placeholder'}" ${logoUrl ? `style="background-image: url('${escapeHtml(logoUrl)}')"` : ''} aria-hidden="true">${logoUrl ? '' : '♡'}</div>`;
+};
+
+const renderClientPartnerGallery = (partner = {}) => {
+  const { photos } = getClientPartnerVisuals(partner);
+  if (!photos.length) {
+    return renderClientPartnerCover(partner, 'client-partner-gallery-main');
+  }
+  return `
+    <div class="client-partner-gallery" aria-label="Галерея партнёра">
+      <div class="client-partner-gallery-main" style="background-image: url('${escapeHtml(photos[0].url)}')" role="img" aria-label="${escapeHtml(photos[0].alt_text || partner.name || 'Фото партнёра')}"></div>
+      ${photos.length > 1 ? `<div class="client-partner-gallery-thumbs">${photos.slice(0, 6).map((photo) => `<span style="background-image: url('${escapeHtml(photo.url)}')" aria-hidden="true"></span>`).join('')}</div>` : ''}
     </div>
   `;
 };
 
 const renderClientPartnerCard = (partner) => {
   const partnerId = partner.id;
-  const offers = clientState.offersByPartner[partnerId] || [];
+  const cityAddress = [partner.city_name, partner.address].filter(Boolean).join(' · ');
   return `
     <article class="client-partner-card">
-      <div class="client-card-topline">
-        <span>${formatValue(formatClientCategory(partner.category_slug))}</span>
-        ${partner.is_verified ? renderVerifiedStatusBadge(true) : renderStatusBadge('На проверке', 'info')}
+      ${renderClientPartnerCover(partner)}
+      <div class="client-partner-card-body">
+        <div class="client-card-topline">
+          ${renderClientPartnerLogo(partner)}
+          <div>
+            <span>${formatValue(formatClientCategory(partner.category_slug))}</span>
+            ${partner.is_verified ? '<span class="status-badge status-badge--success">Проверенный партнёр</span>' : ''}
+          </div>
+        </div>
+        <h4>${formatValue(partner.name)}</h4>
+        <p>${formatValue(partner.description || 'Витрина услуг партнёра скоро пополнится подробностями.')}</p>
+        <div class="client-card-location">${formatValue(cityAddress || partner.city_name || partner.address)}</div>
+        <div class="client-card-actions">
+          <button type="button" data-client-load-offers="${escapeHtml(partnerId)}">Смотреть предложения</button>
+          <button type="button" data-client-verify-partner="${escapeHtml(partnerId)}">Получить привилегию</button>
+        </div>
       </div>
-      <h4>${formatValue(partner.name)}</h4>
-      <p>${formatValue(partner.description)}</p>
-      <dl class="client-card-details">
-        <div><dt>Город</dt><dd>${formatValue(partner.city_name)}</dd></div>
-        <div><dt>Адрес</dt><dd>${formatValue(partner.address)}</dd></div>
-        <div><dt>Телефон</dt><dd>${formatValue(partner.phone)}</dd></div>
-        <div><dt>Соцсети</dt><dd>${partner.social_url ? `<a href="${escapeHtml(partner.social_url)}" target="_blank" rel="noreferrer">${escapeHtml(partner.social_url)}</a>` : '—'}</dd></div>
-      </dl>
-      <div class="client-card-actions">
-        <button type="button" data-client-load-offers="${escapeHtml(partnerId)}">Открыть предложения</button>
-        <button type="button" data-client-verify-partner="${escapeHtml(partnerId)}">Подтвердить привилегию</button>
-      </div>
-      ${offers.length ? `<div class="client-offer-list">${offers.map((offer) => renderClientOffer(partnerId, offer)).join('')}</div>` : ''}
     </article>
+  `;
+};
+
+const renderClientPartnerDetail = (partner = {}) => {
+  const partnerId = partner.id;
+  const offers = clientState.offersByPartner[partnerId] || [];
+  const cityAddress = [partner.city_name, partner.address].filter(Boolean).join(' · ');
+  const contacts = [
+    ['Телефон', partner.phone],
+    ['Сайт', partner.website_url],
+    ['Соцсети', partner.social_url],
+  ].filter(([, value]) => String(value || '').trim());
+  return `
+    <section class="client-partner-detail">
+      <div class="client-partner-detail-hero">
+        ${renderClientPartnerGallery(partner)}
+        <div class="client-partner-detail-info">
+          <div class="client-card-topline">
+            ${renderClientPartnerLogo(partner)}
+            <div>
+              <span>${formatValue(formatClientCategory(partner.category_slug))}</span>
+              ${partner.is_verified ? '<span class="status-badge status-badge--success">Проверенный партнёр</span>' : ''}
+            </div>
+          </div>
+          <h3>${formatValue(partner.name)}</h3>
+          <p>${formatValue(partner.description || 'Описание партнёра скоро появится.')}</p>
+          <dl class="client-card-details">
+            <div><dt>Город и адрес</dt><dd>${formatValue(cityAddress)}</dd></div>
+            <div><dt>График работы</dt><dd>${formatValue(partner.working_hours)}</dd></div>
+            ${contacts.length ? contacts.map(([label, value]) => `<div><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd></div>`).join('') : ''}
+          </dl>
+          <button type="button" data-client-verify-partner="${escapeHtml(partnerId)}">Получить привилегию</button>
+        </div>
+      </div>
+      <div class="client-partner-offers">
+        <div class="admin-section-heading"><h4>Предложения партнёра</h4><p>Выберите услугу и получите клубную привилегию.</p></div>
+        ${offers.length ? offers.map((offer) => renderClientOffer(partnerId, offer)).join('') : '<div class="client-partner-empty">Предложения скоро появятся.</div>'}
+      </div>
+    </section>
   `;
 };
 
@@ -3503,8 +3593,8 @@ root.addEventListener('click', async (event) => {
   const loadOffersButton = event.target.closest('[data-client-load-offers]');
   if (loadOffersButton) {
     try {
-      await loadClientPartnerOffers(loadOffersButton.dataset.clientLoadOffers);
-      setClientPanelMessage('Предложения загружены.', 'success');
+      await openClientPartnerMarketplace(loadOffersButton.dataset.clientLoadOffers);
+      setClientPanelMessage('Партнёр и предложения открыты.', 'success');
     } catch (error) {
       setClientPanelMessage(error.message || 'Не удалось загрузить предложения.', 'error');
     }
