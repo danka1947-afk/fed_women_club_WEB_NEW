@@ -1412,3 +1412,72 @@ def test_frontend_contains_privilege_marketplace_flow_markers() -> None:
     ):
         assert removed_lotus_marker not in source
         assert removed_lotus_marker not in styles
+
+
+def test_frontend_contains_partner_analytics_ui_markers() -> None:
+    source = _frontend_main()
+    styles = _frontend_styles()
+
+    for expected in (
+        "Аналитика",
+        "Аналитика партнёра",
+        "Переходы по QR",
+        "Получено привилегий",
+        "Подтверждено",
+        "Активные привилегии",
+        "Истекшие привилегии",
+        "Конверсия в привилегию",
+        "Процент подтверждения",
+        "Данных пока нет",
+        "Аналитика помогает понять",
+        "/api/v1/partners/me/analytics",
+        "/api/v1/admin/partners/",
+        "/analytics",
+        "renderAnalyticsCards",
+        "partnerAnalyticsById",
+        "selectedPartnerAnalytics",
+        "analyticsLoading",
+        "analyticsError",
+    ):
+        assert expected in source
+
+    for expected_style in (
+        "analytics-grid",
+        "analytics-card",
+        "analytics-value",
+        "analytics-label",
+        "analytics-hint",
+        "analytics-empty",
+    ):
+        assert expected_style in source or expected_style in styles
+
+    for preserved_marker in (
+        "partner-marketplace-card",
+        "offer-marketplace-card",
+        "partner-gallery",
+        "partner-gallery-grid",
+        "data-privilege-success-panel",
+        "data-client-privilege-card",
+        "data-partner-confirmation-card",
+        "setup_token",
+        "/api/v1/public/landing/partners",
+        "womenclub_partner_token",
+        "womenclub_client_token",
+        "dashboard-shell",
+        "dashboard-topbar",
+        "dashboard-sidebar",
+        "dashboard-main",
+        "startsWith('/uploads/')",
+    ):
+        assert preserved_marker in source or preserved_marker in styles
+
+    for removed_lotus_marker in (
+        "reference-lotus-layer",
+        "lotus-layer",
+        "lotus-decor",
+        "--user-lotus-reference-svg",
+        "--lotus-reference-background",
+        "/assets/lotus-bg.png",
+    ):
+        assert removed_lotus_marker not in source
+        assert removed_lotus_marker not in styles
