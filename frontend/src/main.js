@@ -1189,6 +1189,75 @@ const renderPartnerProfileHints = (partner, options = {}) => {
   `;
 };
 
+const getPartnerOnboardingSteps = (partner = {}, options = {}) => {
+  const contactFilled = Boolean(String(partner.phone || partner.website_url || partner.social_url || '').trim());
+  return [
+    {
+      title: 'Заполните профиль',
+      isComplete: Boolean(
+        String(partner.description || '').trim()
+        && String(partner.address || '').trim()
+        && contactFilled
+        && String(partner.working_hours || '').trim()
+      ),
+      action: 'Заполнить профиль',
+      tab: 'profile',
+    },
+    {
+      title: 'Загрузите обложку и логотип',
+      isComplete: Boolean(String(partner.logo_url || '').trim() && String(partner.cover_url || '').trim()),
+      action: 'Загрузить изображения',
+      tab: 'profile',
+    },
+    {
+      title: 'Добавьте фото в галерею',
+      isComplete: Array.isArray(options.photos) && options.photos.length > 0,
+      action: 'Добавить фото',
+      tab: 'profile',
+    },
+    {
+      title: 'Создайте первое предложение',
+      isComplete: Array.isArray(options.offers) && options.offers.length > 0,
+      action: 'Создать предложение',
+      tab: 'offers',
+    },
+  ];
+};
+
+const renderPartnerOnboardingChecklist = (partner, options = {}) => {
+  const steps = getPartnerOnboardingSteps(partner, options);
+  const completedCount = steps.filter((step) => step.isComplete).length;
+  const isReady = completedCount === steps.length;
+
+  return `
+    <section class="partner-onboarding" aria-labelledby="partner-onboarding-title">
+      <div class="partner-onboarding-header">
+        <div>
+          <span class="section-kicker">Onboarding</span>
+          <h4 id="partner-onboarding-title">Настройте витрину за 4 шага</h4>
+          <p>Чем подробнее заполнена витрина, тем понятнее клиенту, какую привилегию он получает.</p>
+        </div>
+        <div class="partner-onboarding-progress" aria-live="polite">
+          <strong>Витрина заполнена на ${escapeHtml(completedCount)} из ${escapeHtml(steps.length)}</strong>
+          ${isReady ? '<span>Витрина готова к публикации</span>' : '<span>Продолжайте настройку витрины</span>'}
+        </div>
+      </div>
+      <div class="partner-onboarding-steps">
+        ${steps.map((step, index) => `
+          <article class="partner-onboarding-step ${step.isComplete ? 'partner-onboarding-step--done' : 'partner-onboarding-step--todo'}">
+            <div>
+              <span class="partner-onboarding-step-number">${escapeHtml(index + 1)}</span>
+              <h5>${escapeHtml(step.title)}</h5>
+            </div>
+            <p>${step.isComplete ? '✅ Готово' : 'Нужно заполнить'}</p>
+            ${step.isComplete ? '' : `<button class="partner-onboarding-action" type="button" data-partner-onboarding-tab="${escapeHtml(step.tab)}">${escapeHtml(step.action)}</button>`}
+          </article>
+        `).join('')}
+      </div>
+    </section>
+  `;
+};
+
 const renderPartnerMarketplaceCard = (partner = {}, options = {}) => {
   const galleryPhotos = getActivePartnerGalleryPhotos(options.photos || partner.photos);
   const coverUrl = galleryPhotos[0]?.url || (isSafePublicAssetUrl(partner.cover_url) ? partner.cover_url : '');
@@ -1947,6 +2016,7 @@ const renderPartnerProfileTab = () => {
       <h4>Профиль партнёра</h4>
       <p>Настройте, как ваша карточка будет выглядеть для участниц клуба.</p>
     </div>
+    ${renderPartnerOnboardingChecklist(profile, { offers: partnerState.offers, photos: partnerState.photos })}
     <div class="partner-profile-layout">
       <aside class="partner-profile-preview">
         <span class="section-kicker">Preview витрины</span>
@@ -4188,6 +4258,13 @@ root.addEventListener('click', async (event) => {
     clearPartnerToken();
     showLoginForm();
     setLoginMode('partner');
+    return;
+  }
+
+  const partnerOnboardingTabButton = event.target.closest('[data-partner-onboarding-tab]');
+  if (partnerOnboardingTabButton) {
+    partnerState.activeTab = partnerOnboardingTabButton.dataset.partnerOnboardingTab;
+    loadActivePartnerTabData();
     return;
   }
 
