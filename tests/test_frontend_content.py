@@ -1077,6 +1077,20 @@ def test_public_landing_contains_smm_hero_menu_directions_and_partner_modal() ->
     ):
         assert expected_style in styles
 
+    topbar_block = _css_block(styles, ".topbar")
+    landing_menu_block = _css_block(styles, ".landing-menu")
+    landing_menu_panel_block = _css_block(styles, ".landing-menu-panel")
+    hero_card_block = _css_block(styles, ".hero-card")
+
+    assert "z-index: 20;" in topbar_block
+    assert "z-index: 30;" in landing_menu_block
+    assert "Keep landing dropdown above hero/glass cards." in landing_menu_panel_block
+    assert "position: absolute;" in landing_menu_panel_block
+    assert "z-index: 40;" in landing_menu_panel_block
+    assert "pointer-events: auto;" in landing_menu_panel_block
+    assert "right: 0;" in landing_menu_panel_block
+    assert "z-index:" not in hero_card_block
+
     assert "Красота, забота и привилегии рядом с вами" not in source
     assert "hero-visual" not in source
     assert "hero-visual-image" not in styles
