@@ -1045,7 +1045,7 @@ const renderOfferImageUploader = (offer, scope) => {
       ${renderSafeOfferImagePreview(offer?.image_url, 'Фото предложения')}
       <div class="offer-image-upload-actions">
         ${offerId
-          ? `<label class="admin-inline-action">Загрузить фото предложения<input type="file" accept="image/jpeg,image/png,image/webp" ${inputAttr} /></label>`
+          ? `<label class="admin-inline-action admin-action-button">Загрузить фото предложения<input type="file" accept="image/jpeg,image/png,image/webp" ${inputAttr} /></label>`
           : '<p class="form-message">Сначала сохраните предложение, затем загрузите фото.</p>'}
       </div>
       <p class="form-message offer-image-status" data-${isAdmin ? 'form-message' : 'partner-form-message'}="${messageKey}">${escapeHtml(message)}</p>
@@ -2350,11 +2350,17 @@ const renderOverviewTab = () => {
   `;
 };
 
-const renderUserActionButton = (user) => `
-  <button class="admin-inline-action admin-table-action" type="button" data-user-active-toggle="${escapeHtml(user.id)}">
+const renderAdminTableActions = (content) => `
+  <div class="admin-table-actions admin-actions-stack">
+    ${content}
+  </div>
+`;
+
+const renderUserActionButton = (user) => renderAdminTableActions(`
+  <button class="admin-inline-action admin-action-button admin-table-action" type="button" data-user-active-toggle="${escapeHtml(user.id)}">
     ${user.is_active ? 'Заблокировать' : 'Активировать'}
   </button>
-`;
+`);
 
 const renderAdminSearch = (scope, placeholder) => {
   const value = adminState.search?.[scope] || '';
@@ -2405,14 +2411,12 @@ const renderUsersTab = () => {
   `;
 };
 
-const renderCityActionButtons = (city) => `
-  <div class="admin-inline-actions">
-    <button class="admin-inline-action admin-table-action" type="button" data-admin-city-edit="${escapeHtml(city.id)}">Редактировать</button>
-    <button class="admin-inline-action admin-table-action" type="button" data-admin-city-active-toggle="${escapeHtml(city.id)}">
-      ${city.is_active ? 'Деактивировать' : 'Активировать'}
-    </button>
-  </div>
-`;
+const renderCityActionButtons = (city) => renderAdminTableActions(`
+  <button class="admin-inline-action admin-action-button admin-table-action" type="button" data-admin-city-edit="${escapeHtml(city.id)}">Редактировать</button>
+  <button class="admin-inline-action admin-action-button admin-table-action" type="button" data-admin-city-active-toggle="${escapeHtml(city.id)}">
+    ${city.is_active ? 'Деактивировать' : 'Активировать'}
+  </button>
+`);
 
 const renderCityCreateForm = () => `
   <form class="admin-form" data-admin-form="city">
@@ -2476,14 +2480,12 @@ const renderCitiesTab = () => {
 
 const getCategoryName = (category) => category.name || category.title || '';
 
-const renderCategoryActionButtons = (category) => `
-  <div class="admin-inline-actions">
-    <button class="admin-inline-action admin-table-action" type="button" data-admin-category-edit="${escapeHtml(category.id)}">Редактировать</button>
-    <button class="admin-inline-action admin-table-action" type="button" data-admin-category-active-toggle="${escapeHtml(category.id)}">
-      ${category.is_active ? 'Деактивировать' : 'Активировать'}
-    </button>
-  </div>
-`;
+const renderCategoryActionButtons = (category) => renderAdminTableActions(`
+  <button class="admin-inline-action admin-action-button admin-table-action" type="button" data-admin-category-edit="${escapeHtml(category.id)}">Редактировать</button>
+  <button class="admin-inline-action admin-action-button admin-table-action" type="button" data-admin-category-active-toggle="${escapeHtml(category.id)}">
+    ${category.is_active ? 'Деактивировать' : 'Активировать'}
+  </button>
+`);
 
 const renderCategoryCreateForm = () => `
   <form class="admin-form" data-admin-form="category">
@@ -2545,11 +2547,9 @@ const renderCategoriesTab = () => {
   `;
 };
 
-const renderAdminPartnerAction = (partner) => `
-  <div class="admin-inline-actions admin-partner-actions">
-    <button class="admin-inline-action admin-table-action" type="button" data-admin-partner-edit="${escapeHtml(partner.id)}">Редактировать</button>
-  </div>
-`;
+const renderAdminPartnerAction = (partner) => renderAdminTableActions(`
+  <button class="admin-inline-action admin-action-button admin-table-action" type="button" data-admin-partner-edit="${escapeHtml(partner.id)}">Редактировать</button>
+`);
 
 const getAdminLoadedOffersForPartner = (partner) => {
   const partnerId = String(partner?.id || '');
@@ -2742,10 +2742,10 @@ const renderPartnersTab = () => {
   `;
 };
 
-const renderAdminOfferAction = (offer) => `
-  <button class="admin-inline-action admin-table-action" type="button" data-admin-offer-edit="${escapeHtml(offer.id)}">Редактировать</button>
-  <label class="admin-inline-action admin-table-action">Загрузить фото предложения<input type="file" accept="image/jpeg,image/png,image/webp" data-admin-offer-image-upload data-offer-id="${escapeHtml(offer.id)}" /></label>
-`;
+const renderAdminOfferAction = (offer) => renderAdminTableActions(`
+  <button class="admin-inline-action admin-action-button admin-table-action" type="button" data-admin-offer-edit="${escapeHtml(offer.id)}">Редактировать</button>
+  <label class="admin-inline-action admin-action-button admin-table-action">Загрузить фото<input type="file" accept="image/jpeg,image/png,image/webp" data-admin-offer-image-upload data-offer-id="${escapeHtml(offer.id)}" /></label>
+`);
 
 const renderOfferEditForm = () => {
   const offer = adminState.offers.find((item) => String(item.id) === String(adminState.selectedOfferIdForEdit));
@@ -2754,11 +2754,7 @@ const renderOfferEditForm = () => {
   }
 
   return `
-    <section class="offer-marketplace-preview">
-      <span class="section-kicker">Preview предложения</span>
-      ${renderOfferMarketplaceCard(offer, { note: 'Так предложение увидит клиент' })}
-    </section>
-    <form class="admin-form admin-form--inline" data-admin-form="offerEdit" data-offer-id="${escapeHtml(offer.id)}">
+    <form class="admin-form admin-form--inline admin-offer-form" data-admin-form="offerEdit" data-offer-id="${escapeHtml(offer.id)}">
       <h4>Редактировать предложение</h4>
       <label>Название<input name="title" required value="${escapeHtml(offer.title || '')}" /></label>
       <label>Скидка / выгода<input name="benefit_text" value="${escapeHtml(offer.benefit_text || '')}" /></label>
@@ -2784,11 +2780,7 @@ const renderOfferEditForm = () => {
 };
 
 const renderOfferCreateForm = () => `
-  <section class="offer-marketplace-preview">
-    <span class="section-kicker">Preview предложения</span>
-    ${renderOfferMarketplaceCard({ is_active: true }, { note: 'Так предложение увидит клиент' })}
-  </section>
-  <form class="admin-form admin-form--inline" data-admin-form="offer">
+  <form class="admin-form admin-form--inline admin-offer-form" data-admin-form="offer">
     <h4>Новое предложение</h4>
     <label>Название предложения<input name="title" required /></label>
     <label>Краткая выгода<input name="benefit_text" /></label>
@@ -2810,26 +2802,50 @@ const renderOfferCreateForm = () => `
   </form>
 `;
 
+const renderOffersPreviewPanel = (offers) => {
+  const selectedOffer = adminState.selectedOfferIdForEdit
+    ? offers.find((offer) => String(offer.id) === String(adminState.selectedOfferIdForEdit))
+    : offers[0];
+  const previewOffer = selectedOffer || { is_active: true };
+  return `
+    <section class="admin-offers-preview-panel">
+      <div class="admin-section-heading"><h4>Preview предложения</h4><p>Отдельный компактный блок показывает, как предложение будет выглядеть для клиентки.</p></div>
+      ${renderOfferMarketplaceCard(previewOffer, {
+        compact: true,
+        note: selectedOffer ? 'Так предложение увидит клиент' : 'Добавьте первое предложение',
+        actionHtml: selectedOffer ? `${renderAdminOfferAction(selectedOffer)}<button type="button" disabled>Получить привилегию</button>` : '<button type="button" disabled>Получить привилегию</button>',
+      })}
+    </section>
+  `;
+};
+
 const renderOffersTab = () => {
   const offers = filterAdminRows(adminState.offers, adminState.search.offers, ['title', 'description', 'benefit_text', 'discount_text', 'terms', 'conditions', (offer) => searchableBool(offer.is_active)]);
   return `
-    <div class="admin-section-heading"><h4>Предложения</h4><p>Выберите партнёра, чтобы увидеть и создать предложения.</p></div>
-    <label class="admin-select-label">Партнёр${renderPartnerPicker('offers', adminState.selectedPartnerIdForOffers)}</label>
-    ${adminState.selectedPartnerIdForOffers ? `
-      ${renderAdminSearch('offers', 'Поиск по предложениям')}
-      ${offers.length ? `<div class="offer-card-grid">${offers.map((offer) => renderOfferMarketplaceCard(offer, {
-        note: 'Так предложение увидит клиент',
-        actionHtml: `${renderAdminOfferAction(offer)}<button type="button" disabled>Получить привилегию</button>`,
-      })).join('')}</div>` : ''}
-      ${renderTable(
-        ['Название предложения', 'Краткая выгода', 'Базовая цена', 'Скидка, %', 'Активно', 'Сортировка', 'Действие'],
-        offers.map((offer) => [formatValue(offer.title), formatValue(formatPartnerBenefit(offer)), formatValue(formatOfferBasePrice(offer.base_price)), formatValue(formatDiscountPercent(offer.discount_percent) || '—'), renderActiveStatusBadge(offer.is_active), formatValue(offer.sort_order), renderAdminOfferAction(offer)]),
-        true,
-        'admin-table--compact',
-        adminState.search.offers ? 'Ничего не найдено.' : 'Пока нет данных.',
-      )}
-      ${adminState.selectedOfferIdForEdit ? renderOfferEditForm() : renderOfferCreateForm()}
-    ` : '<p class="empty-note">Сначала выберите партнёра.</p>'}
+    <div class="admin-offers-layout">
+      <div class="admin-section-heading"><h4>Предложения</h4><p>Выберите партнёра, затем управляйте preview, таблицей и формой в отдельных блоках.</p></div>
+      <section class="admin-offers-toolbar">
+        <label class="admin-select-label">Партнёр${renderPartnerPicker('offers', adminState.selectedPartnerIdForOffers)}</label>
+        ${adminState.selectedPartnerIdForOffers ? renderAdminSearch('offers', 'Поиск по предложениям') : ''}
+      </section>
+      ${adminState.selectedPartnerIdForOffers ? `
+        ${renderOffersPreviewPanel(offers)}
+        <section class="admin-offers-table-panel">
+          <div class="admin-section-heading"><h4>Таблица предложений</h4><p>Action column держит кнопки вертикально и не сжимает текст.</p></div>
+          ${renderTable(
+            ['Название предложения', 'Краткая выгода', 'Базовая цена', 'Скидка, %', 'Активно', 'Сортировка', 'Действие'],
+            offers.map((offer) => [formatValue(offer.title), formatValue(formatPartnerBenefit(offer)), formatValue(formatOfferBasePrice(offer.base_price)), formatValue(formatDiscountPercent(offer.discount_percent) || '—'), renderActiveStatusBadge(offer.is_active), formatValue(offer.sort_order), renderAdminOfferAction(offer)]),
+            true,
+            'admin-table--compact admin-table--offers',
+            adminState.search.offers ? 'Ничего не найдено.' : 'Пока нет данных.',
+          )}
+        </section>
+        <section class="admin-offers-form-panel">
+          <div class="admin-section-heading"><h4>${adminState.selectedOfferIdForEdit ? 'Редактирование' : 'Создание'}</h4><p>Поля формы сгруппированы в ровную сетку, фото загружается отдельным блоком.</p></div>
+          ${adminState.selectedOfferIdForEdit ? renderOfferEditForm() : renderOfferCreateForm()}
+        </section>
+      ` : '<p class="empty-note">Сначала выберите партнёра.</p>'}
+    </div>
   `;
 };
 
@@ -2839,8 +2855,8 @@ const renderContentReviewOfferCard = (offer) => renderOfferMarketplaceCard(
   {
     note: `Партнёр: ${offer.partner_name || '—'}`,
     actionHtml: `
-      <button type="button" data-content-review-offer-activate="${escapeHtml(offer.id)}">Активировать</button>
-      <button class="admin-inline-action" type="button" data-content-review-partner-open="${escapeHtml(offer.partner_id)}">Открыть партнёра</button>
+      <button class="admin-action-button" type="button" data-content-review-offer-activate="${escapeHtml(offer.id)}">Активировать</button>
+      <button class="admin-inline-action admin-action-button" type="button" data-content-review-partner-open="${escapeHtml(offer.partner_id)}">Открыть партнёра</button>
     `,
   },
 );
@@ -2861,8 +2877,8 @@ const renderContentReviewPhotoCard = (photo) => {
           <div><dt>Создано</dt><dd>${formatValue(formatDate(photo.created_at))}</dd></div>
         </dl>
         <div class="content-review-actions">
-          <button type="button" data-content-review-photo-activate="${escapeHtml(photo.id)}">Активировать</button>
-          <button class="admin-inline-action" type="button" data-content-review-partner-open="${escapeHtml(photo.partner_id)}">Открыть партнёра</button>
+          <button class="admin-action-button" type="button" data-content-review-photo-activate="${escapeHtml(photo.id)}">Активировать</button>
+          <button class="admin-inline-action admin-action-button" type="button" data-content-review-partner-open="${escapeHtml(photo.partner_id)}">Открыть партнёра</button>
         </div>
       </div>
     </article>
@@ -2897,9 +2913,9 @@ const renderContentReviewTab = () => {
   `;
 };
 
-const renderAdminQrAction = (link) => `
-  <button class="admin-inline-action admin-table-action" type="button" data-admin-qr-edit="${escapeHtml(link.id)}">Редактировать</button>
-`;
+const renderAdminQrAction = (link) => renderAdminTableActions(`
+  <button class="admin-inline-action admin-action-button admin-table-action" type="button" data-admin-qr-edit="${escapeHtml(link.id)}">Редактировать</button>
+`);
 
 const renderQrCreateForm = () => `
   <form class="admin-form admin-form--inline" data-admin-form="qr">
