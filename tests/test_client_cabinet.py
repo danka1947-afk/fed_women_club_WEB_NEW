@@ -16,7 +16,7 @@ from app.db.session import get_db
 from app.main import app
 from app.models.city import City
 from app.models.client import ClientProfile
-from app.models.partner import Partner, PartnerOffer
+from app.models.partner import Partner, PartnerOffer, PartnerPhoto
 from app.models.payment import Subscription, SubscriptionStatus
 from app.models.user import AdminUser, User, UserRole
 
@@ -142,6 +142,51 @@ def client_cabinet_client() -> Generator[TestClient, None, None]:
                     title="Other partner offer",
                     is_active=True,
                     sort_order=1,
+                ),
+            ]
+        )
+
+        session.add_all(
+            [
+                PartnerPhoto(
+                    partner_id=active_moscow.id,
+                    url="/uploads/partners/1/photos/photo-second.webp",
+                    alt_text="Second active photo",
+                    sort_order=20,
+                    is_active=True,
+                    created_at=datetime(2026, 1, 2, tzinfo=timezone.utc),
+                ),
+                PartnerPhoto(
+                    partner_id=active_moscow.id,
+                    url="/uploads/partners/1/photos/photo-first.webp",
+                    alt_text="First active photo",
+                    sort_order=10,
+                    is_active=True,
+                    created_at=datetime(2026, 1, 3, tzinfo=timezone.utc),
+                ),
+                PartnerPhoto(
+                    partner_id=active_moscow.id,
+                    url="/uploads/partners/1/photos/photo-first-created.webp",
+                    alt_text="Earlier created photo",
+                    sort_order=10,
+                    is_active=True,
+                    created_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
+                ),
+                PartnerPhoto(
+                    partner_id=active_moscow.id,
+                    url="/uploads/partners/1/photos/photo-hidden.webp",
+                    alt_text="Inactive photo",
+                    sort_order=1,
+                    is_active=False,
+                    created_at=datetime(2025, 12, 31, tzinfo=timezone.utc),
+                ),
+                PartnerPhoto(
+                    partner_id=active_spb.id,
+                    url="/uploads/partners/2/photos/yoga.webp",
+                    alt_text="Yoga studio",
+                    sort_order=1,
+                    is_active=True,
+                    created_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
                 ),
             ]
         )
@@ -347,6 +392,31 @@ def test_client_catalog_partners_returns_only_active_partners(client_cabinet_cli
     assert [partner["name"] for partner in response.json()] == ["Beta Yoga", "Alpha Beauty"]
 
 
+
+def test_client_catalog_partners_returns_active_photos_only_sorted_without_admin_fields(
+    client_cabinet_client: TestClient,
+) -> None:
+    token = _client_token(client_cabinet_client)
+
+    response = client_cabinet_client.get(
+        "/api/v1/clients/catalog/partners?city_id=1",
+        headers=_auth_headers(token),
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) == 1
+    partner = data[0]
+    assert [photo["url"] for photo in partner["photos"]] == [
+        "/uploads/partners/1/photos/photo-first-created.webp",
+        "/uploads/partners/1/photos/photo-first.webp",
+        "/uploads/partners/1/photos/photo-second.webp",
+    ]
+    assert "/uploads/partners/1/photos/photo-hidden.webp" not in [photo["url"] for photo in partner["photos"]]
+    assert all("is_active" not in photo for photo in partner["photos"])
+    assert all("partner_id" not in photo for photo in partner["photos"])
+    assert "owner_user_id" not in partner
+
 def test_client_catalog_partners_filters_by_city_id(client_cabinet_client: TestClient) -> None:
     token = _client_token(client_cabinet_client)
 
@@ -437,7 +507,15 @@ def test_client_partner_detail_returns_active_partner_with_city_name(client_cabi
     assert data["name"] == "Alpha Beauty"
     assert data["city_name"] == "Москва"
     assert data["is_verified"] is True
+    assert [photo["url"] for photo in data["photos"]] == [
+        "/uploads/partners/1/photos/photo-first-created.webp",
+        "/uploads/partners/1/photos/photo-first.webp",
+        "/uploads/partners/1/photos/photo-second.webp",
+    ]
+    assert all("is_active" not in photo for photo in data["photos"])
+    assert all("partner_id" not in photo for photo in data["photos"])
     assert "is_active" not in data
+    assert "owner_user_id" not in data
 
 
 def test_client_partner_detail_missing_or_inactive_partner_returns_404(client_cabinet_client: TestClient) -> None:

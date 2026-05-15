@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from decimal import Decimal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class ClientProfileRead(BaseModel):
@@ -37,6 +37,16 @@ class SubscriptionRead(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class ClientPartnerPhotoRead(BaseModel):
+    id: int
+    url: str
+    alt_text: str | None
+    sort_order: int
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
 class ClientPartnerCatalogItem(BaseModel):
     id: int
     city_id: int
@@ -52,6 +62,7 @@ class ClientPartnerCatalogItem(BaseModel):
     logo_url: str | None
     cover_url: str | None
     is_verified: bool
+    photos: list[ClientPartnerPhotoRead] = Field(default_factory=list)
 
     model_config = {"from_attributes": True}
 
