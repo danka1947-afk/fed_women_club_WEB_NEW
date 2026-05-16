@@ -135,6 +135,30 @@ def test_public_frontend_contains_css_only_sakura_layer() -> None:
     assert ".app-shell" in styles
     assert "z-index: 1;" in styles
 
+def test_dashboard_cabinets_include_ambient_sakura_layer() -> None:
+    source = _frontend_main()
+    styles = _frontend_styles()
+    combined = source + "\n" + styles
+
+    for marker in (
+        "cabinet-ambient",
+        "cabinet-ambient__glow",
+        "cabinet-petals",
+        "cabinet-petal",
+        "cabinet-petal-fall",
+        "prefers-reduced-motion",
+        'aria-hidden="true"',
+    ):
+        assert marker in combined
+
+    assert "renderCabinetAmbientLayer()" in source
+    assert "Array.from({ length: 12 }" in source
+    assert "pointer-events: none;" in _css_block(styles, ".cabinet-ambient")
+    assert "z-index: 0;" in _css_block(styles, ".cabinet-ambient")
+    assert "z-index: 1;" in _css_block(styles, ".dashboard-topbar,\n.dashboard-layout")
+    assert "animation: none !important;" in styles
+
+
 def test_public_landing_cards_use_frosted_translucent_backgrounds() -> None:
     styles = _frontend_styles()
 
