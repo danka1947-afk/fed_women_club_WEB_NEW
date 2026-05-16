@@ -223,6 +223,44 @@ def test_frontend_selects_use_rose_glass_native_styling() -> None:
     assert "color: var(--color-text);" in option_block
 
 
+def test_frontend_contains_reusable_custom_select_component() -> None:
+    source = _frontend_main()
+    styles = _frontend_styles()
+    combined = source + "\n" + styles
+
+    for marker in (
+        "renderCustomSelect",
+        "custom-select",
+        "custom-select--open",
+        "custom-select-trigger",
+        "custom-select-menu",
+        "custom-select-option",
+        "custom-select-option--selected",
+        "custom-select-option--active",
+        "custom-select-option--disabled",
+        'role="combobox"',
+        'role="listbox"',
+        'role="option"',
+        "aria-expanded",
+        "aria-selected",
+        "data-custom-select",
+    ):
+        assert marker in combined
+
+    for behavior_marker in (
+        "openCustomSelect",
+        "closeCustomSelects",
+        "selectCustomSelectOption",
+        "custom-select:change",
+        "ArrowDown",
+        "ArrowUp",
+        "Escape",
+        "scrollIntoView",
+        "data-custom-select-input",
+    ):
+        assert behavior_marker in source
+
+
 def test_frontend_adds_subtle_center_sakura_motion() -> None:
     source = _frontend_main()
     styles = _frontend_styles()
