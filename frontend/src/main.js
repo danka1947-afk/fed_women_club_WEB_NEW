@@ -98,6 +98,21 @@ const sakuraCenterPetalMarkup = Array.from({ length: 20 }, (_, index) => (
 
 const sakuraPetalMarkup = `${sakuraEdgePetalMarkup}${sakuraCenterPetalMarkup}`;
 
+const cabinetPetalMarkup = Array.from({ length: 12 }, (_, index) => (
+  `<span class="cabinet-petal cabinet-petal--${index + 1}"></span>`
+)).join('');
+
+const renderCabinetAmbientLayer = () => `
+  <div class="cabinet-ambient" aria-hidden="true">
+    <span class="cabinet-ambient__glow cabinet-ambient__glow--rose"></span>
+    <span class="cabinet-ambient__glow cabinet-ambient__glow--cream"></span>
+    <span class="cabinet-ambient__glow cabinet-ambient__glow--blush"></span>
+    <div class="cabinet-petals">
+      ${cabinetPetalMarkup}
+    </div>
+  </div>
+`;
+
 
 const getPasswordSetupParams = () => {
   const params = new URLSearchParams(window.location.search);
@@ -929,6 +944,7 @@ const renderDashboardApp = (role) => {
   document.body.classList.add('is-dashboard');
   root.innerHTML = `
     <div class="dashboard-shell" data-dashboard-role="${role}">
+      ${renderCabinetAmbientLayer()}
       <header class="dashboard-topbar">
         <div class="dashboard-brand" aria-label="Женский клуб">
           <span class="brand-mark" aria-hidden="true">ЖК</span>
