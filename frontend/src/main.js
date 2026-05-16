@@ -98,9 +98,11 @@ const sakuraCenterPetalMarkup = Array.from({ length: 20 }, (_, index) => (
 
 const sakuraPetalMarkup = `${sakuraEdgePetalMarkup}${sakuraCenterPetalMarkup}`;
 
-const cabinetPetalMarkup = Array.from({ length: 12 }, (_, index) => (
-  `<span class="cabinet-petal cabinet-petal--${index + 1}"></span>`
-)).join('');
+const cabinetPetalMarkup = Array.from({ length: 18 }, (_, index) => {
+  const depthClass = index % 3 === 0 ? 'cabinet-petal--near' : 'cabinet-petal--far';
+
+  return `<span class="cabinet-petal ${depthClass} cabinet-petal--${index + 1}"></span>`;
+}).join('');
 
 const renderCabinetAmbientLayer = () => `
   <div class="cabinet-ambient" aria-hidden="true">
