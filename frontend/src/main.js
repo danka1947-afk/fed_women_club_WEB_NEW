@@ -2235,14 +2235,9 @@ const renderPartnerProfileTab = () => {
     </div>
     ${renderPartnerOnboardingChecklist(profile, { offers: partnerState.offers, photos: partnerState.photos })}
     <div class="partner-profile-layout">
-      <main class="partner-profile-settings">
-        <form class="admin-form partner-profile-form" id="partner-profile-form" data-partner-form="profile">
-          <section class="partner-section partner-progress-card">
-            ${renderPartnerSectionHeader('Готовность профиля', 'Сразу видно, что уже заполнено и что осталось сделать.')}
-            ${renderPartnerProfileHints(profile, { offers: partnerState.offers })}
-          </section>
-
-          <section class="partner-section">
+      <form class="admin-form partner-profile-form" id="partner-profile-form" data-partner-form="profile">
+        <main class="partner-profile-main partner-profile-settings">
+          <section class="partner-section partner-section--compact">
             ${renderPartnerSectionHeader('Основные данные', 'Название, город и категория вашего бизнеса.')}
             <div class="partner-profile-grid">
               <label>Название<input name="name" value="${escapeHtml(profile.name || '')}" readonly placeholder="Например: Bloom Beauty Studio" /></label>
@@ -2254,59 +2249,70 @@ const renderPartnerProfileTab = () => {
             <p class="form-message partner-profile-admin-note">Название, город и категорию редактирует администратор. Активность и проверка тоже контролируются администратором.</p>
           </section>
 
-          <section class="partner-section">
-            ${renderPartnerSectionHeader('Контакты', 'Как клиенты смогут с вами связаться.')}
-            <label>Адрес<input class="${isRequiredProfileFieldEmpty(profile, 'address') ? 'partner-required-empty' : ''}" name="address" required value="${escapeHtml(profile.address || '')}" placeholder="Новосибирск, ул. Ленина, 15" /></label>
-            <label>Телефон<input class="${isRequiredProfileFieldEmpty(profile, 'phone') ? 'partner-required-empty' : ''}" name="phone" autocomplete="tel" required value="${escapeHtml(profile.phone || '')}" placeholder="+7 999 123-45-67" /></label>
-            <label>Сайт<input name="website_url" value="${escapeHtml(profile.website_url || '')}" placeholder="https://example.ru" /></label>
-            <label>Соцсеть<input name="social_url" value="${escapeHtml(profile.social_url || '')}" placeholder="https://vk.com/bloom_beauty" /></label>
+          <section class="partner-section partner-section--compact partner-combined-section">
+            ${renderPartnerSectionHeader('Контакты и график', 'Контактные данные и время работы собраны в одном блоке, чтобы клиенткам было проще планировать визит.')}
+            <div class="partner-profile-grid partner-contact-grid">
+              <label>Адрес<input class="${isRequiredProfileFieldEmpty(profile, 'address') ? 'partner-required-empty' : ''}" name="address" required value="${escapeHtml(profile.address || '')}" placeholder="Новосибирск, ул. Ленина, 15" /></label>
+              <label>Телефон<input class="${isRequiredProfileFieldEmpty(profile, 'phone') ? 'partner-required-empty' : ''}" name="phone" autocomplete="tel" required value="${escapeHtml(profile.phone || '')}" placeholder="+7 999 123-45-67" /></label>
+              <label>График работы<input class="${isRequiredProfileFieldEmpty(profile, 'working_hours') ? 'partner-required-empty' : ''}" name="working_hours" required value="${escapeHtml(profile.working_hours || '')}" placeholder="Пн–Пт 10:00–20:00, Сб 11:00–18:00" /></label>
+              <label>Сайт<input name="website_url" value="${escapeHtml(profile.website_url || '')}" placeholder="https://example.ru" /></label>
+              <label>Соцсеть<input name="social_url" value="${escapeHtml(profile.social_url || '')}" placeholder="https://vk.com/bloom_beauty" /></label>
+            </div>
           </section>
 
-          <section class="partner-section">
-            ${renderPartnerSectionHeader('Время работы', 'Когда клиенткам удобно планировать визит.')}
-            <label>График работы<input class="${isRequiredProfileFieldEmpty(profile, 'working_hours') ? 'partner-required-empty' : ''}" name="working_hours" required value="${escapeHtml(profile.working_hours || '')}" placeholder="Пн–Пт 10:00–20:00, Сб 11:00–18:00" /></label>
-          </section>
-
-          <section class="partner-section">
+          <section class="partner-section partner-section--compact">
             ${renderPartnerSectionHeader('Описание', 'Расскажите, почему клиенту стоит выбрать именно вас.')}
             <label>Описание<textarea class="partner-description-textarea ${isRequiredProfileFieldEmpty(profile, 'description') ? 'partner-required-empty' : ''}" name="description" required placeholder="Уютная студия красоты в центре города…">${escapeHtml(profile.description || '')}</textarea></label>
             <p class="form-message partner-textarea-hint">${escapeHtml(descriptionLength)} символов. Рекомендация: 200–500 символов.</p>
           </section>
+        </main>
 
-          <section class="partner-section">
-            ${renderPartnerSectionHeader('Изображения', 'Фото значительно повышают доверие.')}
-            ${renderPartnerImageUploader(profile, 'partner')}
-            <details class="partner-profile-advanced">
-              <summary>URL изображений</summary>
-              <p class="form-message">Основной способ обновления — кнопки загрузки. URL показывается для проверки и отправляется как раньше.</p>
-              <label>Логотип URL<input name="logo_url" value="${escapeHtml(profile.logo_url || '')}" readonly placeholder="/uploads/logo.webp" /></label>
-              <label>Обложка URL<input name="cover_url" value="${escapeHtml(profile.cover_url || '')}" readonly placeholder="/uploads/cover.webp" /></label>
-            </details>
-          </section>
+        <aside class="partner-profile-side">
+          <div class="partner-side-stack">
+            <section class="partner-section partner-profile-preview partner-section--compact">
+              ${renderPartnerSectionHeader('Витрина партнёра', 'Как карточка выглядит для клиента.')}
+              <span class="section-kicker">Preview витрины</span>
+              ${renderPartnerMarketplaceCard(profile, { offers: partnerState.offers, note: 'Так карточку увидит клиент', photos: partnerState.photos })}
+            </section>
 
-          <section class="partner-section">
-            ${renderPartnerSectionHeader('Галерея', 'Добавьте атмосферу, интерьер, работы и детали сервиса.')}
-            ${renderPartnerGallery(profile, partnerState.photos, 'partner')}
-          </section>
+            <section class="partner-section partner-progress-card partner-section--compact">
+              ${renderPartnerSectionHeader('Готовность профиля', 'Сразу видно, что уже заполнено и что осталось сделать.')}
+              ${renderPartnerProfileHints(profile, { offers: partnerState.offers })}
+              <div class="partner-side-tips">
+                <strong>Быстрые подсказки</strong>
+                <span>Добавьте фото, понятный график и первое предложение — это повышает доверие в каталоге.</span>
+              </div>
+            </section>
 
-          <section class="partner-section">
-            ${renderPartnerSectionHeader('Предложения', 'Покажите клиенткам конкретную выгоду для первого визита.')}
-            ${renderPartnerOffersTeaser()}
-          </section>
+            <section class="partner-section partner-combined-section partner-section--compact">
+              ${renderPartnerSectionHeader('Фотографии профиля', 'Логотип, обложка и галерея собраны рядом с preview.')}
+              ${renderPartnerImageUploader(profile, 'partner')}
+              <details class="partner-profile-advanced">
+                <summary>URL изображений</summary>
+                <p class="form-message">Основной способ обновления — кнопки загрузки. URL показывается для проверки и отправляется как раньше.</p>
+                <label>Логотип URL<input name="logo_url" value="${escapeHtml(profile.logo_url || '')}" readonly placeholder="/uploads/logo.webp" /></label>
+                <label>Обложка URL<input name="cover_url" value="${escapeHtml(profile.cover_url || '')}" readonly placeholder="/uploads/cover.webp" /></label>
+              </details>
+              <div class="partner-gallery-compact">
+                ${renderPartnerSectionHeader('Галерея', 'Добавьте атмосферу, интерьер, работы и детали сервиса.')}
+                ${renderPartnerGallery(profile, partnerState.photos, 'partner')}
+              </div>
+            </section>
+          </div>
+        </aside>
 
-          <section class="partner-section partner-profile-save-section">
-            ${renderPartnerSectionHeader('Сохранить изменения', 'Проверьте данные и сохраните профиль.')}
-            <div class="partner-save-status" role="status">${escapeHtml(getPartnerSaveStatusLabel())}</div>
-            <button type="submit">Сохранить изменения</button>
-            <p class="form-message" data-partner-form-message="profile">${escapeHtml(partnerState.formMessages.profile || '')}</p>
-          </section>
-        </form>
-      </main>
-      <aside class="partner-section partner-profile-preview">
-        ${renderPartnerSectionHeader('Витрина партнёра', 'Как карточка выглядит для клиента.')}
-        <span class="section-kicker">Preview витрины</span>
-        ${renderPartnerMarketplaceCard(profile, { offers: partnerState.offers, note: 'Так карточку увидит клиент', photos: partnerState.photos })}
-      </aside>
+        <section class="partner-section partner-section--compact partner-profile-offers">
+          ${renderPartnerSectionHeader('Предложения', 'Покажите клиенткам конкретную выгоду для первого визита.')}
+          ${renderPartnerOffersTeaser()}
+        </section>
+
+        <section class="partner-section partner-section--compact partner-profile-save-section">
+          ${renderPartnerSectionHeader('Сохранить изменения', 'Проверьте данные и сохраните профиль.')}
+          <div class="partner-save-status" role="status">${escapeHtml(getPartnerSaveStatusLabel())}</div>
+          <button type="submit">Сохранить изменения</button>
+          <p class="form-message" data-partner-form-message="profile">${escapeHtml(partnerState.formMessages.profile || '')}</p>
+        </section>
+      </form>
     </div>
     ${partnerState.isProfileDirty ? `
       <div class="partner-save-bar" role="status">
