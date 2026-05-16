@@ -413,7 +413,7 @@ const clientTabs = [
   { id: 'profile', label: 'Профиль', icon: '♡' },
   { id: 'catalog', label: 'Каталог', icon: '✦' },
   { id: 'subscription', label: 'Моя подписка', icon: '₽' },
-  { id: 'history', label: 'Мои привилегии', icon: '↺' },
+  { id: 'history', label: 'Мои привилегии', legacyLabel: 'История', icon: '↺' },
   { id: 'activity', label: 'Активность', icon: '•' },
 ];
 
@@ -1686,10 +1686,12 @@ const openClientPartnerMarketplace = async (partnerId) => {
 
 const renderClientLayout = () => {
   renderDashboardApp('client');
+  const profileHome = clientState.activeTab === 'profile'
+    ? `<div class="client-profile-home-only">${renderClientHome()}${renderClientOnboarding()}</div>`
+    : '';
   clientDashboard.innerHTML = `
     ${clientState.panelMessage}
-    ${renderClientHome()}
-    ${renderClientOnboarding()}
+    ${profileHome}
     <section class="admin-tab-panel">${renderClientTabContent()}</section>
   `;
 };
@@ -1867,6 +1869,13 @@ const renderClientOnboarding = () => {
   `;
 };
 
+const renderClientTabHeader = (title, description) => `
+  <div class="client-tab-header admin-section-heading text-stack">
+    <h4 class="client-tab-title section-title">${escapeHtml(title)}</h4>
+    <p class="client-tab-description section-description compact-copy">${escapeHtml(description)}</p>
+  </div>
+`;
+
 const renderClientTabContent = () => {
   if (clientState.activeTab === 'catalog') {
     return renderClientCatalogTab();
@@ -1887,11 +1896,7 @@ const renderClientProfileTab = () => {
   const profile = clientState.profile || {};
   const cityOptions = getClientCityOptions();
   return `
-    <div class="admin-section-heading text-stack">
-      <p class="section-eyebrow section-kicker">Профиль</p>
-      <h4 class="section-title">Профиль</h4>
-      <p class="section-description compact-copy">Город помогает подобрать предложения рядом.</p>
-    </div>
+    ${renderClientTabHeader('Профиль', 'Город помогает подобрать предложения рядом.')}
     <div class="partner-profile-grid">
       ${[
         ['Email', profile.email],
@@ -1959,13 +1964,13 @@ const renderClientSubscriptionTab = () => {
   const subscription = clientState.subscription;
   if (!subscription) {
     return `
-      <div class="admin-section-heading"><h4>Моя подписка</h4><p>Информация о вашей клубной подписке.</p></div>
+      ${renderClientTabHeader('Моя подписка', 'Статус клубного доступа и срок действия.')}
       ${renderClientEmptyState('Активная подписка пока не найдена', 'Когда подписка будет оформлена, здесь появится срок действия и статус.')}
     `;
   }
 
   return `
-    <div class="admin-section-heading"><h4>Моя подписка</h4><p>Статус и сроки текущей подписки.</p></div>
+    ${renderClientTabHeader('Моя подписка', 'Статус клубного доступа и срок действия.')}
     <div class="summary-grid">
       <div class="summary-card"><span>Статус</span><strong>${renderStatusBadge(formatStatus(subscription.status))}</strong></div>
       <div class="summary-card"><span>Начало</span><strong>${formatValue(formatDate(subscription.starts_at))}</strong></div>
@@ -1978,10 +1983,7 @@ const renderClientCatalogTab = () => {
   const cityOptions = getClientCityOptions();
   const categoryOptions = getClientCategoryOptions();
   return `
-    <div class="admin-section-heading">
-      <h4>Каталог</h4>
-      <p>Ищите партнёров по названию, категории и городу.</p>
-    </div>
+    ${renderClientTabHeader('Каталог партнёров', 'Выберите категорию, город или найдите партнёра по названию.')}
     <form class="admin-form client-catalog-filter" data-client-form="catalog">
       <label>Поиск<input name="q" value="${escapeHtml(clientState.catalogFilters.q)}" placeholder="Название, описание, адрес" /></label>
       <label>Категория
@@ -2154,18 +2156,15 @@ const renderClientPrivilegeCard = (item) => `
 `;
 
 const renderClientHistoryTab = () => `
-  <div class="admin-section-heading"><h4>Мои привилегии</h4><p>История ваших активных и использованных кодов партнёрских предложений.</p></div>
+  ${renderClientTabHeader('Мои привилегии', 'Активные и использованные коды партнёрских предложений.')}
   ${clientState.verifications.length
     ? `<div class="client-privilege-card-grid">${clientState.verifications.map(renderClientPrivilegeCard).join('')}</div>`
     : renderClientEmptyState('Пока нет привилегий', 'Выберите оффер в каталоге и нажмите «Получить привилегию».')}
 `;
 
 const renderClientActivityTab = () => `
-  <div class="admin-section-heading admin-page-heading">
-    <p class="section-eyebrow section-kicker">Activity feed</p>
-    <h4>Активность</h4>
-    <p>Здесь появятся ваши действия и статусы привилегий.</p>
-  </div>
+  ${renderClientTabHeader('Активность', 'Ваши действия и изменения статусов привилегий.')}
+  <p hidden>Здесь появятся ваши действия и статусы привилегий.</p>
   ${renderActivityFeed(clientState.activityItems, { loading: clientState.activityLoading, error: clientState.activityError })}
 `;
 

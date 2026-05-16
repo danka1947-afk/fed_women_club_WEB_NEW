@@ -1574,6 +1574,15 @@ def test_frontend_contains_client_home_overview_markers() -> None:
         "client-quick-action",
         "client-active-privilege",
         "client-active-code",
+        "client-profile-home-only",
+        "client-tab-header",
+        "client-tab-title",
+        "client-tab-description",
+        "Каталог партнёров",
+        "Выберите категорию, город или найдите партнёра",
+        "Статус клубного доступа и срок действия",
+        "Активные и использованные коды",
+        "Ваши действия и изменения статусов",
     ):
         assert expected in source or expected in styles
 
