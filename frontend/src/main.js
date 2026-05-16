@@ -494,6 +494,172 @@ const escapeHtml = (value) => String(value ?? '')
   .replaceAll('"', '&quot;')
   .replaceAll("'", '&#039;');
 
+const renderHtmlAttributes = (attributes = {}) => Object.entries(attributes)
+  .filter(([, value]) => value !== undefined && value !== null && value !== false)
+  .map(([key, value]) => (value === true ? ` ${key}` : ` ${key}="${escapeHtml(value)}"`))
+  .join('');
+
+const renderCustomSelect = ({
+  id,
+  name = '',
+  value = '',
+  options = [],
+  placeholder = 'Выберите',
+  label = '',
+  disabled = false,
+  className = '',
+  data = {},
+  ariaLabel = '',
+  size = '',
+} = {}) => {
+  const selectId = id || `custom-select-${name || 'field'}`;
+  const triggerId = `${selectId}-trigger`;
+  const menuId = `${selectId}-menu`;
+  const selectedOption = options.find((option) => String(option.value) === String(value) && !option.disabled);
+  const selectedLabel = selectedOption?.label || placeholder;
+  const modifierClass = size ? ` custom-select--${escapeHtml(size)}` : '';
+  const wrapperClass = ['custom-select', disabled ? 'custom-select--disabled' : '', className]
+    .filter(Boolean)
+    .join(' ');
+  const dataAttributes = Object.fromEntries(
+    Object.entries(data).map(([key, dataValue]) => [`data-${key.replace(/[A-Z]/g, (match) => `-${match.toLowerCase()}`)}`, dataValue]),
+  );
+
+  return `
+    <div class="${escapeHtml(wrapperClass)}${modifierClass}" data-custom-select data-custom-select-name="${escapeHtml(name)}" data-custom-select-value="${escapeHtml(value)}"${renderHtmlAttributes(dataAttributes)}>
+      ${name ? `<input type="hidden" id="${escapeHtml(selectId)}" name="${escapeHtml(name)}" value="${escapeHtml(value)}" data-custom-select-input>` : ''}
+      <button
+        type="button"
+        id="${escapeHtml(triggerId)}"
+        class="custom-select-trigger"
+        role="combobox"
+        aria-haspopup="listbox"
+        aria-expanded="false"
+        aria-controls="${escapeHtml(menuId)}"
+        ${label ? `aria-labelledby="${escapeHtml(`${selectId}-label`)} ${escapeHtml(triggerId)}"` : `aria-label="${escapeHtml(ariaLabel || placeholder)}"`}
+        ${disabled ? 'disabled aria-disabled="true"' : ''}
+      >
+        ${label ? `<span class="sr-only" id="${escapeHtml(`${selectId}-label`)}">${escapeHtml(label)}</span>` : ''}
+        <span class="custom-select-value">${escapeHtml(selectedLabel)}</span>
+        <span class="custom-select-arrow" aria-hidden="true"></span>
+      </button>
+      <div class="custom-select-menu" id="${escapeHtml(menuId)}" role="listbox" aria-labelledby="${escapeHtml(triggerId)}" data-custom-select-menu>
+        ${options.map((option, index) => {
+          const isSelected = String(option.value) === String(value);
+          const isDisabled = Boolean(option.disabled);
+          const optionClassName = [
+            'custom-select-option',
+            isSelected ? 'custom-select-option--selected' : '',
+            isDisabled ? 'custom-select-option--disabled' : '',
+          ].filter(Boolean).join(' ');
+          return `<button type="button" class="${optionClassName}" role="option" aria-selected="${String(isSelected)}" data-custom-select-option data-custom-select-option-index="${index}" data-custom-select-option-value="${escapeHtml(option.value)}" ${isDisabled ? 'disabled aria-disabled="true"' : ''}>${escapeHtml(option.label)}</button>`;
+        }).join('')}
+      </div>
+    </div>
+  `;
+};
+
+const getCustomSelectParts = (select) => ({
+  trigger: select?.querySelector('.custom-select-trigger'),
+  value: select?.querySelector('.custom-select-value'),
+  menu: select?.querySelector('.custom-select-menu'),
+  input: select?.querySelector('[data-custom-select-input]'),
+  options: Array.from(select?.querySelectorAll('[data-custom-select-option]') || []),
+});
+
+const getEnabledCustomSelectOptions = (select) => getCustomSelectParts(select)
+  .options
+  .filter((option) => !option.disabled && !option.classList.contains('custom-select-option--disabled'));
+
+const setCustomSelectExpanded = (select, expanded) => {
+  if (!select) {
+    return;
+  }
+  const { trigger } = getCustomSelectParts(select);
+  select.classList.toggle('custom-select--open', expanded);
+  if (trigger) {
+    trigger.setAttribute('aria-expanded', String(expanded));
+  }
+};
+
+const setCustomSelectActiveOption = (select, option) => {
+  const { options } = getCustomSelectParts(select);
+  options.forEach((item) => item.classList.toggle('custom-select-option--active', item === option));
+  option?.scrollIntoView({ block: 'nearest' });
+};
+
+const closeCustomSelect = (select) => {
+  setCustomSelectExpanded(select, false);
+  setCustomSelectActiveOption(select, null);
+};
+
+const closeCustomSelects = (except = null) => {
+  document.querySelectorAll('[data-custom-select]').forEach((select) => {
+    if (select !== except) {
+      closeCustomSelect(select);
+    }
+  });
+};
+
+const openCustomSelect = (select) => {
+  if (!select || select.classList.contains('custom-select--disabled')) {
+    return;
+  }
+  closeCustomSelects(select);
+  setCustomSelectExpanded(select, true);
+  const { options } = getCustomSelectParts(select);
+  const selectedOption = options.find((option) => option.getAttribute('aria-selected') === 'true');
+  setCustomSelectActiveOption(select, selectedOption || getEnabledCustomSelectOptions(select)[0] || null);
+};
+
+const selectCustomSelectOption = (option) => {
+  if (!option || option.disabled || option.classList.contains('custom-select-option--disabled')) {
+    return;
+  }
+  const select = option.closest('[data-custom-select]');
+  const { value: valueNode, input, options } = getCustomSelectParts(select);
+  const nextValue = option.dataset.customSelectOptionValue || '';
+
+  options.forEach((item) => {
+    const isSelected = item === option;
+    item.classList.toggle('custom-select-option--selected', isSelected);
+    item.setAttribute('aria-selected', String(isSelected));
+  });
+
+  if (valueNode) {
+    valueNode.textContent = option.textContent.trim();
+  }
+  if (input) {
+    input.value = nextValue;
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+  select.dataset.customSelectValue = nextValue;
+  select.dispatchEvent(new CustomEvent('custom-select:change', {
+    bubbles: true,
+    detail: {
+      id: input?.id || '',
+      name: select.dataset.customSelectName || input?.name || '',
+      value: nextValue,
+      input,
+    },
+  }));
+  closeCustomSelect(select);
+  getCustomSelectParts(select).trigger?.focus();
+};
+
+const moveCustomSelectActiveOption = (select, direction) => {
+  const enabledOptions = getEnabledCustomSelectOptions(select);
+  if (!enabledOptions.length) {
+    return;
+  }
+  const activeOption = select.querySelector('.custom-select-option--active');
+  const currentIndex = enabledOptions.indexOf(activeOption);
+  const nextIndex = currentIndex === -1
+    ? (direction > 0 ? 0 : enabledOptions.length - 1)
+    : (currentIndex + direction + enabledOptions.length) % enabledOptions.length;
+  setCustomSelectActiveOption(select, enabledOptions[nextIndex]);
+};
+
 const formatBool = (value) => (value ? 'Активен' : 'Неактивен');
 const formatActiveStatus = (value) => (value ? 'Активно' : 'Неактивно');
 const formatActiveStatusFeminine = (value) => (value ? 'Активна' : 'Неактивна');
@@ -2647,9 +2813,16 @@ const renderAdminActivityTab = () => `
   </div>
   <form class="activity-filter" data-admin-activity-filter>
     <label>Тип события
-      <select name="event_type" data-admin-activity-event-type>
-        ${activityEventFilters.map((filter) => `<option value="${escapeHtml(filter.value)}" ${adminState.activityEventType === filter.value ? 'selected' : ''}>${escapeHtml(filter.label)}</option>`).join('')}
-      </select>
+      ${renderCustomSelect({
+        id: 'admin-activity-event-type',
+        name: 'event_type',
+        value: adminState.activityEventType,
+        options: activityEventFilters,
+        placeholder: 'Все события',
+        label: 'Тип события',
+        data: { adminActivityEventType: true },
+        ariaLabel: 'Тип события',
+      })}
     </label>
   </form>
   ${renderActivityFeed(adminState.activityItems, { loading: adminState.activityLoading, error: adminState.activityError })}
@@ -4241,6 +4414,29 @@ const handleLoginSubmit = async (form) => {
 };
 
 root.addEventListener('click', async (event) => {
+  const customSelectOption = event.target.closest('[data-custom-select-option]');
+  if (customSelectOption) {
+    event.preventDefault();
+    selectCustomSelectOption(customSelectOption);
+    return;
+  }
+
+  const customSelectTrigger = event.target.closest('.custom-select-trigger');
+  if (customSelectTrigger) {
+    event.preventDefault();
+    const customSelect = customSelectTrigger.closest('[data-custom-select]');
+    if (customSelect?.classList.contains('custom-select--open')) {
+      closeCustomSelect(customSelect);
+    } else {
+      openCustomSelect(customSelect);
+    }
+    return;
+  }
+
+  if (event.target.closest('[data-custom-select]')) {
+    return;
+  }
+
   const menuToggle = event.target.closest('[data-landing-menu-toggle]');
   if (menuToggle) {
     const panel = document.querySelector('[data-landing-menu-panel]');
@@ -4848,6 +5044,68 @@ root.addEventListener('change', (event) => {
   }
 
   loadActiveTabData();
+});
+
+root.addEventListener('custom-select:change', (event) => {
+  const customSelect = event.target.closest('[data-custom-select]');
+  if (!customSelect) {
+    return;
+  }
+
+  if (customSelect.matches('[data-admin-activity-event-type]')) {
+    adminState.activityEventType = event.detail.value;
+    loadActiveTabData();
+  }
+});
+
+document.addEventListener('click', (event) => {
+  if (!event.target.closest('[data-custom-select]')) {
+    closeCustomSelects();
+  }
+});
+
+document.addEventListener('keydown', (event) => {
+  const trigger = event.target.closest?.('.custom-select-trigger');
+  const openSelect = document.querySelector('[data-custom-select].custom-select--open');
+  const activeSelect = trigger?.closest('[data-custom-select]') || openSelect;
+
+  if (!activeSelect) {
+    return;
+  }
+
+  if (event.key === 'Escape') {
+    event.preventDefault();
+    closeCustomSelect(activeSelect);
+    getCustomSelectParts(activeSelect).trigger?.focus();
+    return;
+  }
+
+  if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+    event.preventDefault();
+    if (!activeSelect.classList.contains('custom-select--open')) {
+      openCustomSelect(activeSelect);
+      return;
+    }
+    moveCustomSelectActiveOption(activeSelect, event.key === 'ArrowDown' ? 1 : -1);
+    return;
+  }
+
+  if (event.key === 'Enter') {
+    if (activeSelect.classList.contains('custom-select--open')) {
+      event.preventDefault();
+      selectCustomSelectOption(activeSelect.querySelector('.custom-select-option--active'));
+    }
+    return;
+  }
+
+  if (event.key === ' ' && trigger) {
+    event.preventDefault();
+    if (activeSelect.classList.contains('custom-select--open')) {
+      selectCustomSelectOption(activeSelect.querySelector('.custom-select-option--active'));
+    } else {
+      openCustomSelect(activeSelect);
+    }
+  }
 });
 
 root.addEventListener('submit', (event) => {
