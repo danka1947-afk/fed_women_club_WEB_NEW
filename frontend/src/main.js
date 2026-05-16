@@ -1688,11 +1688,105 @@ const renderClientLayout = () => {
   renderDashboardApp('client');
   clientDashboard.innerHTML = `
     ${clientState.panelMessage}
+    ${renderClientHome()}
     ${renderClientOnboarding()}
     <section class="admin-tab-panel">${renderClientTabContent()}</section>
   `;
 };
 
+const getClientVerificationStats = () => {
+  const verifications = Array.isArray(clientState.verifications) ? clientState.verifications : [];
+  const active = verifications.filter((item) => String(item.status || '').toLowerCase() === 'active');
+  const confirmed = verifications.filter((item) => String(item.status || '').toLowerCase() === 'confirmed' || item.confirmed_at);
+
+  return { active, confirmed, verifications };
+};
+
+const getClientSelectedCityName = () => {
+  const profile = clientState.profile || {};
+  if (profile.selected_city_name || profile.city) {
+    return profile.selected_city_name || profile.city;
+  }
+
+  const selectedCity = getClientCityOptions().find((city) => String(city.id) === String(profile.selected_city_id || ''));
+  return selectedCity?.name || 'Город не выбран';
+};
+
+const getClientActiveVerification = () => {
+  const { active } = getClientVerificationStats();
+  return active[0] || null;
+};
+
+const renderClientActivePrivilege = () => {
+  const activeVerification = getClientActiveVerification();
+
+  if (!activeVerification) {
+    return `
+      <article class="client-active-privilege client-active-privilege--empty">
+        <p class="section-kicker">Активная привилегия</p>
+        <h4>Активных привилегий пока нет</h4>
+        <p>Откройте каталог и выберите предложение.</p>
+        <button type="button" data-client-tab="catalog">Открыть каталог</button>
+      </article>
+    `;
+  }
+
+  return `
+    <article class="client-active-privilege">
+      <div>
+        <p class="section-kicker">Активная привилегия</p>
+        <h4>У вас есть активная привилегия</h4>
+        <p>${formatValue(activeVerification.partner_name)} · ${formatValue(activeVerification.offer_title || 'Клубная привилегия партнёра')}</p>
+      </div>
+      <div class="client-active-code" aria-label="Код активной привилегии">${formatValue(activeVerification.code)}</div>
+      <dl class="client-card-details">
+        <div><dt>Истекает</dt><dd>${formatValue(formatDate(activeVerification.expires_at))}</dd></div>
+      </dl>
+      <button type="button" data-client-tab="history">Мои привилегии</button>
+    </article>
+  `;
+};
+
+const renderClientHome = () => {
+  const cityName = getClientSelectedCityName();
+  const { active, confirmed } = getClientVerificationStats();
+  const quickActions = [
+    { title: 'Найти партнёра', text: 'Перейдите в каталог и выберите партнёра по городу или категории.', tab: 'catalog' },
+    { title: 'Получить привилегию', text: 'Откройте предложение и активируйте клубный код.', tab: 'catalog' },
+    { title: 'Показать мои коды', text: 'Посмотрите активные и использованные привилегии.', tab: 'history' },
+    { title: 'Изменить город', text: 'Обновите город, чтобы каталог стал точнее.', tab: 'profile' },
+  ];
+
+  return `
+    <section class="client-home" aria-labelledby="client-home-title">
+      <div class="client-home-hero">
+        <div>
+          <p class="section-kicker">Client home</p>
+          <h2 id="client-home-title">Ваш клуб привилегий</h2>
+          <p>Начните с каталога, выберите партнёра и держите активные коды под рукой.</p>
+          <div class="client-home-actions">
+            <button type="button" data-client-tab="catalog">Открыть каталог</button>
+            <button type="button" class="admin-inline-action" data-client-tab="history">Мои привилегии</button>
+          </div>
+        </div>
+        <div class="client-home-stats" aria-label="Сводка клиента">
+          <div class="client-home-stat"><span>Город</span><strong>${escapeHtml(cityName)}</strong></div>
+          <div class="client-home-stat"><span>Активные привилегии</span><strong>${active.length}</strong></div>
+          <div class="client-home-stat"><span>Подтверждённые привилегии</span><strong>${confirmed.length}</strong></div>
+        </div>
+      </div>
+      <div class="client-quick-actions" aria-label="Быстрые действия">
+        ${quickActions.map((action) => `
+          <button type="button" class="client-quick-action" data-client-tab="${escapeHtml(action.tab)}">
+            <strong>${escapeHtml(action.title)}</strong>
+            <span>${escapeHtml(action.text)}</span>
+          </button>
+        `).join('')}
+      </div>
+      ${renderClientActivePrivilege()}
+    </section>
+  `;
+};
 
 const getClientOnboardingSteps = () => {
   const profile = clientState.profile || {};
