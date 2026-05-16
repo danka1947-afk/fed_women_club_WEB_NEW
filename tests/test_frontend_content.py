@@ -62,6 +62,24 @@ def _city_options() -> list[str]:
     return re.findall(r"'([^']+)'", match.group(1))
 
 
+
+def test_frontend_contains_cabinet_text_hierarchy_markers() -> None:
+    source = _frontend_main()
+    styles = _frontend_styles()
+    combined = source + "\n" + styles
+
+    for marker in (
+        "section-eyebrow",
+        "section-title",
+        "section-description",
+        "helper-text",
+        "card-title",
+        "card-description",
+        "muted-text",
+        "compact-copy",
+    ):
+        assert marker in combined
+
 def test_frontend_title_targets_girls() -> None:
     assert f"<title>{EXPECTED_TITLE}</title>" in _frontend_index()
 
@@ -486,7 +504,7 @@ def test_frontend_contains_human_readable_admin_labels() -> None:
         "Название партнёра",
         "Ссылка на соцсеть / сайт",
         "Название предложения",
-        "Цена со скидкой",
+        "Базовая цена",
         "Скидка, %",
         "Целевая ссылка",
         "Подтверждено",
@@ -706,7 +724,7 @@ def test_frontend_contains_admin_partner_edit_ui() -> None:
     source = _frontend_main()
 
     for expected in (
-        "Редактировать партнёра",
+        "Редактирование партнёра",
         "Редактировать",
         "/api/v1/admin/partners/",
         "Город",
@@ -999,7 +1017,7 @@ def test_client_cabinet_uses_human_readable_profile_catalog_history_and_subscrip
 
     for expected in (
         "Выберите город",
-        "Выберите город, чтобы видеть предложения рядом с вами.",
+        "Город помогает подобрать предложения рядом.",
         "Все категории",
         "Категория",
         "По выбранному городу",
@@ -1209,7 +1227,7 @@ def test_frontend_contains_partner_marketplace_profile_preview() -> None:
         "partner-onboarding-action",
         "Настройте витрину за 4 шага",
         "Витрина заполнена на",
-        "Чем подробнее заполнена витрина",
+        "Заполните главное для понятной витрины",
         "Заполните профиль",
         "Загрузите обложку и логотип",
         "Добавьте фото в галерею",
@@ -1217,9 +1235,9 @@ def test_frontend_contains_partner_marketplace_profile_preview() -> None:
         "Витрина готова к публикации",
         "Нужно заполнить",
         "Профиль партнёра",
-        "Настройте, как ваша карточка будет выглядеть",
-        "Так карточку увидит клиент",
-        "Название, город и категорию редактирует администратор",
+        "Главные данные для витрины",
+        "Preview для клиента",
+        "Название, город, категорию и статусы обновляет администратор",
         "График работы",
         "Витрина партнёра",
         "Заполненность профиля",
@@ -1235,7 +1253,7 @@ def test_frontend_contains_partner_marketplace_profile_preview() -> None:
         "Новосибирск, ул. Ленина, 15",
         "+7 999 123-45-67",
         "Уютная студия красоты в центре города",
-        "Добавьте 3–5 фотографий",
+        "Добавьте 3–5 фото",
         "Добавьте первое предложение — именно оно мотивирует клиентку прийти.",
         "Загрузить логотип",
         "Загрузить обложку",
@@ -1265,8 +1283,8 @@ def test_frontend_contains_offer_marketplace_cards() -> None:
         "offer-card-grid",
         "offer-card-placeholder",
         "Предложения и привилегии",
-        "Оформите услуги так, чтобы участницы сразу понимали выгоду",
-        "Так предложение увидит клиент",
+        "Короткая выгода и условия для клиенток",
+        "Preview для клиента",
         "Добавьте первое предложение",
         "URL изображения",
         "Базовая цена",
@@ -1313,7 +1331,7 @@ def test_frontend_contains_safe_offer_image_upload_markers() -> None:
     for expected in (
         "Фото предложения",
         "Загрузить фото предложения",
-        "Сначала сохраните предложение, затем загрузите фото.",
+        "Сначала сохраните, затем загрузите фото.",
         "/api/v1/admin/offers/",
         "/image",
         "/api/v1/partners/me/offers/",
@@ -1373,11 +1391,11 @@ def test_frontend_contains_partner_gallery_photo_mvp_markers() -> None:
     required_source_markers = [
         "Галерея партнёра",
         "Загрузить фото в галерею",
-        "Добавьте живые фото",
-        "Новые фото появятся в витрине после проверки и активации администратором.",
+        "Фото для клиентской витрины.",
+        "Публикация после проверки.",
         "Фото загружено и отправлено на проверку.",
         "На проверке",
-        "Ожидает активации администратором.",
+        "Ожидает активации.",
         "Скрыть фото",
         "partner-gallery",
         "partner-gallery-grid",
@@ -1421,15 +1439,15 @@ def test_frontend_contains_partner_content_moderation_markers() -> None:
     styles = _frontend_styles()
 
     for expected in (
-        "Новое предложение появится у клиентов после проверки и активации администратором.",
+        "Публикация после проверки администратором.",
         "Предложение отправлено на проверку. После активации администратором оно появится у клиентов.",
-        "Новые фото появятся в витрине после проверки и активации администратором.",
+        "Публикация после проверки.",
         "Фото загружено и отправлено на проверку.",
-        "Ожидает активации администратором.",
+        "Ожидает активации.",
         "На проверке",
         "partner-gallery-status",
         "renderPartnerReviewStatusBadge",
-        "Неактивные материалы не видны клиентам.",
+        "Фото для клиентской витрины.",
         "partner-marketplace-card",
         "offer-marketplace-card",
         "/api/v1/partners/me/photos",
@@ -1526,7 +1544,7 @@ def test_frontend_contains_client_onboarding_checklist_markers() -> None:
         "Откройте каталог",
         "Получите привилегию",
         "Покажите код партнёру",
-        "Выберите партнёра, получите код",
+        "Партнёр → код → визит",
         "Вы уже умеете пользоваться клубом",
         "client-onboarding",
         "client-onboarding-progress",
@@ -1544,11 +1562,11 @@ def test_frontend_contains_client_home_overview_markers() -> None:
         "Ваш клуб привилегий",
         "Найти партнёра",
         "Получить привилегию",
-        "Показать мои коды",
+        "Показать коды",
         "Изменить город",
         "У вас есть активная привилегия",
         "Активных привилегий пока нет",
-        "Откройте каталог и выберите предложение",
+        "Выберите предложение в каталоге",
         "client-home",
         "client-home-hero",
         "client-home-stats",
@@ -1769,7 +1787,7 @@ def test_frontend_contains_admin_partner_detail_screen_markers() -> None:
         "Основные данные",
         "Изображения партнёра",
         "Галерея партнёра",
-        "Так партнёр будет выглядеть в клиентском каталоге",
+        "Preview для клиентского каталога",
     ):
         assert expected in source
 
@@ -1880,7 +1898,7 @@ def test_frontend_contains_admin_content_review_queue_markers() -> None:
     for expected in (
         "На проверке",
         "Материалов на проверке нет",
-        "Здесь появляются новые предложения и фото",
+        "Новые предложения и фото перед публикацией",
         "Активировать",
         "Фото галереи",
         "content-review",
@@ -1905,11 +1923,11 @@ def test_frontend_contains_admin_content_review_queue_markers() -> None:
         assert expected_style in styles
 
     for preserved_marker in (
-        "Новое предложение появится у клиентов после проверки и активации администратором.",
+        "Публикация после проверки администратором.",
         "Предложение отправлено на проверку. После активации администратором оно появится у клиентов.",
-        "Новые фото появятся в витрине после проверки и активации администратором.",
+        "Публикация после проверки.",
         "Фото загружено и отправлено на проверку.",
-        "Ожидает активации администратором.",
+        "Ожидает активации.",
         "/api/v1/partners/me/activity",
         "/api/v1/partners/me/analytics",
         "/api/v1/admin/activity",
