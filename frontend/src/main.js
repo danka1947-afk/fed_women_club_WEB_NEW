@@ -405,6 +405,8 @@ const partnerState = {
   panelMessage: '',
   formMessages: {},
   selectedOfferIdForEdit: '',
+  isProfileDirty: false,
+  profileSaveStatus: 'saved',
 };
 
 const clientTabs = [
@@ -1124,7 +1126,7 @@ const renderPartnerGallery = (partner, photos = [], scope = 'partner') => {
             `;
           }).join('')}
         </div>
-      ` : '<div class="partner-gallery-empty">Пока нет фото. Загрузите первое фото для живой витрины.</div>'}
+      ` : '<div class="partner-gallery-empty partner-empty-state">Добавьте 3–5 фотографий, чтобы повысить доверие клиентов.</div>'}
       <p class="form-message" data-${isAdmin ? 'form-message' : 'partner-form-message'}="${messageKey}">${escapeHtml(message)}</p>
     </section>
   `;
@@ -1153,36 +1155,43 @@ const getPartnerPrimaryOffer = (partner, options = {}) => {
 
 const getPartnerMarketplaceCompleteness = (partner, options = {}) => {
   const primaryOffer = getPartnerPrimaryOffer(partner, options);
+  const contactFilled = Boolean(String(partner?.phone || partner?.website_url || partner?.social_url || '').trim());
   const items = [
-    ['Обложка', isSafePublicAssetUrl(partner?.cover_url), 'Добавьте обложку'],
-    ['Логотип', isSafePublicAssetUrl(partner?.logo_url), 'Добавьте логотип'],
-    ['Описание', Boolean(String(partner?.description || '').trim()), 'Добавьте описание'],
-    ['Адрес', Boolean(String(partner?.address || '').trim()), 'Добавьте адрес'],
-    ['График', Boolean(String(partner?.working_hours || '').trim()), 'Добавьте график работы'],
-    ['Контакты', Boolean(String(partner?.phone || partner?.website_url || partner?.social_url || '').trim()), 'Добавьте контакты'],
-    ['Предложение', Boolean(primaryOffer), 'Добавьте предложение'],
+    ['Обложка', isSafePublicAssetUrl(partner?.cover_url), 'Нет обложки'],
+    ['Логотип', isSafePublicAssetUrl(partner?.logo_url), 'Нет логотипа'],
+    ['Описание', Boolean(String(partner?.description || '').trim()), 'Нет описания'],
+    ['Адрес', Boolean(String(partner?.address || '').trim()), 'Нет адреса'],
+    ['График', Boolean(String(partner?.working_hours || '').trim()), 'Нет графика работы'],
+    ['Контакты', contactFilled, 'Нет контактов'],
+    ['Предложения', Boolean(primaryOffer), 'Нет предложений'],
   ];
+  const filled = items.filter(([, value]) => value).length;
+  const total = items.length;
   return {
     items,
-    filled: items.filter(([, value]) => value).length,
-    total: items.length,
+    filled,
+    total,
+    percent: total ? Math.round((filled / total) * 100) : 0,
     recommendations: items.filter(([, value]) => !value).map(([, , recommendation]) => recommendation),
   };
 };
 
 const renderPartnerProfileHints = (partner, options = {}) => {
   const completeness = getPartnerMarketplaceCompleteness(partner, options);
+  const missingItems = completeness.recommendations.length ? completeness.recommendations : ['Все ключевые элементы заполнены'];
   return `
-    <section class="partner-profile-hints">
+    <section class="partner-profile-hints partner-progress-card">
       <div>
         <span class="section-kicker">Заполненность профиля</span>
-        <h4>Профиль заполнен на ${escapeHtml(completeness.filled)} из ${escapeHtml(completeness.total)}</h4>
+        <h4>Профиль заполнен на ${escapeHtml(completeness.percent)}%</h4>
       </div>
-      <ul>
-        ${completeness.items.map(([label, isFilled, recommendation]) => `
-          <li class="${isFilled ? 'is-complete' : ''}">
-            <span>${isFilled ? '✓' : '＋'}</span>
-            ${escapeHtml(isFilled ? label : recommendation)}
+      <div class="partner-progress-track" aria-hidden="true"><span style="width: ${escapeHtml(completeness.percent)}%"></span></div>
+      <p class="form-message">Чем подробнее заполнена витрина, тем проще клиентке решиться на визит.</p>
+      <ul class="partner-missing-list">
+        ${missingItems.map((item) => `
+          <li class="${completeness.recommendations.length ? '' : 'is-complete'}">
+            <span>${completeness.recommendations.length ? '＋' : '✓'}</span>
+            ${escapeHtml(item)}
           </li>
         `).join('')}
       </ul>
@@ -2092,8 +2101,39 @@ const renderPartnerTabContent = () => {
   return renderPartnerProfileTab();
 };
 
+const isRequiredProfileFieldEmpty = (profile, field) => !String(profile?.[field] || '').trim();
+
+const getPartnerSaveStatusLabel = () => {
+  if (partnerState.profileSaveStatus === 'saving') return 'Сохранение…';
+  if (partnerState.isProfileDirty) return 'Есть несохранённые изменения';
+  if (partnerState.profileSaveStatus === 'saved') return 'Сохранено';
+  return partnerState.formMessages.profile || 'Есть несохранённые изменения';
+};
+
+const renderPartnerSectionHeader = (title, description) => `
+  <div class="partner-section-header">
+    <h4>${escapeHtml(title)}</h4>
+    <p class="partner-section-description">${escapeHtml(description)}</p>
+  </div>
+`;
+
+const renderPartnerOffersTeaser = () => `
+  <div class="offer-card-grid">
+    ${partnerState.offers.length ? partnerState.offers.map((offer) => renderOfferMarketplaceCard(offer, {
+      note: offer.is_active ? 'Так предложение увидит клиент' : 'Ожидает активации администратором.',
+      actionHtml: renderPartnerOfferAction(offer),
+    })).join('') : `
+      <div class="partner-empty-state offer-card-placeholder">
+        <strong>Добавьте первое предложение — именно оно мотивирует клиентку прийти.</strong>
+        <button class="admin-inline-action" type="button" data-partner-onboarding-tab="offers">Добавить предложение</button>
+      </div>
+    `}
+  </div>
+`;
+
 const renderPartnerProfileTab = () => {
   const profile = partnerState.profile || {};
+  const descriptionLength = String(profile.description || '').length;
   return `
     <div class="admin-section-heading">
       <h4>Профиль партнёра</h4>
@@ -2101,43 +2141,85 @@ const renderPartnerProfileTab = () => {
     </div>
     ${renderPartnerOnboardingChecklist(profile, { offers: partnerState.offers, photos: partnerState.photos })}
     <div class="partner-profile-layout">
-      <aside class="partner-profile-preview">
+      <main class="partner-profile-settings">
+        <form class="admin-form partner-profile-form" id="partner-profile-form" data-partner-form="profile">
+          <section class="partner-section partner-progress-card">
+            ${renderPartnerSectionHeader('Готовность профиля', 'Сразу видно, что уже заполнено и что осталось сделать.')}
+            ${renderPartnerProfileHints(profile, { offers: partnerState.offers })}
+          </section>
+
+          <section class="partner-section">
+            ${renderPartnerSectionHeader('Основные данные', 'Название, город и категория вашего бизнеса.')}
+            <div class="partner-profile-grid">
+              <label>Название<input name="name" value="${escapeHtml(profile.name || '')}" readonly placeholder="Например: Bloom Beauty Studio" /></label>
+              <label>Город<input name="city_name" value="${escapeHtml(profile.city_name || '')}" readonly placeholder="Новосибирск" /></label>
+              <label>Категория<input name="category" value="${escapeHtml(formatPartnerCategory(profile) || '')}" readonly placeholder="Красота" /></label>
+              <article class="summary-card"><span>Активность</span><strong>${renderBoolStatusBadge(profile.is_active)}</strong></article>
+              <article class="summary-card"><span>Проверка</span><strong>${renderVerifiedStatusBadge(profile.is_verified)}</strong></article>
+            </div>
+            <p class="form-message partner-profile-admin-note">Название, город и категорию редактирует администратор. Активность и проверка тоже контролируются администратором.</p>
+          </section>
+
+          <section class="partner-section">
+            ${renderPartnerSectionHeader('Контакты', 'Как клиенты смогут с вами связаться.')}
+            <label>Адрес<input class="${isRequiredProfileFieldEmpty(profile, 'address') ? 'partner-required-empty' : ''}" name="address" required value="${escapeHtml(profile.address || '')}" placeholder="Новосибирск, ул. Ленина, 15" /></label>
+            <label>Телефон<input class="${isRequiredProfileFieldEmpty(profile, 'phone') ? 'partner-required-empty' : ''}" name="phone" autocomplete="tel" required value="${escapeHtml(profile.phone || '')}" placeholder="+7 999 123-45-67" /></label>
+            <label>Сайт<input name="website_url" value="${escapeHtml(profile.website_url || '')}" placeholder="https://example.ru" /></label>
+            <label>Соцсеть<input name="social_url" value="${escapeHtml(profile.social_url || '')}" placeholder="https://vk.com/bloom_beauty" /></label>
+          </section>
+
+          <section class="partner-section">
+            ${renderPartnerSectionHeader('Время работы', 'Когда клиенткам удобно планировать визит.')}
+            <label>График работы<input class="${isRequiredProfileFieldEmpty(profile, 'working_hours') ? 'partner-required-empty' : ''}" name="working_hours" required value="${escapeHtml(profile.working_hours || '')}" placeholder="Пн–Пт 10:00–20:00, Сб 11:00–18:00" /></label>
+          </section>
+
+          <section class="partner-section">
+            ${renderPartnerSectionHeader('Описание', 'Расскажите, почему клиенту стоит выбрать именно вас.')}
+            <label>Описание<textarea class="partner-description-textarea ${isRequiredProfileFieldEmpty(profile, 'description') ? 'partner-required-empty' : ''}" name="description" required placeholder="Уютная студия красоты в центре города…">${escapeHtml(profile.description || '')}</textarea></label>
+            <p class="form-message partner-textarea-hint">${escapeHtml(descriptionLength)} символов. Рекомендация: 200–500 символов.</p>
+          </section>
+
+          <section class="partner-section">
+            ${renderPartnerSectionHeader('Изображения', 'Фото значительно повышают доверие.')}
+            ${renderPartnerImageUploader(profile, 'partner')}
+            <details class="partner-profile-advanced">
+              <summary>URL изображений</summary>
+              <p class="form-message">Основной способ обновления — кнопки загрузки. URL показывается для проверки и отправляется как раньше.</p>
+              <label>Логотип URL<input name="logo_url" value="${escapeHtml(profile.logo_url || '')}" readonly placeholder="/uploads/logo.webp" /></label>
+              <label>Обложка URL<input name="cover_url" value="${escapeHtml(profile.cover_url || '')}" readonly placeholder="/uploads/cover.webp" /></label>
+            </details>
+          </section>
+
+          <section class="partner-section">
+            ${renderPartnerSectionHeader('Галерея', 'Добавьте атмосферу, интерьер, работы и детали сервиса.')}
+            ${renderPartnerGallery(profile, partnerState.photos, 'partner')}
+          </section>
+
+          <section class="partner-section">
+            ${renderPartnerSectionHeader('Предложения', 'Покажите клиенткам конкретную выгоду для первого визита.')}
+            ${renderPartnerOffersTeaser()}
+          </section>
+
+          <section class="partner-section partner-profile-save-section">
+            ${renderPartnerSectionHeader('Сохранить изменения', 'Проверьте данные и сохраните профиль.')}
+            <div class="partner-save-status" role="status">${escapeHtml(getPartnerSaveStatusLabel())}</div>
+            <button type="submit">Сохранить изменения</button>
+            <p class="form-message" data-partner-form-message="profile">${escapeHtml(partnerState.formMessages.profile || '')}</p>
+          </section>
+        </form>
+      </main>
+      <aside class="partner-section partner-profile-preview">
+        ${renderPartnerSectionHeader('Витрина партнёра', 'Как карточка выглядит для клиента.')}
         <span class="section-kicker">Preview витрины</span>
         ${renderPartnerMarketplaceCard(profile, { offers: partnerState.offers, note: 'Так карточку увидит клиент', photos: partnerState.photos })}
-        ${renderPartnerProfileHints(profile, { offers: partnerState.offers })}
       </aside>
-      <section class="partner-profile-settings">
-        <div class="partner-profile-grid">
-          ${[
-            ['Название', profile.name],
-            ['Город', profile.city_name],
-            ['Категория', formatPartnerCategory(profile)],
-            ['Активность', renderBoolStatusBadge(profile.is_active)],
-            ['Проверка', renderVerifiedStatusBadge(profile.is_verified)],
-          ].map(([label, value]) => `<article class="summary-card"><span>${escapeHtml(label)}</span><strong>${renderDisplayValue(value)}</strong></article>`).join('')}
-        </div>
-        <p class="form-message partner-profile-admin-note">Название, город и категорию редактирует администратор. Активность и проверка тоже контролируются администратором.</p>
-        <form class="admin-form" data-partner-form="profile">
-          <h4>Настройка витрины</h4>
-          <label>Описание<textarea name="description" rows="4">${escapeHtml(profile.description || '')}</textarea></label>
-          <label>Адрес<input name="address" value="${escapeHtml(profile.address || '')}" /></label>
-          <label>Телефон<input name="phone" autocomplete="tel" value="${escapeHtml(profile.phone || '')}" /></label>
-          <label>Сайт<input name="website_url" value="${escapeHtml(profile.website_url || '')}" /></label>
-          <label>Соцсеть<input name="social_url" value="${escapeHtml(profile.social_url || '')}" /></label>
-          <label>График работы<input name="working_hours" value="${escapeHtml(profile.working_hours || '')}" /></label>
-          ${renderPartnerImageUploader(profile, 'partner')}
-          ${renderPartnerGallery(profile, partnerState.photos, 'partner')}
-          <details class="partner-profile-advanced">
-            <summary>URL изображений</summary>
-            <p class="form-message">Основной способ обновления — кнопки загрузки. URL показывается для проверки и отправляется как раньше.</p>
-            <label>Логотип URL<input name="logo_url" value="${escapeHtml(profile.logo_url || '')}" readonly /></label>
-            <label>Обложка URL<input name="cover_url" value="${escapeHtml(profile.cover_url || '')}" readonly /></label>
-          </details>
-          <button type="submit">Сохранить профиль</button>
-          <p class="form-message" data-partner-form-message="profile">${escapeHtml(partnerState.formMessages.profile || '')}</p>
-        </form>
-      </section>
     </div>
+    ${partnerState.isProfileDirty ? `
+      <div class="partner-save-bar" role="status">
+        <span>Есть несохранённые изменения</span>
+        <button type="submit" form="partner-profile-form">Сохранить</button>
+      </div>
+    ` : ''}
   `;
 };
 
@@ -3341,6 +3423,8 @@ const loadActiveClientTabData = async () => {
 
 const submitPartnerProfile = async (form) => {
   const formData = new FormData(form);
+  partnerState.profileSaveStatus = 'saving';
+  renderPartnerLayout();
   await partnerPatchJson('/api/v1/partners/me', {
     description: getOptionalText(formData, 'description'),
     address: getOptionalText(formData, 'address'),
@@ -3352,6 +3436,8 @@ const submitPartnerProfile = async (form) => {
     cover_url: getOptionalText(formData, 'cover_url'),
   });
   await loadPartnerProfile();
+  partnerState.isProfileDirty = false;
+  partnerState.profileSaveStatus = 'saved';
 };
 
 const buildPartnerOfferPayload = (formData) => ({
@@ -3399,6 +3485,9 @@ const handlePartnerFormSubmit = async (form) => {
       setPartnerPanelMessage('Сохранено.', 'success');
     }
   } catch (error) {
+    if (formType === 'profile') {
+      partnerState.profileSaveStatus = 'dirty';
+    }
     setPartnerFormMessage(formType, error.message || 'Не удалось сохранить.');
     setPartnerPanelMessage(error.message || 'Не удалось сохранить.', 'error');
   }
@@ -4419,6 +4508,27 @@ root.addEventListener('click', async (event) => {
 });
 
 root.addEventListener('input', (event) => {
+  const partnerProfileInput = event.target.closest('[data-partner-form="profile"] input, [data-partner-form="profile"] textarea');
+  if (partnerProfileInput && !partnerProfileInput.readOnly) {
+    if (partnerState.profile && partnerProfileInput.name) {
+      partnerState.profile[partnerProfileInput.name] = partnerProfileInput.value;
+    }
+    partnerState.isProfileDirty = true;
+    partnerState.profileSaveStatus = 'dirty';
+    renderPartnerLayout();
+    requestAnimationFrame(() => {
+      const updatedInput = root.querySelector(`[name="${partnerProfileInput.name}"]`);
+      if (updatedInput) {
+        updatedInput.focus();
+        if (typeof updatedInput.setSelectionRange === 'function') {
+          const cursorPosition = partnerProfileInput.selectionStart ?? updatedInput.value.length;
+          updatedInput.setSelectionRange(cursorPosition, cursorPosition);
+        }
+      }
+    });
+    return;
+  }
+
   const searchInput = event.target.closest('[data-admin-search]');
   if (!searchInput) {
     return;
