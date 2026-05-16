@@ -421,6 +421,7 @@ const clientState = {
   profile: null,
   subscription: null,
   partners: [],
+  catalogLoaded: false,
   offersByPartner: {},
   selectedPartner: null,
   selectedPartnerId: '',
@@ -1654,6 +1655,7 @@ const loadClientCatalog = async () => {
     await loadClientProfile();
   }
   clientState.partners = await clientApiFetch(buildClientCatalogPath());
+  clientState.catalogLoaded = true;
   if (clientState.selectedPartnerId && !clientState.partners.some((partner) => String(partner.id) === clientState.selectedPartnerId)) {
     clientState.selectedPartner = null;
     clientState.selectedPartnerId = '';
@@ -1677,7 +1679,88 @@ const renderClientLayout = () => {
   renderDashboardApp('client');
   clientDashboard.innerHTML = `
     ${clientState.panelMessage}
+    ${renderClientOnboarding()}
     <section class="admin-tab-panel">${renderClientTabContent()}</section>
+  `;
+};
+
+
+const getClientOnboardingSteps = () => {
+  const profile = clientState.profile || {};
+  const verifications = Array.isArray(clientState.verifications) ? clientState.verifications : [];
+  const hasSelectedCity = Boolean(profile.selected_city_id || profile.city || profile.selected_city_name);
+  const hasCatalogOpened = clientState.activeTab === 'catalog' || clientState.catalogLoaded;
+  const hasVerification = verifications.length > 0;
+  const hasConfirmedVerification = verifications.some((item) => String(item.status || '').toLowerCase() === 'confirmed' || item.confirmed_at);
+  const hasActiveVerification = verifications.some((item) => String(item.status || '').toLowerCase() === 'active');
+
+  return [
+    {
+      title: 'Выберите город',
+      text: 'Сохраните город в профиле — каталог покажет партнёров рядом с вами.',
+      done: hasSelectedCity,
+      action: 'Выбрать город',
+      tab: 'profile',
+    },
+    {
+      title: 'Откройте каталог',
+      text: 'Перейдите в каталог, чтобы выбрать партнёра, категорию или конкретное предложение.',
+      done: hasCatalogOpened,
+      action: 'Открыть каталог',
+      tab: 'catalog',
+    },
+    {
+      title: 'Получите привилегию',
+      text: 'Нажмите «Получить привилегию» в карточке партнёра или предложения.',
+      done: hasVerification,
+      action: 'Открыть каталог',
+      tab: 'catalog',
+    },
+    {
+      title: 'Покажите код партнёру',
+      text: 'Откройте «Мои привилегии» и покажите активный код сотруднику перед оплатой.',
+      done: hasConfirmedVerification,
+      active: hasActiveVerification && !hasConfirmedVerification,
+      action: 'Мои привилегии',
+      tab: 'history',
+    },
+  ];
+};
+
+const renderClientOnboarding = () => {
+  const steps = getClientOnboardingSteps();
+  const completedCount = steps.filter((step) => step.done).length;
+  const nextTodoIndex = steps.findIndex((step) => !step.done);
+  const isComplete = completedCount === steps.length;
+
+  return `
+    <section class="client-onboarding" aria-labelledby="client-onboarding-title">
+      <div class="client-onboarding-header">
+        <div>
+          <p class="section-kicker">Онбординг клиента</p>
+          <h4 id="client-onboarding-title">Как пользоваться клубом</h4>
+          <p>Выберите партнёра, получите код и покажите его сотруднику перед оплатой услуги.</p>
+        </div>
+        <div class="client-onboarding-progress" aria-label="Прогресс онбординга">
+          <strong>Пройдено ${completedCount} из ${steps.length}</strong>
+          <span>${isComplete ? 'Вы уже умеете пользоваться клубом' : 'Следующий шаг отмечен ниже'}</span>
+        </div>
+      </div>
+      <div class="client-onboarding-steps">
+        ${steps.map((step, index) => {
+          const isCurrent = !step.done && (index === nextTodoIndex || step.active);
+          const stateLabel = step.done ? '✅ Готово' : 'Следующий шаг';
+          return `
+            <article class="client-onboarding-step client-onboarding-step--${step.done ? 'done' : 'todo'}${step.active && !step.done ? ' client-onboarding-step--active' : ''}">
+              <span class="client-onboarding-step__status">${stateLabel}</span>
+              <h5>${escapeHtml(step.title)}</h5>
+              <p>${escapeHtml(step.text)}</p>
+              ${isCurrent ? `<button type="button" class="client-onboarding-action" data-client-tab="${escapeHtml(step.tab)}">${escapeHtml(step.action)}</button>` : ''}
+            </article>
+          `;
+        }).join('')}
+      </div>
+    </section>
   `;
 };
 
