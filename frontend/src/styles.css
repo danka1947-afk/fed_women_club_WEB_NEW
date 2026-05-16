@@ -1504,6 +1504,32 @@ select::-ms-expand {
 
 
 
+.client-profile-home-only {
+  display: grid;
+  gap: 0;
+}
+
+.client-tab-header {
+  margin-bottom: 18px;
+  padding: clamp(18px, 2.2vw, 24px);
+  border: 1px solid rgba(201, 130, 120, 0.22);
+  border-radius: 28px;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(255, 247, 245, 0.92)),
+    radial-gradient(circle at top right, rgba(246, 216, 210, 0.58), transparent 13rem);
+  box-shadow: 0 16px 34px rgba(143, 81, 75, 0.08);
+}
+
+.client-tab-title {
+  margin: 0;
+  color: var(--color-rose-dark);
+}
+
+.client-tab-description {
+  margin: 0;
+  color: var(--color-muted);
+}
+
 .client-home {
   display: grid;
   gap: 22px;
