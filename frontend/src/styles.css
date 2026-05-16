@@ -474,6 +474,61 @@ body:not(.is-dashboard) .panel {
   text-transform: uppercase;
 }
 
+
+/* Shared text hierarchy for cabinet readability */
+.section-eyebrow,
+.section-kicker,
+.eyebrow {
+  color: var(--color-rose);
+  font-size: 0.75rem;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.section-title {
+  margin: 0;
+  color: var(--color-rose-dark);
+  letter-spacing: -0.02em;
+}
+
+.section-description,
+.card-description,
+.helper-text,
+.muted-text {
+  color: var(--color-muted);
+}
+
+.section-description,
+.card-description {
+  line-height: 1.5;
+}
+
+.helper-text {
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
+.card-title {
+  color: var(--color-rose-dark);
+  font-weight: 900;
+  line-height: 1.25;
+}
+
+.text-stack {
+  display: grid;
+  gap: 6px;
+}
+
+.text-stack > * {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+.compact-copy {
+  max-width: 68ch;
+}
+
 .topbar-actions {
   align-items: center;
   gap: 8px;
@@ -1451,7 +1506,7 @@ select::-ms-expand {
 
 .client-home {
   display: grid;
-  gap: 16px;
+  gap: 22px;
   margin-bottom: 22px;
 }
 
@@ -1531,9 +1586,9 @@ select::-ms-expand {
   position: relative;
   display: grid;
   align-content: start;
-  gap: 10px;
-  min-height: 126px;
-  padding: 18px;
+  gap: 8px;
+  min-height: 112px;
+  padding: 16px;
   overflow: hidden;
   border: 1px solid rgba(201, 130, 120, 0.26);
   border-radius: 24px;
@@ -1582,10 +1637,10 @@ select::-ms-expand {
   position: relative;
   z-index: 1;
   max-width: 92%;
-  color: #5f4b4b;
-  font-size: 0.93rem;
-  font-weight: 750;
-  line-height: 1.45;
+  color: var(--color-muted);
+  font-size: 0.88rem;
+  font-weight: 650;
+  line-height: 1.4;
 }
 
 .client-active-privilege {
@@ -1696,7 +1751,7 @@ select::-ms-expand {
 .client-onboarding-step {
   display: grid;
   align-content: start;
-  gap: 8px;
+  gap: 7px;
   min-width: 0;
   padding: 16px;
   border: 1px solid rgba(201, 130, 120, 0.18);
@@ -1716,7 +1771,8 @@ select::-ms-expand {
 
 .client-onboarding-step p {
   color: var(--color-muted);
-  font-size: 0.94rem;
+  font-size: 0.88rem;
+  line-height: 1.42;
 }
 
 .client-onboarding-step--done {
@@ -2393,7 +2449,8 @@ body.is-dashboard {
 .admin-section-heading p {
   margin: 0;
   max-width: 780px;
-  line-height: 1.55;
+  color: var(--color-muted);
+  line-height: 1.5;
 }
 
 .admin-page-heading {
@@ -3626,9 +3683,9 @@ body.is-dashboard {
 
 .partner-onboarding-step {
   display: grid;
-  gap: 12px;
+  gap: 10px;
   align-content: start;
-  min-height: 178px;
+  min-height: 150px;
   padding: 14px;
   border: 1px solid rgba(201, 130, 120, 0.18);
   border-radius: 24px;
@@ -3666,7 +3723,8 @@ body.is-dashboard {
 
 .partner-onboarding-step p {
   color: var(--color-muted);
-  font-weight: 900;
+  font-size: 0.84rem;
+  font-weight: 850;
 }
 
 .partner-onboarding-step--done {
@@ -4928,8 +4986,9 @@ body.is-dashboard {
 
 .partner-section-description {
   color: var(--color-muted);
-  font-weight: 800;
-  line-height: 1.5;
+  font-size: 0.9rem;
+  font-weight: 650;
+  line-height: 1.45;
 }
 
 .partner-profile-preview {

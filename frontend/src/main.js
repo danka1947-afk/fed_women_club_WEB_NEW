@@ -582,12 +582,12 @@ const formatPrivilegeStatus = (status) => getStatusBadgeMeta(status)?.label || '
 const renderOfferMarketplaceCard = (offer = {}, options = {}) => {
   const imageUrl = isSafePublicAssetUrl(offer.image_url) ? offer.image_url : '';
   const title = String(offer.title || '').trim() || 'Название предложения';
-  const description = String(offer.description || '').trim() || 'Опишите услугу, формат и результат, который получит участница клуба.';
-  const conditions = String(offer.conditions || offer.terms || '').trim() || 'Условия получения привилегии появятся здесь.';
+  const description = String(offer.description || '').trim() || 'Короткое описание услуги.';
+  const conditions = String(offer.conditions || offer.terms || '').trim() || 'Условия появятся здесь.';
   const benefit = formatPartnerBenefit(offer);
   const basePrice = formatOfferBasePrice(offer.base_price);
   const ctaText = options.cta || 'Получить привилегию';
-  const note = options.note || 'Так предложение увидит клиент';
+  const note = options.note || 'Preview для клиента';
   const actionHtml = options.actionHtml || `<button type="button" disabled>${escapeHtml(ctaText)}</button>`;
 
   return `
@@ -600,15 +600,15 @@ const renderOfferMarketplaceCard = (offer = {}, options = {}) => {
           <span class="offer-marketplace-benefit">${escapeHtml(benefit)}</span>
           ${offer.is_active === undefined ? '' : renderActiveStatusBadge(offer.is_active)}
         </div>
-        <h4>${escapeHtml(title)}</h4>
-        <p>${escapeHtml(description)}</p>
+        <h4 class="card-title">${escapeHtml(title)}</h4>
+        <p class="card-description compact-copy">${escapeHtml(description)}</p>
         <dl class="offer-marketplace-meta">
           <div><dt>Условия</dt><dd>${escapeHtml(conditions)}</dd></div>
           <div><dt>Базовая цена</dt><dd>${escapeHtml(basePrice)}</dd></div>
           <div><dt>Скидка</dt><dd>${escapeHtml(formatDiscountPercent(offer.discount_percent) || 'Индивидуально')}</dd></div>
         </dl>
         <div class="offer-marketplace-preview">
-          <span>${escapeHtml(note)}</span>
+          <span class="helper-text">${escapeHtml(note)}</span>
           ${actionHtml}
         </div>
       </div>
@@ -1044,12 +1044,12 @@ const renderOfferImageUploader = (offer, scope) => {
     : `data-partner-offer-image-upload data-offer-id="${escapeHtml(offerId || '')}"`;
   return `
     <section class="offer-image-uploader">
-      <div class="admin-section-heading"><h4>Фото предложения</h4><p>Загружайте JPG, PNG или WEBP до 5 МБ. В превью показываются только /uploads/ и /assets/.</p></div>
+      <div class="admin-section-heading text-stack"><h4 class="section-title">Фото предложения</h4><p class="helper-text compact-copy">JPG, PNG или WEBP до 5 МБ.</p></div>
       ${renderSafeOfferImagePreview(offer?.image_url, 'Фото предложения')}
       <div class="offer-image-upload-actions">
         ${offerId
           ? `<label class="admin-inline-action admin-action-button">Загрузить фото предложения<input type="file" accept="image/jpeg,image/png,image/webp" ${inputAttr} /></label>`
-          : '<p class="form-message">Сначала сохраните предложение, затем загрузите фото.</p>'}
+          : '<p class="helper-text form-message compact-copy">Сначала сохраните, затем загрузите фото.</p>'}
       </div>
       <p class="form-message offer-image-status" data-${isAdmin ? 'form-message' : 'partner-form-message'}="${messageKey}">${escapeHtml(message)}</p>
     </section>
@@ -1065,7 +1065,7 @@ const renderPartnerImageUploader = (partner, scope) => {
     : 'data-partner-image-upload="cover"';
   return `
     <section class="partner-image-uploader">
-      <div class="admin-section-heading"><h4>${scope === 'admin' ? 'Изображения партнёра' : 'Фотографии профиля'}</h4><p>Загружайте JPG, PNG или WEBP до 5 МБ. В превью показываются только /uploads/ и /assets/.</p></div>
+      <div class="admin-section-heading text-stack"><h4 class="section-title">${scope === 'admin' ? 'Изображения партнёра' : 'Фотографии профиля'}</h4><p class="helper-text compact-copy">JPG, PNG или WEBP до 5 МБ.</p></div>
       <div class="partner-image-grid">
         <article>
           <span>Логотип</span>
@@ -1082,7 +1082,7 @@ const renderPartnerImageUploader = (partner, scope) => {
           </div>
         </article>
       </div>
-      <p class="form-message upload-status" data-${scope === 'admin' ? 'form-message="partnerImage"' : 'partner-form-message="profileImages"'}>${escapeHtml(scope === 'admin' ? (adminState.formMessages.partnerImage || '') : (partnerState.formMessages.profileImages || ''))}</p>
+      <p class="helper-text form-message upload-status" data-${scope === 'admin' ? 'form-message="partnerImage"' : 'partner-form-message="profileImages"'}>${escapeHtml(scope === 'admin' ? (adminState.formMessages.partnerImage || '') : (partnerState.formMessages.profileImages || ''))}</p>
     </section>
   `;
 };
@@ -1098,9 +1098,9 @@ const renderPartnerGallery = (partner, photos = [], scope = 'partner') => {
   const visiblePhotos = Array.isArray(photos) ? photos : [];
   return `
     <section class="partner-gallery">
-      <div class="admin-section-heading">
-        <h4>Галерея партнёра</h4>
-        <p>${isAdmin ? 'Добавьте живые фото, чтобы карточка выглядела привлекательнее для участниц клуба. Неактивные материалы не видны клиентам.' : 'Новые фото появятся в витрине после проверки и активации администратором.'}</p>
+      <div class="admin-section-heading text-stack">
+        <h4 class="section-title">Галерея партнёра</h4>
+        <p class="section-description compact-copy">${isAdmin ? 'Фото для клиентской витрины.' : 'Публикация после проверки.'}</p>
       </div>
       <div class="partner-gallery-upload">
         ${partnerId ? `<label class="admin-inline-action">Загрузить фото в галерею<input type="file" accept="image/jpeg,image/png,image/webp" ${uploadAttr} /></label>` : '<p class="form-message">Сначала сохраните партнёра, затем загрузите фото.</p>'}
@@ -1111,7 +1111,7 @@ const renderPartnerGallery = (partner, photos = [], scope = 'partner') => {
             const safeUrl = isSafePublicAssetUrl(photo.url) ? photo.url : '';
             return `
               <article class="partner-gallery-item ${photo.is_active ? '' : 'is-muted'}">
-                ${!photo.is_active ? '<div class="partner-gallery-status">' + renderStatusBadge('На проверке') + '<small>Ожидает активации администратором.</small></div>' : ''}
+                ${!photo.is_active ? '<div class="partner-gallery-status">' + renderStatusBadge('На проверке') + '<small class="helper-text">Ожидает активации.</small></div>' : ''}
                 ${safeUrl ? `<div class="partner-gallery-image" style="background-image: url('${escapeHtml(safeUrl)}')" role="img" aria-label="${escapeHtml(photo.alt_text || 'Фото партнёра')}"></div>` : '<div class="partner-gallery-image partner-gallery-empty">Фото скрыто</div>'}
                 <form class="partner-gallery-actions" data-${isAdmin ? 'admin' : 'partner'}-gallery-form="photo" data-photo-id="${escapeHtml(photo.id)}">
                   <label>Alt<input name="alt_text" value="${escapeHtml(photo.alt_text || '')}" /></label>
@@ -1126,8 +1126,8 @@ const renderPartnerGallery = (partner, photos = [], scope = 'partner') => {
             `;
           }).join('')}
         </div>
-      ` : '<div class="partner-gallery-empty partner-empty-state">Добавьте 3–5 фотографий, чтобы повысить доверие клиентов.</div>'}
-      <p class="form-message" data-${isAdmin ? 'form-message' : 'partner-form-message'}="${messageKey}">${escapeHtml(message)}</p>
+      ` : '<div class="partner-gallery-empty partner-empty-state compact-copy">Добавьте 3–5 фото для доверия.</div>'}
+      <p class="helper-text form-message" data-${isAdmin ? 'form-message' : 'partner-form-message'}="${messageKey}">${escapeHtml(message)}</p>
     </section>
   `;
 };
@@ -1182,11 +1182,11 @@ const renderPartnerProfileHints = (partner, options = {}) => {
   return `
     <section class="partner-profile-hints partner-progress-card">
       <div>
-        <span class="section-kicker">Заполненность профиля</span>
+        <span class="section-eyebrow section-kicker">Заполненность профиля</span>
         <h4>Профиль заполнен на ${escapeHtml(completeness.percent)}%</h4>
       </div>
       <div class="partner-progress-track" aria-hidden="true"><span style="width: ${escapeHtml(completeness.percent)}%"></span></div>
-      <p class="form-message">Чем подробнее заполнена витрина, тем проще клиентке решиться на визит.</p>
+      <p class="helper-text form-message">Заполните ключевые поля — это помогает решиться на визит.</p>
       <ul class="partner-missing-list">
         ${missingItems.map((item) => `
           <li class="${completeness.recommendations.length ? '' : 'is-complete'}">
@@ -1243,9 +1243,9 @@ const renderPartnerOnboardingChecklist = (partner, options = {}) => {
     <section class="partner-onboarding" aria-labelledby="partner-onboarding-title">
       <div class="partner-onboarding-header">
         <div>
-          <span class="section-kicker">Onboarding</span>
-          <h4 id="partner-onboarding-title">Настройте витрину за 4 шага</h4>
-          <p>Чем подробнее заполнена витрина, тем понятнее клиенту, какую привилегию он получает.</p>
+          <span class="section-eyebrow section-kicker">Onboarding</span>
+          <h4 class="section-title" id="partner-onboarding-title">Настройте витрину за 4 шага</h4>
+          <p class="section-description compact-copy">Заполните главное для понятной витрины.</p>
         </div>
         <div class="partner-onboarding-progress" aria-live="polite">
           <strong>Витрина заполнена на ${escapeHtml(completedCount)} из ${escapeHtml(steps.length)}</strong>
@@ -1259,7 +1259,7 @@ const renderPartnerOnboardingChecklist = (partner, options = {}) => {
               <span class="partner-onboarding-step-number">${escapeHtml(index + 1)}</span>
               <h5>${escapeHtml(step.title)}</h5>
             </div>
-            <p>${step.isComplete ? '✅ Готово' : 'Нужно заполнить'}</p>
+            <p class="helper-text">${step.isComplete ? '✅ Готово' : 'Нужно заполнить'}</p>
             ${step.isComplete ? '' : `<button class="partner-onboarding-action" type="button" data-partner-onboarding-tab="${escapeHtml(step.tab)}">${escapeHtml(step.action)}</button>`}
           </article>
         `).join('')}
@@ -1310,10 +1310,10 @@ const renderPartnerMarketplaceCard = (partner = {}, options = {}) => {
         <div class="partner-marketplace-offer">
           <span>Главная выгода</span>
           <strong>${escapeHtml(primaryOffer ? formatPartnerBenefit(primaryOffer) : 'Добавьте предложение')}</strong>
-          <small>${escapeHtml(primaryOffer?.title || primaryOffer?.description || 'Так клиент быстро поймёт, какую привилегию можно получить.')}</small>
+          <small class="card-description">${escapeHtml(primaryOffer?.title || primaryOffer?.description || 'Коротко о привилегии.')}</small>
         </div>
         <div class="partner-marketplace-cta">
-          <span>${escapeHtml(options.note || 'Так карточку увидит клиент')}</span>
+          <span class="helper-text">${escapeHtml(options.note || 'Preview для клиента')}</span>
           <button type="button" disabled>${escapeHtml(options.cta || 'Получить привилегию')}</button>
         </div>
       </div>
@@ -1723,9 +1723,9 @@ const renderClientActivePrivilege = () => {
   if (!activeVerification) {
     return `
       <article class="client-active-privilege client-active-privilege--empty">
-        <p class="section-kicker">Активная привилегия</p>
-        <h4>Активных привилегий пока нет</h4>
-        <p>Откройте каталог и выберите предложение.</p>
+        <p class="section-eyebrow section-kicker">Активная привилегия</p>
+        <h4 class="card-title">Активных привилегий пока нет</h4>
+        <p class="card-description compact-copy">Выберите предложение в каталоге.</p>
         <button type="button" data-client-tab="catalog">Открыть каталог</button>
       </article>
     `;
@@ -1734,9 +1734,9 @@ const renderClientActivePrivilege = () => {
   return `
     <article class="client-active-privilege">
       <div>
-        <p class="section-kicker">Активная привилегия</p>
-        <h4>У вас есть активная привилегия</h4>
-        <p>${formatValue(activeVerification.partner_name)} · ${formatValue(activeVerification.offer_title || 'Клубная привилегия партнёра')}</p>
+        <p class="section-eyebrow section-kicker">Активная привилегия</p>
+        <h4 class="card-title">У вас есть активная привилегия</h4>
+        <p class="card-description compact-copy">${formatValue(activeVerification.partner_name)} · ${formatValue(activeVerification.offer_title || 'Клубная привилегия партнёра')}</p>
       </div>
       <div class="client-active-code" aria-label="Код активной привилегии">${formatValue(activeVerification.code)}</div>
       <dl class="client-card-details">
@@ -1751,25 +1751,25 @@ const renderClientHome = () => {
   const cityName = getClientSelectedCityName();
   const { active, confirmed } = getClientVerificationStats();
   const quickActions = [
-    { title: 'Найти партнёра', text: 'Перейдите в каталог и выберите партнёра по городу или категории.', tab: 'catalog' },
-    { title: 'Получить привилегию', text: 'Откройте предложение и активируйте клубный код.', tab: 'catalog' },
-    { title: 'Показать мои коды', text: 'Посмотрите активные и использованные привилегии.', tab: 'history' },
-    { title: 'Изменить город', text: 'Обновите город, чтобы каталог стал точнее.', tab: 'profile' },
+    { title: 'Найти партнёра', text: 'Каталог по городу и категории.', tab: 'catalog' },
+    { title: 'Получить привилегию', text: 'Откройте предложение и код.', tab: 'catalog' },
+    { title: 'Показать коды', text: 'Активные и прошлые коды.', tab: 'history' },
+    { title: 'Изменить город', text: 'Уточнить выдачу каталога.', tab: 'profile' },
   ];
 
   return `
     <section class="client-home" aria-labelledby="client-home-title">
       <div class="client-home-hero">
         <div>
-          <p class="section-kicker">Client home</p>
-          <h2 id="client-home-title">Ваш клуб привилегий</h2>
-          <p>Начните с каталога, выберите партнёра и держите активные коды под рукой.</p>
+          <p class="section-eyebrow section-kicker">Client home</p>
+          <h2 class="section-title" id="client-home-title">Ваш клуб привилегий</h2>
+          <p class="section-description compact-copy">Каталог, коды и история — под рукой.</p>
           <div class="client-home-actions">
             <button type="button" data-client-tab="catalog">Открыть каталог</button>
             <button type="button" class="admin-inline-action" data-client-tab="history">Мои привилегии</button>
           </div>
         </div>
-        <div class="client-home-stats" aria-label="Сводка клиента">
+        <div class="client-home-stats text-stack" aria-label="Сводка клиента">
           <div class="client-home-stat"><span>Город</span><strong>${escapeHtml(cityName)}</strong></div>
           <div class="client-home-stat"><span>Активные привилегии</span><strong>${active.length}</strong></div>
           <div class="client-home-stat"><span>Подтверждённые привилегии</span><strong>${confirmed.length}</strong></div>
@@ -1778,8 +1778,8 @@ const renderClientHome = () => {
       <div class="client-quick-actions" aria-label="Быстрые действия">
         ${quickActions.map((action) => `
           <button type="button" class="client-quick-action" data-client-tab="${escapeHtml(action.tab)}">
-            <strong>${escapeHtml(action.title)}</strong>
-            <span>${escapeHtml(action.text)}</span>
+            <strong class="card-title">${escapeHtml(action.title)}</strong>
+            <span class="card-description compact-copy">${escapeHtml(action.text)}</span>
           </button>
         `).join('')}
       </div>
@@ -1840,9 +1840,9 @@ const renderClientOnboarding = () => {
     <section class="client-onboarding" aria-labelledby="client-onboarding-title">
       <div class="client-onboarding-header">
         <div>
-          <p class="section-kicker">Онбординг клиента</p>
-          <h4 id="client-onboarding-title">Как пользоваться клубом</h4>
-          <p>Выберите партнёра, получите код и покажите его сотруднику перед оплатой услуги.</p>
+          <p class="section-eyebrow section-kicker">Онбординг клиента</p>
+          <h4 class="section-title" id="client-onboarding-title">Как пользоваться клубом</h4>
+          <p class="section-description compact-copy">Партнёр → код → визит.</p>
         </div>
         <div class="client-onboarding-progress" aria-label="Прогресс онбординга">
           <strong>Пройдено ${completedCount} из ${steps.length}</strong>
@@ -1856,8 +1856,8 @@ const renderClientOnboarding = () => {
           return `
             <article class="client-onboarding-step client-onboarding-step--${step.done ? 'done' : 'todo'}${step.active && !step.done ? ' client-onboarding-step--active' : ''}">
               <span class="client-onboarding-step__status">${stateLabel}</span>
-              <h5>${escapeHtml(step.title)}</h5>
-              <p>${escapeHtml(step.text)}</p>
+              <h5 class="card-title">${escapeHtml(step.title)}</h5>
+              <p class="card-description compact-copy">${escapeHtml(step.text)}</p>
               ${isCurrent ? `<button type="button" class="client-onboarding-action" data-client-tab="${escapeHtml(step.tab)}">${escapeHtml(step.action)}</button>` : ''}
             </article>
           `;
@@ -1887,9 +1887,10 @@ const renderClientProfileTab = () => {
   const profile = clientState.profile || {};
   const cityOptions = getClientCityOptions();
   return `
-    <div class="admin-section-heading">
-      <h4>Профиль</h4>
-      <p>Выберите город, чтобы видеть предложения рядом с вами.</p>
+    <div class="admin-section-heading text-stack">
+      <p class="section-eyebrow section-kicker">Профиль</p>
+      <h4 class="section-title">Профиль</h4>
+      <p class="section-description compact-copy">Город помогает подобрать предложения рядом.</p>
     </div>
     <div class="partner-profile-grid">
       ${[
@@ -1907,7 +1908,7 @@ const renderClientProfileTab = () => {
       <div class="client-vk-link-header">
         <div>
           <h4 id="client-vk-link-title">Привязка VK</h4>
-          <p>Создайте одноразовый код и отправьте его VK-боту командой: Привязать КОД</p>
+          <p class="helper-text compact-copy">Создайте код и отправьте VK-боту: Привязать КОД</p>
         </div>
         <button type="button" data-client-create-vk-code>Создать код для VK</button>
       </div>
@@ -1922,7 +1923,7 @@ const renderClientProfileTab = () => {
           ${cityOptions.map((city) => `<option value="${escapeHtml(city.id)}" ${String(city.id) === String(profile.selected_city_id || '') ? 'selected' : ''}>${escapeHtml(city.name)}</option>`).join('')}
         </select>
       </label>
-      <p class="form-message">Выберите город, чтобы видеть предложения рядом с вами.</p>
+      <p class="helper-text form-message compact-copy">Город уточняет каталог.</p>
       <button type="submit">Сохранить профиль</button>
       <p class="form-message" data-client-form-message="profile">${escapeHtml(clientState.formMessages.profile || '')}</p>
     </form>
@@ -2161,7 +2162,7 @@ const renderClientHistoryTab = () => `
 
 const renderClientActivityTab = () => `
   <div class="admin-section-heading admin-page-heading">
-    <p class="section-kicker">Activity feed</p>
+    <p class="section-eyebrow section-kicker">Activity feed</p>
     <h4>Активность</h4>
     <p>Здесь появятся ваши действия и статусы привилегий.</p>
   </div>
@@ -2205,16 +2206,16 @@ const getPartnerSaveStatusLabel = () => {
 };
 
 const renderPartnerSectionHeader = (title, description) => `
-  <div class="partner-section-header">
-    <h4>${escapeHtml(title)}</h4>
-    <p class="partner-section-description">${escapeHtml(description)}</p>
+  <div class="partner-section-header text-stack">
+    <h4 class="section-title">${escapeHtml(title)}</h4>
+    <p class="partner-section-description section-description compact-copy">${escapeHtml(description)}</p>
   </div>
 `;
 
 const renderPartnerOffersTeaser = () => `
   <div class="offer-card-grid">
     ${partnerState.offers.length ? partnerState.offers.map((offer) => renderOfferMarketplaceCard(offer, {
-      note: offer.is_active ? 'Так предложение увидит клиент' : 'Ожидает активации администратором.',
+      note: offer.is_active ? 'Preview для клиента' : 'Ожидает активации.',
       actionHtml: renderPartnerOfferAction(offer),
     })).join('') : `
       <div class="partner-empty-state offer-card-placeholder">
@@ -2229,16 +2230,17 @@ const renderPartnerProfileTab = () => {
   const profile = partnerState.profile || {};
   const descriptionLength = String(profile.description || '').length;
   return `
-    <div class="admin-section-heading">
-      <h4>Профиль партнёра</h4>
-      <p>Настройте, как ваша карточка будет выглядеть для участниц клуба.</p>
+    <div class="admin-section-heading text-stack">
+      <p class="section-eyebrow section-kicker">Кабинет партнёра</p>
+      <h4 class="section-title">Профиль партнёра</h4>
+      <p class="section-description compact-copy">Главные данные для витрины.</p>
     </div>
     ${renderPartnerOnboardingChecklist(profile, { offers: partnerState.offers, photos: partnerState.photos })}
     <div class="partner-profile-layout">
       <form class="admin-form partner-profile-form" id="partner-profile-form" data-partner-form="profile">
         <main class="partner-profile-main partner-profile-settings">
           <section class="partner-section partner-section--compact">
-            ${renderPartnerSectionHeader('Основные данные', 'Название, город и категория вашего бизнеса.')}
+            ${renderPartnerSectionHeader('Основные данные', 'Название, город, категория.')}
             <div class="partner-profile-grid">
               <label>Название<input name="name" value="${escapeHtml(profile.name || '')}" readonly placeholder="Например: Bloom Beauty Studio" /></label>
               <label>Город<input name="city_name" value="${escapeHtml(profile.city_name || '')}" readonly placeholder="Новосибирск" /></label>
@@ -2246,11 +2248,11 @@ const renderPartnerProfileTab = () => {
               <article class="summary-card"><span>Активность</span><strong>${renderBoolStatusBadge(profile.is_active)}</strong></article>
               <article class="summary-card"><span>Проверка</span><strong>${renderVerifiedStatusBadge(profile.is_verified)}</strong></article>
             </div>
-            <p class="form-message partner-profile-admin-note">Название, город и категорию редактирует администратор. Активность и проверка тоже контролируются администратором.</p>
+            <p class="helper-text form-message partner-profile-admin-note compact-copy">Название, город, категорию и статусы обновляет администратор.</p>
           </section>
 
           <section class="partner-section partner-section--compact partner-combined-section">
-            ${renderPartnerSectionHeader('Контакты и график', 'Контактные данные и время работы собраны в одном блоке, чтобы клиенткам было проще планировать визит.')}
+            ${renderPartnerSectionHeader('Контакты и график', 'Адрес, связь и время работы.')}
             <div class="partner-profile-grid partner-contact-grid">
               <label>Адрес<input class="${isRequiredProfileFieldEmpty(profile, 'address') ? 'partner-required-empty' : ''}" name="address" required value="${escapeHtml(profile.address || '')}" placeholder="Новосибирск, ул. Ленина, 15" /></label>
               <label>Телефон<input class="${isRequiredProfileFieldEmpty(profile, 'phone') ? 'partner-required-empty' : ''}" name="phone" autocomplete="tel" required value="${escapeHtml(profile.phone || '')}" placeholder="+7 999 123-45-67" /></label>
@@ -2261,40 +2263,40 @@ const renderPartnerProfileTab = () => {
           </section>
 
           <section class="partner-section partner-section--compact">
-            ${renderPartnerSectionHeader('Описание', 'Расскажите, почему клиенту стоит выбрать именно вас.')}
+            ${renderPartnerSectionHeader('Описание', 'Коротко о вашем сервисе.')}
             <label>Описание<textarea class="partner-description-textarea ${isRequiredProfileFieldEmpty(profile, 'description') ? 'partner-required-empty' : ''}" name="description" required placeholder="Уютная студия красоты в центре города…">${escapeHtml(profile.description || '')}</textarea></label>
-            <p class="form-message partner-textarea-hint">${escapeHtml(descriptionLength)} символов. Рекомендация: 200–500 символов.</p>
+            <p class="helper-text form-message partner-textarea-hint compact-copy">${escapeHtml(descriptionLength)} символов. Рекомендация: 200–500 символов.</p>
           </section>
         </main>
 
         <aside class="partner-profile-side">
           <div class="partner-side-stack">
             <section class="partner-section partner-profile-preview partner-section--compact">
-              ${renderPartnerSectionHeader('Витрина партнёра', 'Как карточка выглядит для клиента.')}
-              <span class="section-kicker">Preview витрины</span>
-              ${renderPartnerMarketplaceCard(profile, { offers: partnerState.offers, note: 'Так карточку увидит клиент', photos: partnerState.photos })}
+              ${renderPartnerSectionHeader('Витрина партнёра', 'Preview карточки.')}
+              <span class="section-eyebrow section-kicker">Preview витрины</span>
+              ${renderPartnerMarketplaceCard(profile, { offers: partnerState.offers, note: 'Preview для клиента', photos: partnerState.photos })}
             </section>
 
             <section class="partner-section partner-progress-card partner-section--compact">
-              ${renderPartnerSectionHeader('Готовность профиля', 'Сразу видно, что уже заполнено и что осталось сделать.')}
+              ${renderPartnerSectionHeader('Готовность профиля', 'Заполнено и осталось.')}
               ${renderPartnerProfileHints(profile, { offers: partnerState.offers })}
               <div class="partner-side-tips">
                 <strong>Быстрые подсказки</strong>
-                <span>Добавьте фото, понятный график и первое предложение — это повышает доверие в каталоге.</span>
+                <span>Фото, график и первое предложение повышают доверие.</span>
               </div>
             </section>
 
             <section class="partner-section partner-combined-section partner-section--compact">
-              ${renderPartnerSectionHeader('Фотографии профиля', 'Логотип, обложка и галерея собраны рядом с preview.')}
+              ${renderPartnerSectionHeader('Фотографии профиля', 'Логотип, обложка, галерея.')}
               ${renderPartnerImageUploader(profile, 'partner')}
               <details class="partner-profile-advanced">
                 <summary>URL изображений</summary>
-                <p class="form-message">Основной способ обновления — кнопки загрузки. URL показывается для проверки и отправляется как раньше.</p>
+                <p class="helper-text form-message compact-copy">URL сохраняется для проверки.</p>
                 <label>Логотип URL<input name="logo_url" value="${escapeHtml(profile.logo_url || '')}" readonly placeholder="/uploads/logo.webp" /></label>
                 <label>Обложка URL<input name="cover_url" value="${escapeHtml(profile.cover_url || '')}" readonly placeholder="/uploads/cover.webp" /></label>
               </details>
               <div class="partner-gallery-compact">
-                ${renderPartnerSectionHeader('Галерея', 'Добавьте атмосферу, интерьер, работы и детали сервиса.')}
+                ${renderPartnerSectionHeader('Галерея', 'Фото атмосферы и работ.')}
                 ${renderPartnerGallery(profile, partnerState.photos, 'partner')}
               </div>
             </section>
@@ -2302,12 +2304,12 @@ const renderPartnerProfileTab = () => {
         </aside>
 
         <section class="partner-section partner-section--compact partner-profile-offers">
-          ${renderPartnerSectionHeader('Предложения', 'Покажите клиенткам конкретную выгоду для первого визита.')}
+          ${renderPartnerSectionHeader('Предложения', 'Конкретная выгода для визита.')}
           ${renderPartnerOffersTeaser()}
         </section>
 
         <section class="partner-section partner-section--compact partner-profile-save-section">
-          ${renderPartnerSectionHeader('Сохранить изменения', 'Проверьте данные и сохраните профиль.')}
+          ${renderPartnerSectionHeader('Сохранить изменения', 'Проверьте и сохраните.')}
           <div class="partner-save-status" role="status">${escapeHtml(getPartnerSaveStatusLabel())}</div>
           <button type="submit">Сохранить изменения</button>
           <p class="form-message" data-partner-form-message="profile">${escapeHtml(partnerState.formMessages.profile || '')}</p>
@@ -2337,13 +2339,13 @@ const renderPartnerOfferForm = () => {
 
   return `
     <section class="offer-marketplace-preview">
-      <span class="section-kicker">Preview предложения</span>
-      ${renderOfferMarketplaceCard(previewOffer, { note: 'Так предложение увидит клиент' })}
+      <span class="section-eyebrow section-kicker">Preview предложения</span>
+      ${renderOfferMarketplaceCard(previewOffer, { note: 'Preview для клиента' })}
     </section>
     <form class="admin-form admin-form--inline" data-partner-form="${isEdit ? 'offerEdit' : 'offer'}" ${isEdit ? `data-offer-id="${escapeHtml(offer.id)}"` : ''}>
       <h4>${isEdit ? 'Редактировать предложение' : 'Новое предложение'}</h4>
-      <p class="form-message">Новое предложение появится у клиентов после проверки и активации администратором.</p>
-      ${isEdit && offer?.is_active === false ? '<p class="form-message">Ожидает активации администратором.</p>' : ''}
+      <p class="helper-text form-message compact-copy">Публикация после проверки администратором.</p>
+      ${isEdit && offer?.is_active === false ? '<p class="helper-text form-message compact-copy">Ожидает активации.</p>' : ''}
       <label>Название<input name="title" required value="${escapeHtml(offer?.title || '')}" /></label>
       <label>Краткая выгода<input name="benefit_text" value="${escapeHtml(offer?.benefit_text || '')}" /></label>
       <label>Описание<textarea name="description" rows="3">${escapeHtml(offer?.description || '')}</textarea></label>
@@ -2353,7 +2355,7 @@ const renderPartnerOfferForm = () => {
       ${renderOfferImageUploader(offer, 'partner')}
       <details class="partner-profile-advanced">
         <summary>URL изображения предложения</summary>
-        <p class="form-message">Основной способ обновления — кнопка загрузки. URL показывается для проверки и отправляется как раньше.</p>
+        <p class="helper-text form-message compact-copy">URL сохраняется для проверки.</p>
         <label>URL изображения<input name="image_url" value="${escapeHtml(offer?.image_url || '')}" readonly placeholder="/uploads/offer.webp или /assets/offer.webp" /></label>
       </details>
       ${isEdit ? `<label class="checkbox-row"><input name="is_active" type="checkbox" ${offer?.is_active === false ? '' : 'checked'} ${offer?.is_active === false ? 'disabled' : ''} /> Активно</label>` : ''}
@@ -2368,11 +2370,11 @@ const renderPartnerOfferForm = () => {
 };
 
 const renderPartnerOffersTab = () => `
-  <div class="admin-section-heading"><h4>Предложения и привилегии</h4><p>Оформите услуги так, чтобы участницы сразу понимали выгоду. Новое предложение появится у клиентов после проверки и активации администратором.</p></div>
+  <div class="admin-section-heading text-stack"><p class="section-eyebrow section-kicker">Предложения</p><h4 class="section-title">Предложения и привилегии</h4><p class="section-description compact-copy">Короткая выгода и условия для клиенток.</p></div>
   ${partnerState.offers.length ? `
     <div class="offer-card-grid">
       ${partnerState.offers.map((offer) => renderOfferMarketplaceCard(offer, {
-        note: offer.is_active ? 'Так предложение увидит клиент' : 'Ожидает активации администратором.',
+        note: offer.is_active ? 'Preview для клиента' : 'Ожидает активации.',
         actionHtml: `${renderPartnerOfferAction(offer)}<button type="button" disabled>Получить привилегию</button>`,
       })).join('')}
     </div>
@@ -2391,7 +2393,7 @@ const renderPartnerOffersTab = () => `
       ]),
       true,
     )}
-  ` : renderPartnerEmptyState('Пока нет предложений.', 'Добавьте первое предложение, чтобы клиенты увидели вашу привилегию.')}
+  ` : renderPartnerEmptyState('Пока нет предложений.', 'Добавьте первую привилегию.')}
   ${renderPartnerOfferForm()}
 `;
 
@@ -2453,7 +2455,7 @@ const renderPartnerAnalyticsTab = () => renderAnalyticsSection(partnerState.anal
 
 const renderPartnerActivityTab = () => `
   <div class="admin-section-heading admin-page-heading">
-    <p class="section-kicker">Activity feed</p>
+    <p class="section-eyebrow section-kicker">Activity feed</p>
     <h4>Активность</h4>
     <p>Лента помогает быстро видеть, что происходит с клиентами, QR и привилегиями.</p>
   </div>
@@ -2622,7 +2624,7 @@ const renderAdminTabContent = () => {
 
 const renderAdminActivityTab = () => `
   <div class="admin-section-heading admin-page-heading">
-    <p class="section-kicker">Activity feed</p>
+    <p class="section-eyebrow section-kicker">Activity feed</p>
     <h4>Активность</h4>
     <p>Общая лента событий по привилегиям, QR, партнёрам и предложениям.</p>
   </div>
@@ -2946,8 +2948,8 @@ const renderPartnerEditForm = () => {
       <div class="admin-partner-detail-header">
         <button class="admin-back-button" type="button" data-admin-partner-edit-cancel>← Назад к списку партнёров</button>
         <div class="admin-partner-detail-title">
-          <p class="section-kicker">Партнёры</p>
-          <h4>Редактирование партнёра</h4>
+          <p class="section-eyebrow section-kicker">Партнёры</p>
+          <h4 class="section-title">Редактирование партнёра</h4>
           <strong>${escapeHtml(partner.name || 'Партнёр без названия')}</strong>
         </div>
         <div class="admin-partner-detail-badges" aria-label="Статусы партнёра">
@@ -2959,7 +2961,7 @@ const renderPartnerEditForm = () => {
         <div class="admin-partner-detail-main">
           <section class="admin-partner-detail-section">
             <form class="admin-form partner-profile-settings" data-admin-form="partnerEdit" data-partner-id="${escapeHtml(partner.id)}">
-              <div class="admin-section-heading"><h4>Основные данные</h4><p>Редактировать партнёра: профиль, контакты и статусы партнёра для каталога.</p></div>
+              <div class="admin-section-heading text-stack"><h4 class="section-title">Основные данные</h4><p class="section-description compact-copy">Профиль, контакты и статусы для каталога.</p></div>
               <label>Город${renderSelect('city_id', adminState.cities.map((city) => [city.id, city.name]), true, partner.city_id)}</label>
               <label>Категория${renderSelect('category_slug', adminState.categories.map((category) => [category.slug, category.title]), false, partner.category_slug)}</label>
               <label>Владелец${renderSelect('owner_user_id', adminState.users.filter((item) => item.role === 'partner').map((item) => [item.id, item.email || item.phone || `Партнёр #${item.id}`]), false, partner.owner_user_id || '', 'Без владельца')}</label>
@@ -2975,7 +2977,7 @@ const renderPartnerEditForm = () => {
               <label class="checkbox-row"><input name="is_verified" type="checkbox" ${partner.is_verified ? 'checked' : ''} /> Проверен</label>
               <details class="partner-profile-advanced">
                 <summary>URL изображения</summary>
-                <p class="form-message">Загрузка логотипа и обложки — основной способ обновления изображений. URL оставлен как дополнительное поле для уже поддерживаемых /uploads/ и /assets/.</p>
+                <p class="helper-text form-message compact-copy">URL — дополнительное поле для /uploads/ и /assets/.</p>
                 <label>Логотип URL<input name="logo_url" value="${escapeHtml(partner.logo_url || '')}" /></label>
                 <label>Обложка URL<input name="cover_url" value="${escapeHtml(partner.cover_url || '')}" /></label>
               </details>
@@ -2995,8 +2997,8 @@ const renderPartnerEditForm = () => {
         </div>
         <aside class="admin-partner-detail-side">
           <section class="admin-partner-detail-section">
-            <div class="admin-section-heading"><h4>Витрина партнёра</h4><p>Так партнёр будет выглядеть в клиентском каталоге.</p></div>
-            ${renderPartnerMarketplaceCard(partner, { note: 'Так карточку увидит клиент', photos })}
+            <div class="admin-section-heading text-stack"><h4 class="section-title">Витрина партнёра</h4><p class="section-description compact-copy">Preview для клиентского каталога.</p></div>
+            ${renderPartnerMarketplaceCard(partner, { note: 'Preview для клиента', photos })}
             ${renderPartnerProfileHints(partner)}
           </section>
           <section class="admin-partner-detail-section">
@@ -3100,7 +3102,7 @@ const renderOfferEditForm = () => {
       ${renderOfferImageUploader(offer, 'admin')}
       <details class="partner-profile-advanced">
         <summary>URL изображения предложения</summary>
-        <p class="form-message">Основной способ обновления — кнопка загрузки. URL показывается для проверки и отправляется как раньше.</p>
+        <p class="helper-text form-message compact-copy">URL сохраняется для проверки.</p>
         <label>URL изображения<input name="image_url" value="${escapeHtml(offer.image_url || '')}" readonly placeholder="/uploads/offer.webp или /assets/offer.webp" /></label>
       </details>
       <label class="checkbox-row"><input name="is_active" type="checkbox" ${offer.is_active ? 'checked' : ''} /> Активно</label>
@@ -3122,12 +3124,12 @@ const renderOfferCreateForm = () => `
     <label>Описание<textarea name="description" rows="3"></textarea></label>
     <label>Условия<textarea name="conditions" rows="3"></textarea></label>
     <label>Базовая цена<input name="base_price" type="number" step="0.01" /></label>
-    <p class="form-message">Цена со скидкой рассчитывается по базовой цене и проценту скидки.</p>
+    <p class="helper-text form-message compact-copy">Скидка считается от базовой цены.</p>
     <label>Скидка, %<input name="discount_percent" type="number" step="0.01" /></label>
     ${renderOfferImageUploader(null, 'admin')}
     <details class="partner-profile-advanced">
       <summary>URL изображения предложения</summary>
-      <p class="form-message">Сначала сохраните предложение, затем загрузите фото.</p>
+      <p class="helper-text form-message compact-copy">Сначала сохраните, затем загрузите фото.</p>
       <label>URL изображения<input name="image_url" readonly placeholder="/uploads/offer.webp или /assets/offer.webp" /></label>
     </details>
     <label class="checkbox-row"><input name="is_active" type="checkbox" checked /> Активен</label>
@@ -3144,10 +3146,10 @@ const renderOffersPreviewPanel = (offers) => {
   const previewOffer = selectedOffer || { is_active: true };
   return `
     <section class="admin-offers-preview-panel">
-      <div class="admin-section-heading"><h4>Preview предложения</h4><p>Отдельный компактный блок показывает, как предложение будет выглядеть для клиентки.</p></div>
+      <div class="admin-section-heading text-stack"><h4 class="section-title">Preview предложения</h4><p class="section-description compact-copy">Компактный вид для клиентки.</p></div>
       ${renderOfferMarketplaceCard(previewOffer, {
         compact: true,
-        note: selectedOffer ? 'Так предложение увидит клиент' : 'Добавьте первое предложение',
+        note: selectedOffer ? 'Preview для клиента' : 'Добавьте первое предложение',
         actionHtml: selectedOffer ? `${renderAdminOfferAction(selectedOffer)}<button type="button" disabled>Получить привилегию</button>` : '<button type="button" disabled>Получить привилегию</button>',
       })}
     </section>
@@ -3158,7 +3160,7 @@ const renderOffersTab = () => {
   const offers = filterAdminRows(adminState.offers, adminState.search.offers, ['title', 'description', 'benefit_text', 'discount_text', 'terms', 'conditions', (offer) => searchableBool(offer.is_active)]);
   return `
     <div class="admin-offers-layout">
-      <div class="admin-section-heading"><h4>Предложения</h4><p>Выберите партнёра, затем управляйте preview, таблицей и формой в отдельных блоках.</p></div>
+      <div class="admin-section-heading text-stack"><p class="section-eyebrow section-kicker">Offers</p><h4 class="section-title">Предложения</h4><p class="section-description compact-copy">Preview, таблица и форма.</p></div>
       <section class="admin-offers-toolbar">
         <label class="admin-select-label">Партнёр${renderPartnerPicker('offers', adminState.selectedPartnerIdForOffers)}</label>
         ${adminState.selectedPartnerIdForOffers ? renderAdminSearch('offers', 'Поиск по предложениям') : ''}
@@ -3166,7 +3168,7 @@ const renderOffersTab = () => {
       ${adminState.selectedPartnerIdForOffers ? `
         ${renderOffersPreviewPanel(offers)}
         <section class="admin-offers-table-panel">
-          <div class="admin-section-heading"><h4>Таблица предложений</h4><p>Action column держит кнопки вертикально и не сжимает текст.</p></div>
+          <div class="admin-section-heading text-stack"><h4 class="section-title">Таблица предложений</h4><p class="helper-text compact-copy">Кнопки действий собраны справа.</p></div>
           ${renderTable(
             ['Название предложения', 'Краткая выгода', 'Базовая цена', 'Скидка, %', 'Активно', 'Сортировка', 'Действие'],
             offers.map((offer) => [formatValue(offer.title), formatValue(formatPartnerBenefit(offer)), formatValue(formatOfferBasePrice(offer.base_price)), formatValue(formatDiscountPercent(offer.discount_percent) || '—'), renderActiveStatusBadge(offer.is_active), formatValue(offer.sort_order), renderAdminOfferAction(offer)]),
@@ -3176,7 +3178,7 @@ const renderOffersTab = () => {
           )}
         </section>
         <section class="admin-offers-form-panel">
-          <div class="admin-section-heading"><h4>${adminState.selectedOfferIdForEdit ? 'Редактирование' : 'Создание'}</h4><p>Поля формы сгруппированы в ровную сетку, фото загружается отдельным блоком.</p></div>
+          <div class="admin-section-heading text-stack"><h4 class="section-title">${adminState.selectedOfferIdForEdit ? 'Редактирование' : 'Создание'}</h4><p class="helper-text compact-copy">Поля и фото разделены.</p></div>
           ${adminState.selectedOfferIdForEdit ? renderOfferEditForm() : renderOfferCreateForm()}
         </section>
       ` : '<p class="empty-note">Сначала выберите партнёра.</p>'}
@@ -3204,7 +3206,7 @@ const renderContentReviewPhotoCard = (photo) => {
         ${safeUrl ? '' : '<span>Фото галереи</span>'}
       </div>
       <div class="content-review-body">
-        <span class="section-kicker">Фото галереи</span>
+        <span class="section-eyebrow section-kicker">Фото галереи</span>
         <h4>${escapeHtml(photo.partner_name || 'Партнёр')}</h4>
         <dl class="offer-marketplace-meta">
           <div><dt>Alt</dt><dd>${formatValue(photo.alt_text)}</dd></div>
@@ -3222,9 +3224,9 @@ const renderContentReviewPhotoCard = (photo) => {
 
 const renderContentReviewSection = (title, items, renderer) => `
   <section class="content-review-section">
-    <div class="admin-section-heading">
-      <h4>${escapeHtml(title)}</h4>
-      <p>${items.length ? `Ожидают проверки: ${items.length}` : 'Новых материалов в этой секции нет.'}</p>
+    <div class="admin-section-heading text-stack">
+      <h4 class="section-title">${escapeHtml(title)}</h4>
+      <p class="helper-text compact-copy">${items.length ? `Ожидают проверки: ${items.length}` : 'Новых материалов нет.'}</p>
     </div>
     ${items.length ? `<div class="content-review-grid">${items.map(renderer).join('')}</div>` : '<div class="content-review-empty">Материалов на проверке нет.</div>'}
   </section>
@@ -3236,9 +3238,9 @@ const renderContentReviewTab = () => {
   return `
     <div class="content-review">
       <div class="admin-section-heading admin-page-heading">
-        <p class="section-kicker">Content review</p>
-        <h4>На проверке</h4>
-        <p>Здесь появляются новые предложения и фото, которые партнёры загрузили самостоятельно. После активации они станут видны клиентам.</p>
+        <p class="section-eyebrow section-kicker">Content review</p>
+        <h4 class="section-title">На проверке</h4>
+        <p class="section-description compact-copy">Новые предложения и фото перед публикацией.</p>
       </div>
       ${!offers.length && !photos.length ? '<div class="content-review-empty">Материалов на проверке нет.</div>' : ''}
       ${renderContentReviewSection('Предложения', offers, renderContentReviewOfferCard)}
