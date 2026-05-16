@@ -1530,6 +1530,28 @@ def test_frontend_contains_client_onboarding_checklist_markers() -> None:
         assert expected in source or expected in styles
 
 
+def test_frontend_contains_client_home_overview_markers() -> None:
+    source = _frontend_main()
+    styles = _frontend_styles()
+
+    for expected in (
+        "Ваш клуб привилегий",
+        "Найти партнёра",
+        "Показать мои коды",
+        "Изменить город",
+        "У вас есть активная привилегия",
+        "Активных привилегий пока нет",
+        "Откройте каталог и выберите предложение",
+        "client-home",
+        "client-home-hero",
+        "client-home-stats",
+        "client-quick-actions",
+        "client-active-privilege",
+        "client-active-code",
+    ):
+        assert expected in source or expected in styles
+
+
 def test_frontend_contains_privilege_marketplace_flow_markers() -> None:
     source = _frontend_main()
     styles = _frontend_styles()
