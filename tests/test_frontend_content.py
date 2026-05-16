@@ -1485,6 +1485,28 @@ def test_frontend_contains_client_marketplace_partner_catalog_markers() -> None:
         assert removed_marker not in styles
 
 
+
+def test_frontend_contains_client_onboarding_checklist_markers() -> None:
+    source = _frontend_main()
+    styles = _frontend_styles()
+
+    for expected in (
+        "Как пользоваться клубом",
+        "Пройдено",
+        "Выберите город",
+        "Откройте каталог",
+        "Получите привилегию",
+        "Покажите код партнёру",
+        "Выберите партнёра, получите код",
+        "Вы уже умеете пользоваться клубом",
+        "client-onboarding",
+        "client-onboarding-progress",
+        "client-onboarding-step",
+        "client-onboarding-action",
+    ):
+        assert expected in source or expected in styles
+
+
 def test_frontend_contains_privilege_marketplace_flow_markers() -> None:
     source = _frontend_main()
     styles = _frontend_styles()

@@ -1437,6 +1437,127 @@ select::-ms-expand {
   gap: 16px;
 }
 
+
+.client-onboarding {
+  display: grid;
+  gap: 18px;
+  margin-bottom: 22px;
+  padding: clamp(18px, 2vw, 24px);
+  border: 1px solid rgba(201, 130, 120, 0.24);
+  border-radius: 28px;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.96), rgba(255, 247, 245, 0.96)),
+    radial-gradient(circle at top right, rgba(246, 216, 210, 0.68), transparent 14rem);
+  box-shadow: 0 16px 34px rgba(143, 81, 75, 0.09);
+}
+
+.client-onboarding-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.client-onboarding-header h4 {
+  margin: 0 0 8px;
+  color: var(--color-rose-dark);
+  font-size: clamp(1.35rem, 2vw, 1.8rem);
+}
+
+.client-onboarding-header p {
+  margin: 0;
+  color: var(--color-muted);
+}
+
+.client-onboarding-progress {
+  display: grid;
+  gap: 4px;
+  min-width: min(100%, 220px);
+  padding: 14px 16px;
+  border: 1px solid rgba(201, 130, 120, 0.2);
+  border-radius: 20px;
+  background: rgba(255, 250, 248, 0.84);
+  color: var(--color-rose-dark);
+}
+
+.client-onboarding-progress strong {
+  font-size: 1rem;
+}
+
+.client-onboarding-progress span {
+  color: var(--color-muted);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.client-onboarding-steps {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.client-onboarding-step {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid rgba(201, 130, 120, 0.18);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.client-onboarding-step h5,
+.client-onboarding-step p {
+  margin: 0;
+}
+
+.client-onboarding-step h5 {
+  color: var(--color-rose-dark);
+  font-size: 1rem;
+}
+
+.client-onboarding-step p {
+  color: var(--color-muted);
+  font-size: 0.94rem;
+}
+
+.client-onboarding-step--done {
+  border-color: rgba(127, 164, 126, 0.32);
+  background: rgba(247, 252, 246, 0.78);
+}
+
+.client-onboarding-step--todo {
+  border-color: rgba(201, 130, 120, 0.26);
+}
+
+.client-onboarding-step--active {
+  border-color: rgba(201, 130, 120, 0.48);
+  background: rgba(255, 250, 248, 0.92);
+  box-shadow: inset 0 0 0 1px rgba(201, 130, 120, 0.14);
+}
+
+.client-onboarding-step__status {
+  width: fit-content;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(246, 216, 210, 0.62);
+  color: var(--color-rose-dark);
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.client-onboarding-step--done .client-onboarding-step__status {
+  background: rgba(220, 239, 219, 0.88);
+  color: #597a55;
+}
+
+.client-onboarding-action {
+  width: fit-content;
+  margin-top: 4px;
+}
+
 .client-partner-card,
 .client-offer-card,
 .client-verification-result,
@@ -1688,7 +1809,8 @@ select::-ms-expand {
   }
 
   .client-catalog-filter,
-  .client-vk-link-meta {
+  .client-vk-link-meta,
+  .client-onboarding-steps {
     grid-template-columns: 1fr;
   }
 }
@@ -2403,7 +2525,8 @@ body.is-dashboard {
 
   .summary-grid,
   .quick-actions-grid,
-  .client-catalog-filter {
+  .client-catalog-filter,
+  .client-onboarding-steps {
     grid-template-columns: 1fr;
   }
 
