@@ -507,6 +507,7 @@ const renderCustomSelect = ({
   placeholder = 'Выберите',
   label = '',
   disabled = false,
+  required = false,
   className = '',
   data = {},
   ariaLabel = '',
@@ -526,7 +527,7 @@ const renderCustomSelect = ({
   );
 
   return `
-    <div class="${escapeHtml(wrapperClass)}${modifierClass}" data-custom-select data-custom-select-name="${escapeHtml(name)}" data-custom-select-value="${escapeHtml(value)}"${renderHtmlAttributes(dataAttributes)}>
+    <div class="${escapeHtml(wrapperClass)}${modifierClass}" data-custom-select data-custom-select-name="${escapeHtml(name)}" data-custom-select-value="${escapeHtml(value)}"${required ? ' data-custom-select-required="true"' : ''}${renderHtmlAttributes(dataAttributes)}>
       ${name ? `<input type="hidden" id="${escapeHtml(selectId)}" name="${escapeHtml(name)}" value="${escapeHtml(value)}" data-custom-select-input>` : ''}
       <button
         type="button"
@@ -634,6 +635,8 @@ const selectCustomSelectOption = (option) => {
     input.dispatchEvent(new Event('change', { bubbles: true }));
   }
   select.dataset.customSelectValue = nextValue;
+  select.classList.remove('custom-select--invalid');
+  getCustomSelectParts(select).trigger?.setAttribute('aria-invalid', 'false');
   select.dispatchEvent(new CustomEvent('custom-select:change', {
     bubbles: true,
     detail: {
@@ -645,6 +648,29 @@ const selectCustomSelectOption = (option) => {
   }));
   closeCustomSelect(select);
   getCustomSelectParts(select).trigger?.focus();
+};
+
+
+const validateRequiredCustomSelects = (form) => {
+  const emptyRequiredSelect = Array.from(form.querySelectorAll('[data-custom-select-required="true"]'))
+    .find((select) => !String(select.dataset.customSelectValue || '').trim());
+
+  form.querySelectorAll('[data-custom-select-required="true"]').forEach((select) => {
+    const isEmpty = !String(select.dataset.customSelectValue || '').trim();
+    const { trigger } = getCustomSelectParts(select);
+    select.classList.toggle('custom-select--invalid', isEmpty);
+    if (trigger) {
+      trigger.setAttribute('aria-invalid', String(isEmpty));
+    }
+  });
+
+  if (!emptyRequiredSelect) {
+    return true;
+  }
+
+  openCustomSelect(emptyRequiredSelect);
+  getCustomSelectParts(emptyRequiredSelect).trigger?.focus();
+  return false;
 };
 
 const moveCustomSelectActiveOption = (select, direction) => {
@@ -2107,10 +2133,17 @@ const renderClientProfileTab = () => {
       <h4>Обновить профиль</h4>
       <label>Имя<input name="full_name" value="${escapeHtml(profile.full_name || '')}" /></label>
       <label>Город
-        <select name="selected_city_id">
-          <option value="">Выберите город</option>
-          ${cityOptions.map((city) => `<option value="${escapeHtml(city.id)}" ${String(city.id) === String(profile.selected_city_id || '') ? 'selected' : ''}>${escapeHtml(city.name)}</option>`).join('')}
-        </select>
+        ${renderCustomSelect({
+          name: 'selected_city_id',
+          value: profile.selected_city_id || '',
+          options: [
+            { value: '', label: 'Выберите город' },
+            ...cityOptions.map((city) => ({ value: city.id, label: city.name })),
+          ],
+          placeholder: 'Выберите город',
+          label: 'Город',
+          data: { clientProfileCity: true },
+        })}
       </label>
       <p class="helper-text form-message compact-copy">Город уточняет каталог.</p>
       <button type="submit">Сохранить профиль</button>
@@ -2171,17 +2204,31 @@ const renderClientCatalogTab = () => {
     <form class="admin-form client-catalog-filter" data-client-form="catalog">
       <label>Поиск<input name="q" value="${escapeHtml(clientState.catalogFilters.q)}" placeholder="Название, описание, адрес" /></label>
       <label>Категория
-        <select name="category_slug">
-          <option value="">Все категории</option>
-          ${categoryOptions.map((category) => `<option value="${escapeHtml(category.slug)}" ${clientState.catalogFilters.category_slug === category.slug ? 'selected' : ''}>${escapeHtml(category.title)}</option>`).join('')}
-        </select>
+        ${renderCustomSelect({
+          name: 'category_slug',
+          value: clientState.catalogFilters.category_slug,
+          options: [
+            { value: '', label: 'Все категории' },
+            ...categoryOptions.map((category) => ({ value: category.slug, label: category.title })),
+          ],
+          placeholder: 'Все категории',
+          label: 'Категория',
+          data: { clientCatalogFilter: 'category' },
+        })}
       </label>
       <label>Город
-        <select name="city_slug">
-          <option value="">По выбранному городу</option>
-          <option value="__all__" ${clientState.catalogFilters.city_slug === '__all__' ? 'selected' : ''}>Все города</option>
-          ${cityOptions.filter((city) => city.slug).map((city) => `<option value="${escapeHtml(city.slug)}" ${clientState.catalogFilters.city_slug === city.slug ? 'selected' : ''}>${escapeHtml(city.name)}</option>`).join('')}
-        </select>
+        ${renderCustomSelect({
+          name: 'city_slug',
+          value: clientState.catalogFilters.city_slug,
+          options: [
+            { value: '', label: 'По выбранному городу' },
+            { value: '__all__', label: 'Все города' },
+            ...cityOptions.filter((city) => city.slug).map((city) => ({ value: city.slug, label: city.name })),
+          ],
+          placeholder: 'По выбранному городу',
+          label: 'Город',
+          data: { clientCatalogFilter: 'city' },
+        })}
       </label>
       <button type="submit">Найти</button>
     </form>
@@ -2929,7 +2976,7 @@ const renderUsersTab = () => {
         <label>Email<input name="email" type="email" autocomplete="email" /></label>
         <label>Телефон<input name="phone" autocomplete="tel" /></label>
         <label>Пароль<input name="password" type="password" autocomplete="new-password" required /></label>
-        <label>Роль${renderSelect('role', [['client', 'Клиент'], ['partner', 'Партнёр'], ['admin', 'Администратор']], true, 'client')}</label>
+        <label>Роль${renderSelect('role', [['client', 'Клиент'], ['partner', 'Партнёр'], ['admin', 'Администратор']], true, 'client', null, { label: 'Роль', data: { adminUserRole: true } })}</label>
         <label class="checkbox-row"><input name="is_active" type="checkbox" checked /> Активен</label>
         <button type="submit">Создать пользователя</button>
         <p class="form-message" data-form-message="user">${escapeHtml(adminState.formMessages.user || '')}</p>
@@ -3152,9 +3199,9 @@ const renderPartnerEditForm = () => {
           <section class="admin-partner-detail-section">
             <form class="admin-form partner-profile-settings" data-admin-form="partnerEdit" data-partner-id="${escapeHtml(partner.id)}">
               <div class="admin-section-heading text-stack"><h4 class="section-title">Основные данные</h4><p class="section-description compact-copy">Профиль, контакты и статусы для каталога.</p></div>
-              <label>Город${renderSelect('city_id', adminState.cities.map((city) => [city.id, city.name]), true, partner.city_id)}</label>
-              <label>Категория${renderSelect('category_slug', adminState.categories.map((category) => [category.slug, category.title]), false, partner.category_slug)}</label>
-              <label>Владелец${renderSelect('owner_user_id', adminState.users.filter((item) => item.role === 'partner').map((item) => [item.id, item.email || item.phone || `Партнёр #${item.id}`]), false, partner.owner_user_id || '', 'Без владельца')}</label>
+              <label>Город${renderSelect('city_id', adminState.cities.map((city) => [city.id, city.name]), true, partner.city_id, null, { label: 'Город', data: { adminPartnerField: 'city' } })}</label>
+              <label>Категория${renderSelect('category_slug', adminState.categories.map((category) => [category.slug, category.title]), false, partner.category_slug, null, { label: 'Категория', data: { adminPartnerField: 'category' } })}</label>
+              <label>Владелец${renderSelect('owner_user_id', adminState.users.filter((item) => item.role === 'partner').map((item) => [item.id, item.email || item.phone || `Партнёр #${item.id}`]), false, partner.owner_user_id || '', 'Без владельца', { label: 'Владелец', data: { adminPartnerField: 'owner' } })}</label>
               <label>Название<input name="name" required value="${escapeHtml(partner.name || '')}" /></label>
               <label>Описание<textarea name="description" rows="3">${escapeHtml(partner.description || '')}</textarea></label>
               <label>Адрес<input name="address" value="${escapeHtml(partner.address || '')}" /></label>
@@ -3210,9 +3257,9 @@ const renderPartnerEditForm = () => {
 const renderPartnerCreateForm = () => `
   <form class="admin-form" data-admin-form="partner">
     <h4>Новый партнёр</h4>
-    <label>Город${renderSelect('city_id', adminState.cities.map((city) => [city.id, city.name]), true)}</label>
-    <label>Владелец / аккаунт партнёра${renderSelect('owner_user_id', adminState.users.filter((item) => item.role === 'partner').map((item) => [item.id, item.email || item.phone || `Партнёр #${item.id}`]), false, '', 'Без владельца')}</label>
-    <label>Категория${renderSelect('category_slug', adminState.categories.map((category) => [category.slug, category.title]), false)}</label>
+    <label>Город${renderSelect('city_id', adminState.cities.map((city) => [city.id, city.name]), true, '', null, { label: 'Город', data: { adminPartnerField: 'city' } })}</label>
+    <label>Владелец / аккаунт партнёра${renderSelect('owner_user_id', adminState.users.filter((item) => item.role === 'partner').map((item) => [item.id, item.email || item.phone || `Партнёр #${item.id}`]), false, '', 'Без владельца', { label: 'Владелец', data: { adminPartnerField: 'owner' } })}</label>
+    <label>Категория${renderSelect('category_slug', adminState.categories.map((category) => [category.slug, category.title]), false, '', null, { label: 'Категория', data: { adminPartnerField: 'category' } })}</label>
     <label>Название партнёра<input name="name" required /></label>
     <label>Описание<textarea name="description" rows="3"></textarea></label>
     <label>Адрес<input name="address" /></label>
@@ -3560,19 +3607,34 @@ const renderTable = (headers, rows, trustedHtml = false, tableModifier = '', emp
   `;
 };
 
-const renderSelect = (name, options, required = false, selectedValue = '', emptyLabel = null) => `
-  <select name="${name}" ${required ? 'required' : ''}>
-    <option value="">${emptyLabel || (required ? 'Выберите' : 'Без категории')}</option>
-    ${options.map(([value, label]) => `<option value="${escapeHtml(value)}" ${String(value) === String(selectedValue) ? 'selected' : ''}>${escapeHtml(label)}</option>`).join('')}
-  </select>
-`;
+const renderSelect = (name, options, required = false, selectedValue = '', emptyLabel = null, config = {}) => renderCustomSelect({
+  id: config.id,
+  name,
+  value: selectedValue,
+  options: [
+    { value: '', label: emptyLabel || (required ? 'Выберите' : 'Без категории') },
+    ...options.map(([value, label]) => ({ value, label })),
+  ],
+  placeholder: emptyLabel || (required ? 'Выберите' : 'Без категории'),
+  label: config.label || name,
+  required,
+  className: config.className || '',
+  data: config.data || {},
+  ariaLabel: config.ariaLabel || config.label || name,
+});
 
-const renderPartnerPicker = (scope, selectedValue) => `
-  <select data-partner-picker="${scope}">
-    <option value="">Выберите партнёра</option>
-    ${adminState.partners.map((partner) => `<option value="${partner.id}" ${String(partner.id) === String(selectedValue) ? 'selected' : ''}>${escapeHtml(partner.name)}</option>`).join('')}
-  </select>
-`;
+const renderPartnerPicker = (scope, selectedValue) => renderCustomSelect({
+  id: `admin-${scope}-partner-picker`,
+  name: 'partner_id',
+  value: selectedValue,
+  options: [
+    { value: '', label: 'Выберите партнёра' },
+    ...adminState.partners.map((partner) => ({ value: partner.id, label: partner.name })),
+  ],
+  placeholder: 'Выберите партнёра',
+  label: 'Партнёр',
+  data: { partnerPicker: scope },
+});
 
 const showAdminDashboard = async (user) => {
   adminState.user = user;
@@ -5055,6 +5117,21 @@ root.addEventListener('custom-select:change', (event) => {
   if (customSelect.matches('[data-admin-activity-event-type]')) {
     adminState.activityEventType = event.detail.value;
     loadActiveTabData();
+    return;
+  }
+
+  if (customSelect.matches('[data-partner-picker]')) {
+    if (customSelect.dataset.partnerPicker === 'offers') {
+      adminState.selectedPartnerIdForOffers = event.detail.value;
+      adminState.selectedOfferIdForEdit = '';
+      setFormMessage('offerEdit');
+    } else if (customSelect.dataset.partnerPicker === 'qr') {
+      adminState.selectedPartnerIdForQr = event.detail.value;
+      adminState.selectedQrLinkIdForEdit = '';
+      setFormMessage('qrEdit');
+    }
+
+    loadActiveTabData();
   }
 });
 
@@ -5109,6 +5186,12 @@ document.addEventListener('keydown', (event) => {
 });
 
 root.addEventListener('submit', (event) => {
+  const submittedForm = event.target.closest('form');
+  if (submittedForm && !validateRequiredCustomSelects(submittedForm)) {
+    event.preventDefault();
+    return;
+  }
+
   const passwordSetup = event.target.closest('[data-password-setup-form]');
   if (passwordSetup) {
     event.preventDefault();
