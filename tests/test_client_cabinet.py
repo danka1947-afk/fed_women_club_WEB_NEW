@@ -17,7 +17,7 @@ from app.main import app
 from app.models.city import City
 from app.models.client import ClientProfile
 from app.models.partner import Partner, PartnerOffer, PartnerPhoto
-from app.models.payment import Subscription, SubscriptionStatus
+from app.models.payment import PaymentRequest, PaymentRequestStatus, Subscription, SubscriptionStatus
 from app.models.user import AdminUser, User, UserRole
 
 
@@ -61,7 +61,14 @@ def client_cabinet_client() -> Generator[TestClient, None, None]:
             role=UserRole.PARTNER.value,
             is_active=True,
         )
-        session.add_all([client_user, client_with_profile, partner_user])
+        unified_admin_user = User(
+            email="unified-admin@example.com",
+            phone="+79990000004",
+            password_hash=hash_password("UnifiedAdminPassword123"),
+            role=UserRole.ADMIN.value,
+            is_active=True,
+        )
+        session.add_all([client_user, client_with_profile, partner_user, unified_admin_user])
         session.flush()
 
         moscow = City(name="Москва", slug="moscow", is_active=True, sort_order=10)
@@ -235,6 +242,10 @@ def _profile_client_token(client: TestClient) -> str:
 
 def _partner_token(client: TestClient) -> str:
     return _user_login(client, "partner@example.com", "PartnerPassword123")
+
+
+def _unified_admin_token(client: TestClient) -> str:
+    return _user_login(client, "unified-admin@example.com", "UnifiedAdminPassword123")
 
 
 def test_client_me_without_token_returns_401(client_cabinet_client: TestClient) -> None:
@@ -540,3 +551,278 @@ def test_client_partner_offers_returns_only_active_offers_ordered(client_cabinet
     assert [offer["title"] for offer in data] == ["First active", "Second active"]
     assert [offer["sort_order"] for offer in data] == [10, 20]
     assert {offer["partner_id"] for offer in data} == {1}
+
+
+def test_client_payment_requests_without_token_returns_401(client_cabinet_client: TestClient) -> None:
+    response = client_cabinet_client.post("/api/v1/clients/me/payment-requests", json={})
+
+    assert response.status_code == 401
+
+
+def test_client_payment_requests_with_partner_or_admin_user_token_returns_403(
+    client_cabinet_client: TestClient,
+) -> None:
+    partner_token = _partner_token(client_cabinet_client)
+    admin_user_token = _unified_admin_token(client_cabinet_client)
+
+    partner_response = client_cabinet_client.post(
+        "/api/v1/clients/me/payment-requests",
+        headers=_auth_headers(partner_token),
+        json={},
+    )
+    admin_response = client_cabinet_client.post(
+        "/api/v1/clients/me/payment-requests",
+        headers=_auth_headers(admin_user_token),
+        json={},
+    )
+
+    assert partner_response.status_code == 403
+    assert admin_response.status_code == 403
+
+
+def test_client_can_create_payment_request(client_cabinet_client: TestClient) -> None:
+    token = _client_token(client_cabinet_client)
+    profile = client_cabinet_client.get("/api/v1/clients/me", headers=_auth_headers(token)).json()
+
+    response = client_cabinet_client.post(
+        "/api/v1/clients/me/payment-requests",
+        headers=_auth_headers(token),
+        json={"amount": "1234.50", "source": " web ", "comment": "  first request  "},
+    )
+
+    assert response.status_code == 201
+    data = response.json()
+    assert data["client_id"] == profile["id"]
+    assert data["amount"] == "1234.50"
+    assert data["status"] == PaymentRequestStatus.pending.value
+    assert data["source"] == "web"
+    assert data["comment"] == "first request"
+    assert data["receipts"] == []
+
+
+def test_client_payment_request_default_amount_is_zero(client_cabinet_client: TestClient) -> None:
+    token = _client_token(client_cabinet_client)
+
+    response = client_cabinet_client.post(
+        "/api/v1/clients/me/payment-requests",
+        headers=_auth_headers(token),
+        json={},
+    )
+
+    assert response.status_code == 201
+    data = response.json()
+    assert data["amount"] == "0.00"
+    assert data["status"] == PaymentRequestStatus.pending.value
+    assert data["source"] == "web"
+
+
+def test_client_can_list_only_own_payment_requests(client_cabinet_client: TestClient) -> None:
+    token = _client_token(client_cabinet_client)
+    other_token = _profile_client_token(client_cabinet_client)
+    own_first = client_cabinet_client.post(
+        "/api/v1/clients/me/payment-requests",
+        headers=_auth_headers(token),
+        json={"amount": "10.00", "source": "web"},
+    ).json()
+    other = client_cabinet_client.post(
+        "/api/v1/clients/me/payment-requests",
+        headers=_auth_headers(other_token),
+        json={"amount": "20.00", "source": "vk"},
+    ).json()
+    own_second = client_cabinet_client.post(
+        "/api/v1/clients/me/payment-requests",
+        headers=_auth_headers(token),
+        json={"amount": "30.00", "source": "web"},
+    ).json()
+
+    response = client_cabinet_client.get("/api/v1/clients/me/payment-requests", headers=_auth_headers(token))
+
+    assert response.status_code == 200
+    data = response.json()
+    assert [item["id"] for item in data] == [own_second["id"], own_first["id"]]
+    assert other["id"] not in [item["id"] for item in data]
+    assert all(item["client_id"] == own_first["client_id"] for item in data)
+
+
+def test_client_can_get_own_payment_request_by_id(client_cabinet_client: TestClient) -> None:
+    token = _client_token(client_cabinet_client)
+    created = client_cabinet_client.post(
+        "/api/v1/clients/me/payment-requests",
+        headers=_auth_headers(token),
+        json={"amount": "99.00"},
+    ).json()
+
+    response = client_cabinet_client.get(
+        f"/api/v1/clients/me/payment-requests/{created['id']}",
+        headers=_auth_headers(token),
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["id"] == created["id"]
+    assert data["client_id"] == created["client_id"]
+
+
+def test_client_cannot_read_another_client_payment_request(client_cabinet_client: TestClient) -> None:
+    token = _client_token(client_cabinet_client)
+    other_token = _profile_client_token(client_cabinet_client)
+    other = client_cabinet_client.post(
+        "/api/v1/clients/me/payment-requests",
+        headers=_auth_headers(other_token),
+        json={"amount": "20.00"},
+    ).json()
+
+    response = client_cabinet_client.get(
+        f"/api/v1/clients/me/payment-requests/{other['id']}",
+        headers=_auth_headers(token),
+    )
+
+    assert response.status_code == 404
+
+
+def test_client_mark_paid_pending_to_paid_and_paid_idempotent(client_cabinet_client: TestClient) -> None:
+    token = _client_token(client_cabinet_client)
+    created = client_cabinet_client.post(
+        "/api/v1/clients/me/payment-requests",
+        headers=_auth_headers(token),
+        json={"amount": "99.00", "comment": "Initial"},
+    ).json()
+
+    paid_response = client_cabinet_client.post(
+        f"/api/v1/clients/me/payment-requests/{created['id']}/mark-paid",
+        headers=_auth_headers(token),
+        json={"comment": "Paid in bank app"},
+    )
+    idempotent_response = client_cabinet_client.post(
+        f"/api/v1/clients/me/payment-requests/{created['id']}/mark-paid",
+        headers=_auth_headers(token),
+        json={},
+    )
+
+    assert paid_response.status_code == 200
+    paid_data = paid_response.json()
+    assert paid_data["status"] == PaymentRequestStatus.paid.value
+    assert paid_data["updated_at"] is not None
+    assert "Initial" in paid_data["comment"]
+    assert "Paid in bank app" in paid_data["comment"]
+    assert idempotent_response.status_code == 200
+    assert idempotent_response.json()["status"] == PaymentRequestStatus.paid.value
+
+
+def test_client_mark_paid_approved_or_rejected_returns_400(client_cabinet_client: TestClient) -> None:
+    token = _client_token(client_cabinet_client)
+    approved = client_cabinet_client.post(
+        "/api/v1/clients/me/payment-requests",
+        headers=_auth_headers(token),
+        json={"amount": "10.00"},
+    ).json()
+    rejected = client_cabinet_client.post(
+        "/api/v1/clients/me/payment-requests",
+        headers=_auth_headers(token),
+        json={"amount": "20.00"},
+    ).json()
+    with next(app.dependency_overrides[get_db]()) as session:
+        session.get(PaymentRequest, approved["id"]).status = PaymentRequestStatus.approved.value
+        session.get(PaymentRequest, rejected["id"]).status = PaymentRequestStatus.rejected.value
+        session.commit()
+
+    approved_response = client_cabinet_client.post(
+        f"/api/v1/clients/me/payment-requests/{approved['id']}/mark-paid",
+        headers=_auth_headers(token),
+        json={},
+    )
+    rejected_response = client_cabinet_client.post(
+        f"/api/v1/clients/me/payment-requests/{rejected['id']}/mark-paid",
+        headers=_auth_headers(token),
+        json={},
+    )
+
+    assert approved_response.status_code == 400
+    assert rejected_response.status_code == 400
+
+
+def test_client_can_create_receipt_for_own_payment_request(client_cabinet_client: TestClient) -> None:
+    token = _client_token(client_cabinet_client)
+    created = client_cabinet_client.post(
+        "/api/v1/clients/me/payment-requests",
+        headers=_auth_headers(token),
+        json={"amount": "99.00"},
+    ).json()
+
+    response = client_cabinet_client.post(
+        f"/api/v1/clients/me/payment-requests/{created['id']}/receipts",
+        headers=_auth_headers(token),
+        json={"file_url": "https://example.com/receipt.png", "uploaded_via": " web "},
+    )
+
+    assert response.status_code == 201
+    data = response.json()
+    assert data["payment_request_id"] == created["id"]
+    assert data["file_url"] == "https://example.com/receipt.png"
+    assert data["uploaded_via"] == "web"
+
+
+def test_client_cannot_add_receipt_to_another_client_payment_request(client_cabinet_client: TestClient) -> None:
+    token = _client_token(client_cabinet_client)
+    other_token = _profile_client_token(client_cabinet_client)
+    other = client_cabinet_client.post(
+        "/api/v1/clients/me/payment-requests",
+        headers=_auth_headers(other_token),
+        json={"amount": "20.00"},
+    ).json()
+
+    response = client_cabinet_client.post(
+        f"/api/v1/clients/me/payment-requests/{other['id']}/receipts",
+        headers=_auth_headers(token),
+        json={"file_url": "https://example.com/receipt.png"},
+    )
+
+    assert response.status_code == 404
+
+
+def test_client_payment_request_reads_include_receipts(client_cabinet_client: TestClient) -> None:
+    token = _client_token(client_cabinet_client)
+    created = client_cabinet_client.post(
+        "/api/v1/clients/me/payment-requests",
+        headers=_auth_headers(token),
+        json={"amount": "99.00"},
+    ).json()
+    receipt = client_cabinet_client.post(
+        f"/api/v1/clients/me/payment-requests/{created['id']}/receipts",
+        headers=_auth_headers(token),
+        json={"file_url": "https://example.com/receipt.png"},
+    ).json()
+
+    detail_response = client_cabinet_client.get(
+        f"/api/v1/clients/me/payment-requests/{created['id']}",
+        headers=_auth_headers(token),
+    )
+    list_response = client_cabinet_client.get("/api/v1/clients/me/payment-requests", headers=_auth_headers(token))
+
+    assert detail_response.status_code == 200
+    assert detail_response.json()["receipts"] == [receipt]
+    assert list_response.status_code == 200
+    assert list_response.json()[0]["receipts"] == [receipt]
+
+
+def test_client_payment_request_mark_paid_does_not_create_subscription(client_cabinet_client: TestClient) -> None:
+    token = _client_token(client_cabinet_client)
+    profile = client_cabinet_client.get("/api/v1/clients/me", headers=_auth_headers(token)).json()
+    created = client_cabinet_client.post(
+        "/api/v1/clients/me/payment-requests",
+        headers=_auth_headers(token),
+        json={"amount": "99.00"},
+    ).json()
+
+    response = client_cabinet_client.post(
+        f"/api/v1/clients/me/payment-requests/{created['id']}/mark-paid",
+        headers=_auth_headers(token),
+        json={},
+    )
+    subscription_response = client_cabinet_client.get("/api/v1/clients/me/subscription", headers=_auth_headers(token))
+
+    assert response.status_code == 200
+    assert subscription_response.status_code == 200
+    assert subscription_response.json() is None
+    with next(app.dependency_overrides[get_db]()) as session:
+        assert session.query(Subscription).filter(Subscription.client_id == profile["id"]).count() == 0
