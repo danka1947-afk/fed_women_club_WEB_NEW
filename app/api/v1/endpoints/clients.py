@@ -1,19 +1,20 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+from decimal import Decimal
 import secrets
 import string
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.api.deps import require_client
 from app.db.session import get_db
 from app.models.city import City
 from app.models.client import ClientProfile, VkLinkCode, VkLinkCodeStatus
 from app.models.partner import Partner, PartnerOffer, PartnerPhoto
-from app.models.payment import Subscription, SubscriptionStatus
+from app.models.payment import PaymentReceipt, PaymentRequest, PaymentRequestStatus, Subscription, SubscriptionStatus
 from app.models.verification import PrivilegeVerificationSession, PrivilegeVerificationStatus
 from app.models.user import User
 from app.schemas.activity import ActivityFeedRead
@@ -26,6 +27,13 @@ from app.schemas.client import (
     ClientProfileUpdate,
     ClientVerificationRead,
     SubscriptionRead,
+)
+from app.schemas.payment import (
+    PaymentReceiptCreate,
+    PaymentReceiptRead,
+    PaymentRequestCreate,
+    PaymentRequestMarkPaid,
+    PaymentRequestRead,
 )
 from app.schemas.vk import VkLinkCodeRead
 from app.services.activity_feed import build_client_activity_feed
@@ -130,6 +138,108 @@ def read_client_subscription(
     if subscription is None:
         return None
     return SubscriptionRead.model_validate(subscription)
+
+
+@router.post("/me/payment-requests", response_model=PaymentRequestRead, status_code=status.HTTP_201_CREATED)
+def create_client_payment_request(
+    payload: PaymentRequestCreate,
+    current_user: User = Depends(require_client),
+    db: Session = Depends(get_db),
+) -> PaymentRequestRead:
+    profile = _get_current_client_profile_or_404(db, current_user)
+    payment_request = PaymentRequest(
+        client_id=profile.id,
+        amount=payload.amount if payload.amount is not None else Decimal("0.00"),
+        status=PaymentRequestStatus.pending.value,
+        source=_normalize_optional_text(payload.source) or "web",
+        comment=_normalize_optional_text(payload.comment),
+    )
+    db.add(payment_request)
+    db.commit()
+    payment_request = _get_owned_payment_request_or_404(db, profile.id, payment_request.id)
+    return PaymentRequestRead.model_validate(payment_request)
+
+
+@router.get("/me/payment-requests", response_model=list[PaymentRequestRead])
+def list_client_payment_requests(
+    current_user: User = Depends(require_client),
+    db: Session = Depends(get_db),
+) -> list[PaymentRequestRead]:
+    profile = _get_current_client_profile_or_404(db, current_user)
+    payment_requests = db.execute(
+        select(PaymentRequest)
+        .options(selectinload(PaymentRequest.receipts))
+        .where(PaymentRequest.client_id == profile.id)
+        .order_by(PaymentRequest.created_at.desc(), PaymentRequest.id.desc())
+    ).scalars().all()
+    return [PaymentRequestRead.model_validate(payment_request) for payment_request in payment_requests]
+
+
+@router.get("/me/payment-requests/{payment_request_id}", response_model=PaymentRequestRead)
+def read_client_payment_request(
+    payment_request_id: int,
+    current_user: User = Depends(require_client),
+    db: Session = Depends(get_db),
+) -> PaymentRequestRead:
+    profile = _get_current_client_profile_or_404(db, current_user)
+    payment_request = _get_owned_payment_request_or_404(db, profile.id, payment_request_id)
+    return PaymentRequestRead.model_validate(payment_request)
+
+
+@router.post("/me/payment-requests/{payment_request_id}/mark-paid", response_model=PaymentRequestRead)
+def mark_client_payment_request_paid(
+    payment_request_id: int,
+    payload: PaymentRequestMarkPaid,
+    current_user: User = Depends(require_client),
+    db: Session = Depends(get_db),
+) -> PaymentRequestRead:
+    profile = _get_current_client_profile_or_404(db, current_user)
+    payment_request = _get_owned_payment_request_or_404(db, profile.id, payment_request_id)
+
+    if payment_request.status == PaymentRequestStatus.pending.value:
+        payment_request.status = PaymentRequestStatus.paid.value
+        payment_request.updated_at = datetime.now(timezone.utc)
+    elif payment_request.status == PaymentRequestStatus.paid.value:
+        pass
+    elif payment_request.status in {PaymentRequestStatus.approved.value, PaymentRequestStatus.rejected.value}:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Payment request cannot be marked as paid",
+        )
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Unsupported payment request status",
+        )
+
+    _append_payment_request_comment(payment_request, payload.comment)
+    db.commit()
+    payment_request = _get_owned_payment_request_or_404(db, profile.id, payment_request.id)
+    return PaymentRequestRead.model_validate(payment_request)
+
+
+@router.post(
+    "/me/payment-requests/{payment_request_id}/receipts",
+    response_model=PaymentReceiptRead,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_client_payment_receipt(
+    payment_request_id: int,
+    payload: PaymentReceiptCreate,
+    current_user: User = Depends(require_client),
+    db: Session = Depends(get_db),
+) -> PaymentReceiptRead:
+    profile = _get_current_client_profile_or_404(db, current_user)
+    _get_owned_payment_request_or_404(db, profile.id, payment_request_id)
+    receipt = PaymentReceipt(
+        payment_request_id=payment_request_id,
+        file_url=payload.file_url,
+        uploaded_via=_normalize_optional_text(payload.uploaded_via) or "web",
+    )
+    db.add(receipt)
+    db.commit()
+    db.refresh(receipt)
+    return PaymentReceiptRead.model_validate(receipt)
 
 
 @router.get("/catalog/partners", response_model=list[ClientPartnerCatalogItem])
@@ -261,6 +371,37 @@ def list_client_partner_offers(
         .order_by(PartnerOffer.sort_order.asc(), PartnerOffer.id.asc())
     ).scalars().all()
     return [_partner_offer_to_read(offer) for offer in offers]
+
+
+def _get_current_client_profile_or_404(db: Session, current_user: User) -> ClientProfile:
+    profile = db.execute(select(ClientProfile).where(ClientProfile.user_id == current_user.id)).scalar_one_or_none()
+    if profile is not None:
+        return profile
+    return _get_or_create_client_profile(db, current_user.id)
+
+
+def _get_owned_payment_request_or_404(db: Session, client_id: int, payment_request_id: int) -> PaymentRequest:
+    payment_request = db.execute(
+        select(PaymentRequest)
+        .options(selectinload(PaymentRequest.receipts))
+        .where(PaymentRequest.id == payment_request_id, PaymentRequest.client_id == client_id)
+    ).scalar_one_or_none()
+    if payment_request is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Payment request not found")
+    return payment_request
+
+
+def _append_payment_request_comment(payment_request: PaymentRequest, comment: str | None) -> None:
+    normalized_comment = _normalize_optional_text(comment)
+    if normalized_comment is None:
+        return
+    if payment_request.comment:
+        if payment_request.comment.strip() == normalized_comment:
+            return
+        payment_request.comment = f"{payment_request.comment}\n\nClient mark-paid comment: {normalized_comment}"
+    else:
+        payment_request.comment = normalized_comment
+    payment_request.updated_at = datetime.now(timezone.utc)
 
 
 def _get_or_create_client_profile(db: Session, user_id: int) -> ClientProfile:
