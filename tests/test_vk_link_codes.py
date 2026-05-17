@@ -176,6 +176,125 @@ def test_bot_exchange_valid_code_links_vk_and_returns_working_token(vk_link_clie
     assert me_response.json()["email"] == "client@example.com"
 
 
+def test_bot_exchange_accepts_case_and_space_variants(vk_link_client: TestClient) -> None:
+    variants = [
+        lambda code: code,
+        lambda code: code.lower(),
+        lambda code: f"   {code[:3].lower()}{code[3:].upper()}   ",
+        lambda code: f"{code} ",
+    ]
+
+    for index, make_payload_code in enumerate(variants, start=1):
+        code = _create_code(vk_link_client)
+
+        response = vk_link_client.post(
+            "/api/v1/bot/vk/exchange-link-code",
+            headers=_bot_headers(),
+            json={"vk_user_id": f"vk-normalized-{index}", "code": make_payload_code(code)},
+        )
+
+        assert response.status_code == 200
+        with _db_session() as session:
+            link_code = session.execute(select(VkLinkCode).where(VkLinkCode.code == code)).scalar_one()
+            profile = session.execute(
+                select(ClientProfile).where(ClientProfile.vk_user_id == f"vk-normalized-{index}")
+            ).scalar_one()
+            assert link_code.status == VkLinkCodeStatus.USED.value
+            profile.vk_user_id = None
+            session.commit()
+
+
+def test_exchange_fresh_code_with_naive_utc_expiry_is_valid(vk_link_client: TestClient) -> None:
+    code = _create_code(vk_link_client)
+    with _db_session() as session:
+        link_code = session.execute(select(VkLinkCode).where(VkLinkCode.code == code)).scalar_one()
+        link_code.expires_at = (datetime.now(timezone.utc) + timedelta(minutes=5)).replace(tzinfo=None)
+        session.commit()
+
+    response = vk_link_client.post(
+        "/api/v1/bot/vk/exchange-link-code",
+        headers=_bot_headers(),
+        json={"vk_user_id": "vk-naive-fresh", "code": code},
+    )
+
+    assert response.status_code == 200
+    with _db_session() as session:
+        profile = session.execute(select(ClientProfile).where(ClientProfile.vk_user_id == "vk-naive-fresh")).scalar_one()
+        assert profile.vk_user_id == "vk-naive-fresh"
+
+
+def test_invalid_exchange_attempt_does_not_consume_valid_code(vk_link_client: TestClient) -> None:
+    code = _create_code(vk_link_client)
+
+    missing_response = vk_link_client.post(
+        "/api/v1/bot/vk/exchange-link-code",
+        headers=_bot_headers(),
+        json={"vk_user_id": "vk-invalid-first", "code": "NO-SUCH-CODE"},
+    )
+
+    assert missing_response.status_code == 404
+    with _db_session() as session:
+        link_code = session.execute(select(VkLinkCode).where(VkLinkCode.code == code)).scalar_one()
+        assert link_code.status == VkLinkCodeStatus.ACTIVE.value
+        assert link_code.used_at is None
+
+    valid_response = vk_link_client.post(
+        "/api/v1/bot/vk/exchange-link-code",
+        headers=_bot_headers(),
+        json={"vk_user_id": "vk-invalid-first", "code": code},
+    )
+
+    assert valid_response.status_code == 200
+
+
+def test_exchange_rejects_profile_already_linked_to_different_vk_without_consuming_code(
+    vk_link_client: TestClient,
+) -> None:
+    code = _create_code(vk_link_client)
+    with _db_session() as session:
+        profile = session.execute(select(ClientProfile).join(User).where(User.email == "client@example.com")).scalar_one()
+        profile.vk_user_id = "vk-existing"
+        session.commit()
+
+    response = vk_link_client.post(
+        "/api/v1/bot/vk/exchange-link-code",
+        headers=_bot_headers(),
+        json={"vk_user_id": "vk-new", "code": code},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Client profile is already linked"
+    with _db_session() as session:
+        profile = session.execute(select(ClientProfile).join(User).where(User.email == "client@example.com")).scalar_one()
+        link_code = session.execute(select(VkLinkCode).where(VkLinkCode.code == code)).scalar_one()
+        assert profile.vk_user_id == "vk-existing"
+        assert link_code.status == VkLinkCodeStatus.ACTIVE.value
+        assert link_code.used_at is None
+
+
+def test_exchange_rejects_vk_user_linked_to_different_profile_without_consuming_code(
+    vk_link_client: TestClient,
+) -> None:
+    token = _user_login(vk_link_client)
+    code = vk_link_client.post("/api/v1/clients/me/vk-link-codes", headers=_auth_headers(token)).json()["code"]
+    with _db_session() as session:
+        other_user = session.execute(select(User).where(User.email == "other@example.com")).scalar_one()
+        session.add(ClientProfile(user_id=other_user.id, vk_user_id="vk-conflict", is_active=True, source="vk"))
+        session.commit()
+
+    response = vk_link_client.post(
+        "/api/v1/bot/vk/exchange-link-code",
+        headers=_bot_headers(),
+        json={"vk_user_id": "vk-conflict", "code": code},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "VK user is already linked"
+    with _db_session() as session:
+        link_code = session.execute(select(VkLinkCode).where(VkLinkCode.code == code)).scalar_one()
+        assert link_code.status == VkLinkCodeStatus.ACTIVE.value
+        assert link_code.used_at is None
+
 def test_exchange_missing_code_returns_404(vk_link_client: TestClient) -> None:
     response = vk_link_client.post(
         "/api/v1/bot/vk/exchange-link-code",
@@ -222,7 +341,7 @@ def test_exchange_used_or_cancelled_code_returns_400(vk_link_client: TestClient)
         json={"vk_user_id": "123", "code": used_code},
     )
     assert used_again_response.status_code == 400
-    assert used_again_response.json()["detail"] == "Link code is not active"
+    assert used_again_response.json()["detail"] == "Link code already used"
 
     token = _user_login(vk_link_client)
     cancelled_code = vk_link_client.post("/api/v1/clients/me/vk-link-codes", headers=_auth_headers(token)).json()["code"]
