@@ -36,6 +36,16 @@ class PaymentRequestMarkPaid(BaseModel):
     comment: str | None = None
 
 
+class PaymentRequestApprove(BaseModel):
+    access_days: int | None = Field(default=None, gt=0)
+    access_until: datetime | None = None
+    comment: str | None = None
+
+
+class PaymentRequestReject(BaseModel):
+    comment: str | None = None
+
+
 class PaymentRequestRead(BaseModel):
     id: int
     client_id: int
@@ -52,3 +62,10 @@ class PaymentRequestRead(BaseModel):
     receipts: list[PaymentReceiptRead] = Field(default_factory=list)
 
     model_config = {"from_attributes": True}
+
+
+class AdminPaymentRequestRead(PaymentRequestRead):
+    client_name: str | None = None
+    client_full_name: str | None = None
+    client_user_id: int | None = None
+    client_vk_user_id: str | None = None

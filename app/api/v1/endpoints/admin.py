@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
 from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.api.deps import require_admin
 from app.core.categories import WOMEN_CLUB_CATEGORY_SLUGS
@@ -17,6 +17,7 @@ from app.models.city import City
 from app.models.client import ClientProfile
 from app.models.lead import LeadClick
 from app.models.partner import Partner, PartnerOffer, PartnerPhoto, PartnerQrLink
+from app.models.payment import PaymentRequest, PaymentRequestStatus, Subscription, SubscriptionStatus
 from app.models.user import AdminUser, User, UserRole
 from app.models.verification import PrivilegeVerificationSession
 from app.schemas.activity import ActivityFeedRead
@@ -50,6 +51,7 @@ from app.schemas.admin import (
 )
 from app.schemas.auth import AdminUserRead
 from app.schemas.partner import PartnerAnalyticsRead
+from app.schemas.payment import AdminPaymentRequestRead, PaymentRequestApprove, PaymentRequestReject
 from app.services.activity_feed import build_admin_activity_feed
 from app.services.image_uploads import save_partner_image_upload, save_partner_offer_image_upload, save_partner_photo_image_upload, validate_image_kind
 from app.services.partner_analytics import build_partner_analytics
@@ -131,6 +133,131 @@ def list_admin_verifications(
         _admin_verification_to_read(session, client_name, partner_name, city_id, city_name, offer_title)
         for session, client_name, partner_name, city_id, city_name, offer_title in db.execute(statement).all()
     ]
+
+
+@router.get("/payment-requests", response_model=list[AdminPaymentRequestRead])
+def list_admin_payment_requests(
+    status_filter: str | None = Query(default=None, alias="status"),
+    client_id: int | None = None,
+    limit: int = Query(default=50, ge=1, le=100),
+    admin: AdminUser = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> list[AdminPaymentRequestRead]:
+    _ = admin
+    statement = (
+        select(PaymentRequest)
+        .options(selectinload(PaymentRequest.receipts), selectinload(PaymentRequest.client))
+        .order_by(PaymentRequest.created_at.desc(), PaymentRequest.id.desc())
+        .limit(limit)
+    )
+    if status_filter is not None:
+        statement = statement.where(PaymentRequest.status == status_filter)
+    if client_id is not None:
+        statement = statement.where(PaymentRequest.client_id == client_id)
+
+    payment_requests = db.execute(statement).scalars().all()
+    return [_admin_payment_request_to_read(payment_request) for payment_request in payment_requests]
+
+
+@router.get("/payment-requests/{payment_request_id}", response_model=AdminPaymentRequestRead)
+def read_admin_payment_request(
+    payment_request_id: int,
+    admin: AdminUser = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> AdminPaymentRequestRead:
+    _ = admin
+    payment_request = _get_admin_payment_request_or_404(db, payment_request_id)
+    return _admin_payment_request_to_read(payment_request)
+
+
+@router.post("/payment-requests/{payment_request_id}/approve", response_model=AdminPaymentRequestRead)
+def approve_admin_payment_request(
+    payment_request_id: int,
+    payload: PaymentRequestApprove,
+    admin: AdminUser = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> AdminPaymentRequestRead:
+    payment_request = _get_admin_payment_request_or_404(db, payment_request_id)
+
+    if payment_request.status == PaymentRequestStatus.approved.value:
+        return _admin_payment_request_to_read(payment_request)
+    if payment_request.status == PaymentRequestStatus.pending.value:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Payment request must be marked as paid before approval",
+        )
+    if payment_request.status == PaymentRequestStatus.rejected.value:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Rejected payment request cannot be approved")
+    if payment_request.status != PaymentRequestStatus.paid.value:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unsupported payment request status")
+
+    now = datetime.now(timezone.utc)
+    latest_subscription = db.execute(
+        select(Subscription)
+        .where(Subscription.client_id == payment_request.client_id)
+        .order_by(Subscription.ends_at.desc(), Subscription.id.desc())
+        .limit(1)
+    ).scalar_one_or_none()
+    subscription_starts_at = now
+    if (
+        latest_subscription is not None
+        and latest_subscription.status == SubscriptionStatus.active.value
+        and _as_aware_utc(latest_subscription.ends_at) > now
+    ):
+        subscription_starts_at = latest_subscription.ends_at
+
+    subscription_ends_at = payload.access_until or subscription_starts_at + timedelta(days=payload.access_days or 30)
+    if _as_aware_utc(subscription_ends_at) <= _as_aware_utc(subscription_starts_at):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Subscription end must be after start")
+
+    payment_request.status = PaymentRequestStatus.approved.value
+    payment_request.approved_at = now
+    payment_request.rejected_at = None
+    payment_request.admin_user_id = admin.id
+    payment_request.updated_at = now
+    payment_request.access_until = subscription_ends_at
+    _append_admin_payment_request_comment(payment_request, payload.comment, prefix="Admin approval comment")
+
+    db.add(
+        Subscription(
+            client_id=payment_request.client_id,
+            status=SubscriptionStatus.active.value,
+            starts_at=subscription_starts_at,
+            ends_at=subscription_ends_at,
+            source_payment_request_id=payment_request.id,
+        )
+    )
+    db.commit()
+    payment_request = _get_admin_payment_request_or_404(db, payment_request.id)
+    return _admin_payment_request_to_read(payment_request)
+
+
+@router.post("/payment-requests/{payment_request_id}/reject", response_model=AdminPaymentRequestRead)
+def reject_admin_payment_request(
+    payment_request_id: int,
+    payload: PaymentRequestReject,
+    admin: AdminUser = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> AdminPaymentRequestRead:
+    payment_request = _get_admin_payment_request_or_404(db, payment_request_id)
+
+    if payment_request.status == PaymentRequestStatus.rejected.value:
+        return _admin_payment_request_to_read(payment_request)
+    if payment_request.status == PaymentRequestStatus.approved.value:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Approved payment request cannot be rejected")
+    if payment_request.status not in {PaymentRequestStatus.pending.value, PaymentRequestStatus.paid.value}:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unsupported payment request status")
+
+    now = datetime.now(timezone.utc)
+    payment_request.status = PaymentRequestStatus.rejected.value
+    payment_request.rejected_at = now
+    payment_request.admin_user_id = admin.id
+    payment_request.updated_at = now
+    _append_admin_payment_request_comment(payment_request, payload.comment, prefix="Admin rejection comment")
+
+    db.commit()
+    payment_request = _get_admin_payment_request_or_404(db, payment_request.id)
+    return _admin_payment_request_to_read(payment_request)
 
 
 @router.get("/content-review", response_model=ContentReviewRead)
@@ -877,6 +1004,56 @@ def _admin_verification_to_read(
             "ttl_seconds": _ttl_seconds(session.expires_at),
         }
     )
+
+
+def _get_admin_payment_request_or_404(db: Session, payment_request_id: int) -> PaymentRequest:
+    payment_request = db.execute(
+        select(PaymentRequest)
+        .options(selectinload(PaymentRequest.receipts), selectinload(PaymentRequest.client))
+        .where(PaymentRequest.id == payment_request_id)
+    ).scalar_one_or_none()
+    if payment_request is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Payment request not found")
+    return payment_request
+
+
+def _admin_payment_request_to_read(payment_request: PaymentRequest) -> AdminPaymentRequestRead:
+    client = payment_request.client
+    client_full_name = client.full_name if client is not None else None
+    return AdminPaymentRequestRead.model_validate(
+        {
+            "id": payment_request.id,
+            "client_id": payment_request.client_id,
+            "amount": payment_request.amount,
+            "status": payment_request.status,
+            "source": payment_request.source,
+            "comment": payment_request.comment,
+            "created_at": payment_request.created_at,
+            "updated_at": payment_request.updated_at,
+            "approved_at": payment_request.approved_at,
+            "rejected_at": payment_request.rejected_at,
+            "admin_user_id": payment_request.admin_user_id,
+            "access_until": payment_request.access_until,
+            "receipts": payment_request.receipts,
+            "client_name": client_full_name,
+            "client_full_name": client_full_name,
+            "client_user_id": client.user_id if client is not None else None,
+            "client_vk_user_id": client.vk_user_id if client is not None else None,
+        }
+    )
+
+
+def _append_admin_payment_request_comment(payment_request: PaymentRequest, comment: str | None, *, prefix: str) -> None:
+    normalized_comment = _normalize_optional_text(comment)
+    if normalized_comment is None:
+        return
+    comment_line = f"{prefix}: {normalized_comment}"
+    if payment_request.comment:
+        if comment_line in payment_request.comment:
+            return
+        payment_request.comment = f"{payment_request.comment}\n\n{comment_line}"
+    else:
+        payment_request.comment = comment_line
 
 
 def _normalize_user_email(value: str | None) -> str | None:
