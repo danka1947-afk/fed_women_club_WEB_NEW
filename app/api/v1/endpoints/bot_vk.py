@@ -50,6 +50,8 @@ def exchange_vk_link_code(
     link_code = db.execute(select(VkLinkCode).where(VkLinkCode.code == code_value)).scalar_one_or_none()
     if link_code is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Link code not found")
+    if link_code.status == VkLinkCodeStatus.USED.value:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Link code already used")
     if link_code.status != VkLinkCodeStatus.ACTIVE.value:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Link code is not active")
 
@@ -69,6 +71,9 @@ def exchange_vk_link_code(
     user = profile.user
     if not user.is_active or user.role != UserRole.CLIENT.value:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Client user not found")
+
+    if profile.vk_user_id is not None and profile.vk_user_id != vk_user_id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Client profile is already linked")
 
     existing_profile_id = db.execute(
         select(ClientProfile.id).where(
