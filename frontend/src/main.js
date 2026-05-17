@@ -454,6 +454,12 @@ const clientState = {
   offersByPartner: {},
   selectedPartner: null,
   selectedPartnerId: '',
+  selectedPartnerModalId: '',
+  selectedPartnerModalPartner: null,
+  selectedPartnerModalOffers: [],
+  partnerModalGalleryIndex: 0,
+  partnerModalLoading: false,
+  partnerModalError: '',
   latestVerification: null,
   vkLinkCode: null,
   vkLinkStatus: '',
@@ -1908,6 +1914,46 @@ const loadClientPartnerOffers = async (partnerId) => {
   clientState.offersByPartner[partnerId] = await clientApiFetch(`/api/v1/clients/partners/${partnerId}/offers`);
 };
 
+const resetClientPartnerModalState = () => {
+  clientState.selectedPartnerModalId = '';
+  clientState.selectedPartnerModalPartner = null;
+  clientState.selectedPartnerModalOffers = [];
+  clientState.partnerModalGalleryIndex = 0;
+  clientState.partnerModalLoading = false;
+  clientState.partnerModalError = '';
+};
+
+const openClientPartnerModal = async (partnerId) => {
+  const normalizedPartnerId = String(partnerId || '');
+  if (!normalizedPartnerId) return;
+
+  const catalogPartner = clientState.partners.find((partner) => String(partner.id) === normalizedPartnerId) || null;
+  clientState.selectedPartnerModalId = normalizedPartnerId;
+  clientState.selectedPartnerModalPartner = catalogPartner;
+  clientState.selectedPartnerModalOffers = clientState.offersByPartner[normalizedPartnerId] || [];
+  clientState.partnerModalGalleryIndex = 0;
+  clientState.partnerModalLoading = true;
+  clientState.partnerModalError = '';
+  renderClientLayout();
+
+  try {
+    const [partnerDetail, offers] = await Promise.all([
+      clientApiFetch(`/api/v1/clients/partners/${normalizedPartnerId}`),
+      clientState.offersByPartner[normalizedPartnerId]
+        ? Promise.resolve(clientState.offersByPartner[normalizedPartnerId])
+        : clientApiFetch(`/api/v1/clients/partners/${normalizedPartnerId}/offers`),
+    ]);
+    clientState.selectedPartnerModalPartner = partnerDetail || catalogPartner;
+    clientState.selectedPartnerModalOffers = Array.isArray(offers) ? offers : [];
+    clientState.offersByPartner[normalizedPartnerId] = clientState.selectedPartnerModalOffers;
+  } catch (error) {
+    clientState.partnerModalError = error.message || 'Не удалось загрузить витрину партнёра.';
+  } finally {
+    clientState.partnerModalLoading = false;
+    renderClientLayout();
+  }
+};
+
 const openClientPartnerMarketplace = async (partnerId) => {
   await Promise.all([loadClientPartnerDetail(partnerId), loadClientPartnerOffers(partnerId)]);
 };
@@ -1921,6 +1967,7 @@ const renderClientLayout = () => {
     ${clientState.panelMessage}
     ${profileHome}
     <section class="admin-tab-panel">${renderClientTabContent()}</section>
+    ${renderClientPartnerModal()}
   `;
 };
 
@@ -2254,7 +2301,6 @@ const renderClientCatalogTab = () => {
     <div class="client-marketplace-grid client-catalog-grid">
       ${clientState.partners.length ? clientState.partners.map(renderClientPartnerCard).join('') : renderClientEmptyState('Партнёры пока не найдены', 'Попробуйте выбрать другой город или категорию.')}
     </div>
-    ${clientState.selectedPartner ? renderClientPartnerDetail(clientState.selectedPartner) : ''}
   `;
 };
 
@@ -2294,25 +2340,86 @@ const renderClientPartnerGallery = (partner = {}) => {
   `;
 };
 
+const getPartnerGalleryImages = (partner = {}) => {
+  const photos = Array.isArray(partner.photos) ? partner.photos : [];
+  const activePhotos = photos
+    .filter((photo) => photo?.is_active !== false)
+    .map((photo) => ({
+      url: [photo?.image_url, photo?.photo_url, photo?.url].find(isSafePublicAssetUrl) || '',
+      alt_text: photo?.alt_text || partner.name || 'Фото партнёра',
+      sort_order: photo?.sort_order,
+      id: photo?.id,
+    }))
+    .filter((photo) => photo.url)
+    .sort((left, right) => Number(left.sort_order || 0) - Number(right.sort_order || 0) || Number(left.id || 0) - Number(right.id || 0));
+
+  const galleryImages = [...activePhotos];
+  if (isSafePublicAssetUrl(partner.cover_url) && !galleryImages.some((photo) => photo.url === partner.cover_url)) {
+    galleryImages.push({ url: partner.cover_url, alt_text: partner.name || 'Обложка партнёра' });
+  }
+  if (!galleryImages.length && isSafePublicAssetUrl(partner.logo_url)) {
+    galleryImages.push({ url: partner.logo_url, alt_text: partner.name || 'Логотип партнёра' });
+  }
+  return galleryImages;
+};
+
+const renderClientPartnerModalGallery = (partner = {}) => {
+  const images = getPartnerGalleryImages(partner);
+  if (!images.length) {
+    return `
+      <section class="client-partner-modal__gallery" aria-label="Галерея партнёра">
+        <div class="client-partner-modal__main-image client-partner-modal__placeholder">Фото партнёра</div>
+      </section>
+    `;
+  }
+
+  const safeIndex = Math.min(Math.max(Number(clientState.partnerModalGalleryIndex || 0), 0), images.length - 1);
+  const currentImage = images[safeIndex];
+  const hasMany = images.length > 1;
+
+  return `
+    <section class="client-partner-modal__gallery" aria-label="Галерея партнёра">
+      <div class="client-partner-modal__main-image">
+        <img class="client-partner-modal__image" src="${escapeHtml(currentImage.url)}" alt="${escapeHtml(currentImage.alt_text || partner.name || 'Фото партнёра')}" loading="lazy" />
+        <span class="client-partner-modal__counter">${safeIndex + 1} / ${images.length}</span>
+        ${hasMany ? `
+          <button class="client-partner-modal__nav client-partner-modal__nav--prev" type="button" data-gallery-action="prev" aria-label="Предыдущее фото">‹</button>
+          <button class="client-partner-modal__nav client-partner-modal__nav--next" type="button" data-gallery-action="next" aria-label="Следующее фото">›</button>
+        ` : ''}
+      </div>
+      ${hasMany ? `
+        <div class="client-partner-modal__dots" aria-label="Выбор фото">
+          ${images.map((image, index) => `<button class="client-partner-modal__dot ${index === safeIndex ? 'client-partner-modal__dot--active' : ''}" type="button" data-gallery-action="select" data-gallery-index="${escapeHtml(index)}" aria-label="Открыть фото ${escapeHtml(index + 1)}"></button>`).join('')}
+        </div>
+        <div class="client-partner-modal__thumbs">
+          ${images.map((image, index) => `<button class="client-partner-modal__thumb ${index === safeIndex ? 'client-partner-modal__thumb--active' : ''}" type="button" data-gallery-action="select" data-gallery-index="${escapeHtml(index)}" aria-label="Показать фото ${escapeHtml(index + 1)}"><img src="${escapeHtml(image.url)}" alt="" loading="lazy" /></button>`).join('')}
+        </div>
+      ` : ''}
+    </section>
+  `;
+};
+
 const renderClientPartnerCard = (partner) => {
   const partnerId = partner.id;
-  const cityAddress = [partner.city_name, partner.address].filter(Boolean).join(' · ');
+  const cityAddress = [partner.city_name || partner.city, partner.address].filter(Boolean).join(' · ');
+  const { coverUrl, logoUrl } = getClientPartnerVisuals(partner);
+  const category = partner.category_title || partner.category_name || formatClientCategory(partner.category_slug);
   return `
-    <article class="client-partner-card">
-      ${renderClientPartnerCover(partner)}
+    <article class="client-partner-card" data-partner-id="${escapeHtml(partnerId)}">
+      <div class="client-partner-card__cover ${coverUrl ? '' : 'client-partner-card__cover--placeholder'}" ${coverUrl ? `style="background-image: url('${escapeHtml(coverUrl)}')" role="img" aria-label="${escapeHtml(partner.name || 'Партнёр')}"` : 'aria-hidden="true"'}>${coverUrl ? '' : '<span>Фото партнёра</span>'}</div>
       <div class="client-partner-card-body">
         <div class="client-card-topline">
-          ${renderClientPartnerLogo(partner)}
+          <div class="client-partner-card__avatar ${logoUrl ? '' : 'client-partner-card__avatar--placeholder'}" ${logoUrl ? `style="background-image: url('${escapeHtml(logoUrl)}')"` : ''} aria-hidden="true">${logoUrl ? '' : '♡'}</div>
           <div>
-            <span>${formatValue(formatClientCategory(partner.category_slug))}</span>
+            <span>${formatValue(category)}</span>
             ${partner.is_verified ? '<span class="status-badge status-badge--success">Проверенный партнёр</span>' : ''}
           </div>
         </div>
         <h4>${formatValue(partner.name)}</h4>
         <p>${formatValue(partner.description || 'Витрина услуг партнёра скоро пополнится подробностями.')}</p>
-        <div class="client-card-location">${formatValue(cityAddress || partner.city_name || partner.address)}</div>
-        <div class="client-card-actions">
-          <button type="button" data-client-load-offers="${escapeHtml(partnerId)}">Смотреть предложения</button>
+        <div class="client-card-location">${formatValue(cityAddress)}</div>
+        <div class="client-partner-card__actions client-card-actions">
+          <button type="button" data-client-partner-open data-partner-id="${escapeHtml(partnerId)}">Открыть</button>
           <button type="button" data-client-verify-partner="${escapeHtml(partnerId)}">Получить привилегию</button>
         </div>
       </div>
@@ -2356,6 +2463,73 @@ const renderClientPartnerDetail = (partner = {}) => {
         ${offers.length ? offers.map((offer) => renderClientOffer(partnerId, offer)).join('') : '<div class="client-partner-empty">Предложения скоро появятся.</div>'}
       </div>
     </section>
+  `;
+};
+
+const renderClientPartnerModalOffer = (partnerId, offer) => `
+  <div class="client-partner-modal__offer">
+    ${renderClientOffer(partnerId, offer)}
+  </div>
+`;
+
+const renderClientPartnerModal = () => {
+  const partnerId = clientState.selectedPartnerModalId;
+  if (!partnerId) return '';
+
+  const partner = clientState.selectedPartnerModalPartner
+    || clientState.partners.find((item) => String(item.id) === String(partnerId))
+    || {};
+  const offers = Array.isArray(clientState.selectedPartnerModalOffers) ? clientState.selectedPartnerModalOffers : [];
+  const cityAddress = [partner.city_name || partner.city, partner.address].filter(Boolean).join(' · ');
+  const category = partner.category_title || partner.category_name || formatClientCategory(partner.category_slug);
+  const contacts = [
+    ['Город и адрес', cityAddress],
+    ['График работы', partner.working_hours],
+    ['Телефон', partner.phone],
+    ['Сайт', partner.website_url],
+    ['Соцсети', partner.social_url],
+  ].filter(([, value]) => String(value || '').trim());
+  const { logoUrl } = getClientPartnerVisuals(partner);
+  const titleId = 'client-partner-modal-title';
+
+  return `
+    <div class="client-partner-modal" data-client-partner-modal>
+      <div class="client-partner-modal__overlay" data-client-partner-modal-close></div>
+      <section class="client-partner-modal__panel" role="dialog" aria-modal="true" aria-labelledby="${titleId}">
+        <header class="client-partner-modal__header">
+          <div>
+            <span class="section-kicker">Витрина партнёра</span>
+            <h3 id="${titleId}">${formatValue(partner.name || 'Партнёр клуба')}</h3>
+          </div>
+          <button class="client-partner-modal__close" type="button" data-client-partner-modal-close aria-label="Закрыть витрину партнёра">×</button>
+        </header>
+        <div class="client-partner-modal__body">
+          ${clientState.partnerModalLoading ? '<div class="client-partner-modal__empty">Загружаем витрину партнёра…</div>' : ''}
+          ${clientState.partnerModalError ? `<div class="client-partner-modal__empty">${escapeHtml(clientState.partnerModalError)}</div>` : ''}
+          <div class="client-partner-modal__hero">
+            ${renderClientPartnerModalGallery(partner)}
+            <aside class="client-partner-modal__info">
+              <div class="client-card-topline">
+                <div class="client-partner-card__avatar ${logoUrl ? '' : 'client-partner-card__avatar--placeholder'}" ${logoUrl ? `style="background-image: url('${escapeHtml(logoUrl)}')"` : ''} aria-hidden="true">${logoUrl ? '' : '♡'}</div>
+                <div>
+                  <span>${formatValue(category)}</span>
+                  ${partner.is_verified ? '<span class="status-badge status-badge--success">Проверенный партнёр</span>' : ''}
+                </div>
+              </div>
+              <p>${formatValue(partner.description || 'Описание партнёра скоро появится.')}</p>
+              <dl class="client-card-details">
+                ${contacts.length ? contacts.map(([label, value]) => `<div><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd></div>`).join('') : '<div><dt>Контакты</dt><dd>Партнёр скоро добавит контакты.</dd></div>'}
+              </dl>
+              <button type="button" data-client-verify-partner="${escapeHtml(partnerId)}">Получить привилегию</button>
+            </aside>
+          </div>
+          <section class="client-partner-modal__offers" aria-label="Предложения партнёра">
+            <div class="admin-section-heading"><h4>Предложения</h4><p>Выберите услугу и получите клубную привилегию.</p></div>
+            ${offers.length ? offers.map((offer) => renderClientPartnerModalOffer(partnerId, offer)).join('') : '<div class="client-partner-modal__empty">Пока нет активных предложений</div>'}
+          </section>
+        </div>
+      </section>
+    </div>
   `;
 };
 
@@ -4701,6 +4875,45 @@ root.addEventListener('click', async (event) => {
     return;
   }
 
+  if (event.target.closest('[data-client-partner-modal]')) {
+    const closePartnerModalButton = event.target.closest('[data-client-partner-modal-close]');
+    if (closePartnerModalButton) {
+      event.preventDefault();
+      event.stopPropagation();
+      resetClientPartnerModalState();
+      renderClientLayout();
+      return;
+    }
+
+    const galleryButton = event.target.closest('[data-gallery-action]');
+    if (galleryButton) {
+      event.preventDefault();
+      event.stopPropagation();
+      const images = getPartnerGalleryImages(clientState.selectedPartnerModalPartner || {});
+      const total = images.length;
+      if (total) {
+        if (galleryButton.dataset.galleryAction === 'prev') {
+          clientState.partnerModalGalleryIndex = (clientState.partnerModalGalleryIndex - 1 + total) % total;
+        } else if (galleryButton.dataset.galleryAction === 'next') {
+          clientState.partnerModalGalleryIndex = (clientState.partnerModalGalleryIndex + 1) % total;
+        } else if (galleryButton.dataset.galleryAction === 'select') {
+          const nextIndex = Number(galleryButton.dataset.galleryIndex || 0);
+          clientState.partnerModalGalleryIndex = Math.min(Math.max(nextIndex, 0), total - 1);
+        }
+        renderClientLayout();
+      }
+      return;
+    }
+  }
+
+  const openPartnerModalButton = event.target.closest('[data-client-partner-open]');
+  if (openPartnerModalButton) {
+    event.preventDefault();
+    event.stopPropagation();
+    await openClientPartnerModal(openPartnerModalButton.dataset.partnerId);
+    return;
+  }
+
   const menuToggle = event.target.closest('[data-landing-menu-toggle]');
   if (menuToggle) {
     const panel = document.querySelector('[data-landing-menu-panel]');
@@ -5440,6 +5653,13 @@ document.addEventListener('click', (event) => {
 });
 
 document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape' && clientState.selectedPartnerModalId) {
+    event.preventDefault();
+    resetClientPartnerModalState();
+    renderClientLayout();
+    return;
+  }
+
   const trigger = event.target.closest?.('.custom-select-trigger');
   const openSelect = document.querySelector('[data-custom-select].custom-select--open');
   const activeSelect = trigger?.closest('[data-custom-select]') || openSelect;
