@@ -3421,7 +3421,8 @@ body.is-dashboard {
   align-items: center;
 }
 
-.partner-upload-actions input[type="file"] {
+.partner-upload-actions input[type="file"],
+.partner-gallery-upload input[type="file"] {
   position: absolute;
   width: 1px;
   height: 1px;
@@ -3431,6 +3432,34 @@ body.is-dashboard {
 
 .upload-status {
   color: var(--color-rose-dark);
+}
+
+.partner-upload-status {
+  min-height: 1.2em;
+  margin: 0;
+  color: var(--color-muted);
+}
+
+.partner-upload-status--loading {
+  color: var(--color-rose-dark);
+}
+
+.partner-upload-status--success {
+  color: #3d7a4a;
+}
+
+.partner-upload-status--error {
+  color: #b54040;
+}
+
+.partner-upload-button--loading {
+  cursor: progress;
+  opacity: 0.78;
+}
+
+.partner-upload-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.72;
 }
 
 .offer-image-uploader {
@@ -3473,6 +3502,7 @@ body.is-dashboard {
 }
 
 .offer-image-upload-actions input[type="file"],
+.partner-gallery-upload input[type="file"],
 .admin-inline-action input[type="file"] {
   position: absolute;
   width: 1px;

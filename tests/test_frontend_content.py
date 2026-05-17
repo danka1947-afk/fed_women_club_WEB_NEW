@@ -1364,6 +1364,16 @@ def test_frontend_contains_partner_logo_cover_upload_markers() -> None:
         "/api/v1/partners/me/images?kind=${kind}",
         "partner-image-uploader",
         "partner-image-preview",
+        "data-partner-upload-kind=\"logo\"",
+        "data-partner-upload-kind=\"cover\"",
+        "type=\"file\"",
+        "accept=\"image/jpeg,image/png,image/webp\"",
+        "FormData",
+        "input.value = \"\"",
+        "partner-upload-status",
+        "Загружаем изображение",
+        "Изображение загружено",
+        "Не удалось загрузить изображение",
         "/uploads/",
     ):
         assert expected in source or expected in styles
@@ -1569,6 +1579,7 @@ def test_frontend_contains_partner_gallery_photo_mvp_markers() -> None:
     required_source_markers = [
         "Галерея партнёра",
         "Загрузить фото в галерею",
+        "data-partner-gallery-upload",
         "Фото для клиентской витрины.",
         "Публикация после проверки.",
         "Фото загружено и отправлено на проверку.",
@@ -1584,6 +1595,8 @@ def test_frontend_contains_partner_gallery_photo_mvp_markers() -> None:
         "/api/v1/partners/me/images?kind=${kind}",
         "/api/v1/admin/partners/${partnerId}/images?kind=${kind}",
         "/api/v1/partners/me/offers/${offerId}/image",
+        "data-partner-offer-image-upload",
+        "Сначала сохраните предложение",
         "/api/v1/admin/offers/${offerId}/image",
         "partner-marketplace-card",
         "offer-marketplace-card",

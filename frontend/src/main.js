@@ -434,6 +434,7 @@ const partnerState = {
   selectedOfferIdForEdit: '',
   isProfileDirty: false,
   profileSaveStatus: 'saved',
+  uploadStatuses: {},
 };
 
 const clientTabs = [
@@ -1261,6 +1262,46 @@ const renderSafePartnerImagePreview = (url, kind, label) => {
     : `<div class="partner-image-preview ${modifier} partner-image-preview--placeholder" aria-label="${escapeHtml(label)}">${kind === 'cover' ? 'Обложка' : 'Лого'}</div>`;
 };
 
+
+const getPartnerUploadStatus = (key) => partnerState.uploadStatuses[key] || { state: '', message: '' };
+
+const setPartnerUploadStatus = (key, state = '', message = '') => {
+  if (!key) return;
+  if (!state && !message) {
+    delete partnerState.uploadStatuses[key];
+    return;
+  }
+  partnerState.uploadStatuses[key] = { state, message };
+};
+
+const isPartnerUploadLoading = (key) => getPartnerUploadStatus(key).state === 'loading';
+
+const renderPartnerUploadStatus = (key) => {
+  const status = getPartnerUploadStatus(key);
+  const stateClass = status.state ? ` partner-upload-status--${escapeHtml(status.state)}` : '';
+  return `<p class="helper-text form-message partner-upload-status${stateClass}" data-partner-upload-status="${escapeHtml(key)}">${escapeHtml(status.message || '')}</p>`;
+};
+
+const getSafeUploadErrorMessage = (error, fallback = 'Не удалось загрузить изображение') => {
+  console.error('Partner image upload failed', {
+    name: error?.name || 'Error',
+  });
+  return fallback;
+};
+
+const renderPartnerUploadButton = ({ label, trigger, inputAttr, inputSelector, statusKey, kind = '', disabled = false, disabledMessage = '' }) => {
+  const isLoading = isPartnerUploadLoading(statusKey);
+  const buttonClass = `admin-inline-action admin-action-button partner-upload-button${isLoading ? ' partner-upload-button--loading' : ''}`;
+  const disabledAttr = disabled || isLoading ? ' disabled' : '';
+  const inputMarkup = inputAttr
+    ? `<input type="file" accept="image/jpeg,image/png,image/webp" ${inputAttr} />`
+    : '';
+  return `
+    <button class="${buttonClass}" type="button" data-partner-upload-trigger="${escapeHtml(trigger)}"${kind ? ` data-partner-upload-kind="${escapeHtml(kind)}"` : ''}${inputSelector ? ` data-partner-upload-input="${escapeHtml(inputSelector)}"` : ''}${disabled && disabledMessage ? ` data-partner-upload-disabled-message="${escapeHtml(disabledMessage)}"` : ''}${disabledAttr}>${isLoading ? 'Загружаем изображение…' : escapeHtml(label)}</button>
+    ${inputMarkup}
+  `;
+};
+
 const renderSafeOfferImagePreview = (url, label = 'Фото предложения') => {
   const safeUrl = isSafePublicAssetUrl(url) ? url : '';
   return safeUrl
@@ -1273,50 +1314,71 @@ const renderOfferImageUploader = (offer, scope) => {
   const offerId = offer?.id;
   const messageKey = isAdmin ? 'offerImage' : 'offerImage';
   const message = isAdmin ? (adminState.formMessages[messageKey] || '') : (partnerState.formMessages[messageKey] || '');
+  const statusKey = offerId ? `offerImage:${offerId}` : 'offerImage:new';
   const inputAttr = isAdmin
     ? `data-admin-offer-image-upload data-offer-id="${escapeHtml(offerId || '')}"`
-    : `data-partner-offer-image-upload data-offer-id="${escapeHtml(offerId || '')}"`;
+    : `data-partner-offer-image-upload data-partner-upload-kind="offer" data-offer-id="${escapeHtml(offerId || '')}"`;
   return `
     <section class="offer-image-uploader">
       <div class="admin-section-heading text-stack"><h4 class="section-title">Фото предложения</h4><p class="helper-text compact-copy">JPG, PNG или WEBP до 5 МБ.</p></div>
       ${renderSafeOfferImagePreview(offer?.image_url, 'Фото предложения')}
       <div class="offer-image-upload-actions">
-        ${offerId
-          ? `<label class="admin-inline-action admin-action-button">Загрузить фото предложения<input type="file" accept="image/jpeg,image/png,image/webp" ${inputAttr} /></label>`
-          : '<p class="helper-text form-message compact-copy">Сначала сохраните, затем загрузите фото.</p>'}
+        ${isAdmin
+          ? (offerId
+            ? `<label class="admin-inline-action admin-action-button">Загрузить фото предложения<input type="file" accept="image/jpeg,image/png,image/webp" ${inputAttr} /></label>`
+            : '<p class="helper-text form-message compact-copy">Сначала сохраните предложение, затем загрузите фото.</p>')
+          : renderPartnerUploadButton({
+            label: 'Загрузить фото предложения',
+            trigger: 'offer-image',
+            inputAttr: offerId ? inputAttr : '',
+            inputSelector: offerId ? '[data-partner-offer-image-upload]' : '',
+            statusKey,
+            kind: 'offer',
+            disabled: !offerId,
+            disabledMessage: 'Сначала сохраните предложение, затем загрузите фото',
+          })}
       </div>
-      <p class="form-message offer-image-status" data-${isAdmin ? 'form-message' : 'partner-form-message'}="${messageKey}">${escapeHtml(message)}</p>
+      ${!isAdmin && !offerId ? '<p class="helper-text form-message compact-copy">Сначала сохраните предложение, затем загрузите фото</p>' : ''}
+      ${isAdmin ? `<p class="form-message offer-image-status" data-form-message="${messageKey}">${escapeHtml(message)}</p>` : renderPartnerUploadStatus(statusKey)}
+      ${!isAdmin ? `<p class="form-message offer-image-status" data-partner-form-message="${messageKey}">${escapeHtml(message)}</p>` : ''}
     </section>
   `;
 };
 
 const renderPartnerImageUploader = (partner, scope) => {
-  const logoInputAttr = scope === 'admin'
+  const isAdmin = scope === 'admin';
+  const logoInputAttr = isAdmin
     ? `data-admin-partner-image-upload="logo" data-partner-id="${escapeHtml(partner.id)}"`
-    : 'data-partner-image-upload="logo"';
-  const coverInputAttr = scope === 'admin'
+    : 'data-partner-image-upload="logo" data-partner-upload-kind="logo"';
+  const coverInputAttr = isAdmin
     ? `data-admin-partner-image-upload="cover" data-partner-id="${escapeHtml(partner.id)}"`
-    : 'data-partner-image-upload="cover"';
+    : 'data-partner-image-upload="cover" data-partner-upload-kind="cover"';
   return `
     <section class="partner-image-uploader">
-      <div class="admin-section-heading text-stack"><h4 class="section-title">${scope === 'admin' ? 'Изображения партнёра' : 'Фотографии профиля'}</h4><p class="helper-text compact-copy">JPG, PNG или WEBP до 5 МБ.</p></div>
+      <div class="admin-section-heading text-stack"><h4 class="section-title">${isAdmin ? 'Изображения партнёра' : 'Фотографии профиля'}</h4><p class="helper-text compact-copy">JPG, PNG или WEBP до 5 МБ.</p></div>
       <div class="partner-image-grid">
         <article>
           <span>Логотип</span>
           ${renderSafePartnerImagePreview(partner.logo_url, 'logo', 'Логотип партнёра')}
           <div class="partner-upload-actions">
-            <label class="admin-inline-action">Загрузить логотип<input type="file" accept="image/jpeg,image/png,image/webp" ${logoInputAttr} /></label>
+            ${isAdmin
+              ? `<label class="admin-inline-action">Загрузить логотип<input type="file" accept="image/jpeg,image/png,image/webp" ${logoInputAttr} /></label>`
+              : renderPartnerUploadButton({ label: 'Загрузить логотип', trigger: 'profile-image', inputAttr: logoInputAttr, inputSelector: '[data-partner-image-upload="logo"]', statusKey: 'profileImages:logo', kind: 'logo' })}
           </div>
+          ${!isAdmin ? renderPartnerUploadStatus('profileImages:logo') : ''}
         </article>
         <article>
           <span>Обложка</span>
           ${renderSafePartnerImagePreview(partner.cover_url, 'cover', 'Обложка партнёра')}
           <div class="partner-upload-actions">
-            <label class="admin-inline-action">Загрузить обложку<input type="file" accept="image/jpeg,image/png,image/webp" ${coverInputAttr} /></label>
+            ${isAdmin
+              ? `<label class="admin-inline-action">Загрузить обложку<input type="file" accept="image/jpeg,image/png,image/webp" ${coverInputAttr} /></label>`
+              : renderPartnerUploadButton({ label: 'Загрузить обложку', trigger: 'profile-image', inputAttr: coverInputAttr, inputSelector: '[data-partner-image-upload="cover"]', statusKey: 'profileImages:cover', kind: 'cover' })}
           </div>
+          ${!isAdmin ? renderPartnerUploadStatus('profileImages:cover') : ''}
         </article>
       </div>
-      <p class="helper-text form-message upload-status" data-${scope === 'admin' ? 'form-message="partnerImage"' : 'partner-form-message="profileImages"'}>${escapeHtml(scope === 'admin' ? (adminState.formMessages.partnerImage || '') : (partnerState.formMessages.profileImages || ''))}</p>
+      <p class="helper-text form-message upload-status" data-${isAdmin ? 'form-message="partnerImage"' : 'partner-form-message="profileImages"'}>${escapeHtml(isAdmin ? (adminState.formMessages.partnerImage || '') : (partnerState.formMessages.profileImages || ''))}</p>
     </section>
   `;
 };
@@ -1328,7 +1390,7 @@ const renderPartnerGallery = (partner, photos = [], scope = 'partner') => {
   const message = isAdmin ? (adminState.formMessages[messageKey] || '') : (partnerState.formMessages[messageKey] || '');
   const uploadAttr = isAdmin
     ? `data-admin-partner-photo-upload data-partner-id="${escapeHtml(partnerId)}"`
-    : 'data-partner-photo-upload';
+    : 'data-partner-photo-upload data-partner-gallery-upload data-partner-upload-kind="gallery"';
   const visiblePhotos = Array.isArray(photos) ? photos : [];
   return `
     <section class="partner-gallery">
@@ -1337,8 +1399,11 @@ const renderPartnerGallery = (partner, photos = [], scope = 'partner') => {
         <p class="section-description compact-copy">${isAdmin ? 'Фото для клиентской витрины.' : 'Публикация после проверки.'}</p>
       </div>
       <div class="partner-gallery-upload">
-        ${partnerId ? `<label class="admin-inline-action">Загрузить фото в галерею<input type="file" accept="image/jpeg,image/png,image/webp" ${uploadAttr} /></label>` : '<p class="form-message">Сначала сохраните партнёра, затем загрузите фото.</p>'}
+        ${partnerId ? (isAdmin
+          ? `<label class="admin-inline-action">Загрузить фото в галерею<input type="file" accept="image/jpeg,image/png,image/webp" ${uploadAttr} /></label>`
+          : renderPartnerUploadButton({ label: 'Загрузить фото в галерею', trigger: 'gallery-photo', inputAttr: uploadAttr, inputSelector: '[data-partner-gallery-upload]', statusKey: 'partnerGallery', kind: 'gallery' })) : '<p class="form-message">Сначала сохраните партнёра, затем загрузите фото.</p>'}
       </div>
+      ${!isAdmin ? renderPartnerUploadStatus('partnerGallery') : ''}
       ${visiblePhotos.length ? `
         <div class="partner-gallery-grid">
           ${visiblePhotos.map((photo) => {
@@ -4851,6 +4916,28 @@ const handleLoginSubmit = async (form) => {
   }
 };
 
+
+const triggerPartnerUploadInput = (button) => {
+  const disabledMessage = button.dataset.partnerUploadDisabledMessage;
+  if (button.disabled) {
+    if (disabledMessage) {
+      const statusKey = button.dataset.partnerUploadKind === 'offer'
+        ? 'offerImage:new'
+        : button.dataset.partnerUploadKind || '';
+      setPartnerUploadStatus(statusKey, 'error', disabledMessage);
+      setPartnerFormMessage('offerImage', disabledMessage);
+      renderPartnerLayout();
+    }
+    return;
+  }
+  const container = button.closest('.partner-image-uploader, .partner-gallery, .offer-image-uploader');
+  const selector = button.dataset.partnerUploadInput;
+  const input = selector ? container?.querySelector(selector) : null;
+  if (input) {
+    input.click();
+  }
+};
+
 root.addEventListener('click', async (event) => {
   const customSelectOption = event.target.closest('[data-custom-select-option]');
   if (customSelectOption) {
@@ -4872,6 +4959,14 @@ root.addEventListener('click', async (event) => {
   }
 
   if (event.target.closest('[data-custom-select]')) {
+    return;
+  }
+
+  const partnerUploadTrigger = event.target.closest('[data-partner-upload-trigger]');
+  if (partnerUploadTrigger) {
+    event.preventDefault();
+    event.stopPropagation();
+    triggerPartnerUploadInput(partnerUploadTrigger);
     return;
   }
 
@@ -5390,16 +5485,25 @@ const handleAdminPartnerPhotoInput = async (input) => {
 const handlePartnerPhotoInput = async (input) => {
   const file = input.files?.[0];
   if (!file) return;
+  const statusKey = 'partnerGallery';
   setPartnerFormMessage('partnerGallery');
+  setPartnerUploadStatus(statusKey, 'loading', 'Загружаем изображение…');
+  renderPartnerLayout();
   try {
     await uploadPartnerPhoto(file);
-    setPartnerFormMessage('partnerGallery', 'Фото загружено и отправлено на проверку.');
-    setPartnerPanelMessage('Фото загружено и отправлено на проверку.', 'success');
+    const successMessage = 'Изображение загружено. Фото загружено и отправлено на проверку. Фото появится после проверки/активации администратором.';
+    setPartnerUploadStatus(statusKey, 'success', successMessage);
+    setPartnerFormMessage('partnerGallery', successMessage);
+    setPartnerPanelMessage(successMessage, 'success');
   } catch (error) {
-    setPartnerFormMessage('partnerGallery', error.message || 'Не удалось загрузить фото в галерею.');
-    setPartnerPanelMessage(error.message || 'Не удалось загрузить фото в галерею.', 'error');
+    const errorMessage = getSafeUploadErrorMessage(error);
+    setPartnerUploadStatus(statusKey, 'error', errorMessage);
+    setPartnerFormMessage('partnerGallery', errorMessage);
+    setPartnerPanelMessage(errorMessage, 'error');
+  } finally {
+    input.value = "";
+    renderPartnerLayout();
   }
-  renderPartnerLayout();
 };
 
 const handleAdminGalleryFormSubmit = async (form) => {
@@ -5490,16 +5594,25 @@ const handlePartnerProfileImageInput = async (input) => {
   const file = input.files?.[0];
   if (!file) return;
   const kind = input.dataset.partnerImageUpload;
+  const statusKey = `profileImages:${kind}`;
   setPartnerFormMessage('profileImages');
+  setPartnerUploadStatus(statusKey, 'loading', 'Загружаем изображение…');
+  renderPartnerLayout();
   try {
     await uploadPartnerProfileImage(kind, file);
-    setPartnerFormMessage('profileImages', 'Фото обновлено.');
-    setPartnerPanelMessage('Фото обновлено.', 'success');
+    const successMessage = 'Изображение загружено';
+    setPartnerUploadStatus(statusKey, 'success', successMessage);
+    setPartnerFormMessage('profileImages', successMessage);
+    setPartnerPanelMessage(successMessage, 'success');
   } catch (error) {
-    setPartnerFormMessage('profileImages', error.message || 'Не удалось загрузить фото.');
-    setPartnerPanelMessage(error.message || 'Не удалось загрузить фото.', 'error');
+    const errorMessage = getSafeUploadErrorMessage(error);
+    setPartnerUploadStatus(statusKey, 'error', errorMessage);
+    setPartnerFormMessage('profileImages', errorMessage);
+    setPartnerPanelMessage(errorMessage, 'error');
+  } finally {
+    input.value = "";
+    renderPartnerLayout();
   }
-  renderPartnerLayout();
 };
 
 const handleAdminOfferImageInput = async (input) => {
@@ -5522,16 +5635,33 @@ const handlePartnerOfferImageInput = async (input) => {
   const file = input.files?.[0];
   if (!file) return;
   const offerId = input.dataset.offerId;
+  const statusKey = offerId ? `offerImage:${offerId}` : 'offerImage:new';
+  if (!offerId) {
+    const saveFirstMessage = 'Сначала сохраните предложение, затем загрузите фото';
+    setPartnerUploadStatus(statusKey, 'error', saveFirstMessage);
+    setPartnerFormMessage('offerImage', saveFirstMessage);
+    input.value = "";
+    renderPartnerLayout();
+    return;
+  }
   setPartnerFormMessage('offerImage');
+  setPartnerUploadStatus(statusKey, 'loading', 'Загружаем изображение…');
+  renderPartnerLayout();
   try {
     await uploadPartnerOfferImage(offerId, file);
-    setPartnerFormMessage('offerImage', 'Фото предложения обновлено.');
-    setPartnerPanelMessage('Фото предложения обновлено.', 'success');
+    const successMessage = 'Изображение загружено';
+    setPartnerUploadStatus(statusKey, 'success', successMessage);
+    setPartnerFormMessage('offerImage', successMessage);
+    setPartnerPanelMessage(successMessage, 'success');
   } catch (error) {
-    setPartnerFormMessage('offerImage', error.message || 'Не удалось загрузить фото предложения.');
-    setPartnerPanelMessage(error.message || 'Не удалось загрузить фото предложения.', 'error');
+    const errorMessage = getSafeUploadErrorMessage(error);
+    setPartnerUploadStatus(statusKey, 'error', errorMessage);
+    setPartnerFormMessage('offerImage', errorMessage);
+    setPartnerPanelMessage(errorMessage, 'error');
+  } finally {
+    input.value = "";
+    renderPartnerLayout();
   }
-  renderPartnerLayout();
 };
 
 root.addEventListener('change', (event) => {
