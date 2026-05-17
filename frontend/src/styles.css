@@ -5471,3 +5471,141 @@ body.is-dashboard {
     align-items: stretch;
   }
 }
+
+.admin-payments {
+  display: grid;
+  gap: 18px;
+}
+
+.admin-payments-toolbar {
+  align-items: end;
+  background: rgba(255, 255, 255, 0.64);
+  border: 1px solid rgba(216, 138, 158, 0.22);
+  border-radius: 22px;
+  box-shadow: 0 18px 45px rgba(171, 93, 117, 0.10);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  justify-content: space-between;
+  padding: 14px;
+}
+
+.admin-payment-grid {
+  display: grid;
+  gap: 14px;
+}
+
+.admin-payment-card {
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.82), rgba(255, 244, 248, 0.72));
+  border: 1px solid rgba(216, 138, 158, 0.25);
+  border-radius: 24px;
+  box-shadow: 0 20px 55px rgba(120, 57, 80, 0.11);
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+}
+
+.admin-payment-card__header {
+  align-items: flex-start;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.admin-payment-card__header h4 {
+  margin: 4px 0 0;
+}
+
+.admin-payment-meta {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  margin: 0;
+}
+
+.admin-payment-meta div,
+.admin-payment-receipts {
+  background: rgba(255, 255, 255, 0.58);
+  border: 1px solid rgba(216, 138, 158, 0.16);
+  border-radius: 16px;
+  padding: 10px 12px;
+}
+
+.admin-payment-meta dt {
+  color: var(--muted-text);
+  font-size: 0.74rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.admin-payment-meta dd {
+  color: var(--text-color);
+  font-weight: 700;
+  margin: 4px 0 0;
+  overflow-wrap: anywhere;
+}
+
+.admin-payment-status {
+  flex: 0 0 auto;
+}
+
+.admin-payment-actions {
+  align-items: end;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.admin-payment-actions label {
+  color: var(--muted-text);
+  display: grid;
+  font-size: 0.8rem;
+  gap: 6px;
+}
+
+.admin-payment-actions input {
+  max-width: 120px;
+}
+
+.admin-payment-actions--note {
+  align-items: center;
+  justify-content: space-between;
+}
+
+.admin-payment-actions--note p {
+  color: var(--muted-text);
+  margin: 0;
+}
+
+.admin-payment-receipts {
+  display: grid;
+  gap: 8px;
+}
+
+.admin-payment-receipts ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.admin-payment-receipts a {
+  color: var(--accent-strong);
+  font-weight: 700;
+}
+
+.admin-payment-empty {
+  background: rgba(255, 255, 255, 0.68);
+  border: 1px dashed rgba(216, 138, 158, 0.32);
+  border-radius: 22px;
+  color: var(--muted-text);
+  padding: 18px;
+  text-align: center;
+}
+
+.admin-payment-empty--error {
+  border-color: rgba(185, 72, 92, 0.32);
+  color: #9b2f45;
+}
