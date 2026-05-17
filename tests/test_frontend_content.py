@@ -261,6 +261,71 @@ def test_frontend_contains_reusable_custom_select_component() -> None:
         assert behavior_marker in source
 
 
+
+def test_frontend_applies_custom_selects_to_client_catalog_filters() -> None:
+    source = _frontend_main()
+    catalog_block = source.split("const renderClientCatalogTab = () => {", 1)[1].split("const renderClientPartnerCard", 1)[0]
+
+    assert "renderCustomSelect" in catalog_block
+    assert "name: 'category_slug'" in catalog_block
+    assert "name: 'city_slug'" in catalog_block
+    assert "clientCatalogFilter: 'category'" in catalog_block
+    assert "clientCatalogFilter: 'city'" in catalog_block
+    assert '<select name="category_slug"' not in catalog_block
+    assert '<select name="city_slug"' not in catalog_block
+
+
+def test_frontend_applies_custom_selects_to_admin_partner_edit_fields() -> None:
+    source = _frontend_main()
+    partner_edit_block = source.split("const renderPartnerEditForm = () => {", 1)[1].split("const renderPartnerCreateForm", 1)[0]
+
+    assert "renderSelect('city_id'" in partner_edit_block
+    assert "renderSelect('category_slug'" in partner_edit_block
+    assert "renderSelect('owner_user_id'" in partner_edit_block
+    assert "adminPartnerField: 'city'" in partner_edit_block
+    assert "adminPartnerField: 'category'" in partner_edit_block
+    assert "adminPartnerField: 'owner'" in partner_edit_block
+    assert '<select name="city_id"' not in partner_edit_block
+    assert '<select name="category_slug"' not in partner_edit_block
+    assert '<select name="owner_user_id"' not in partner_edit_block
+
+
+def test_frontend_applies_custom_selects_to_admin_role_offer_and_activity_filters() -> None:
+    source = _frontend_main()
+
+    users_block = source.split("const renderUsersTab = () => {", 1)[1].split("const renderCityActionButtons", 1)[0]
+    assert "renderSelect('role'" in users_block
+    assert "adminUserRole: true" in users_block
+
+    partner_picker_block = source.split("const renderPartnerPicker = (scope, selectedValue) =>", 1)[1].split("const showAdminDashboard", 1)[0]
+    assert "renderCustomSelect" in partner_picker_block
+    assert "name: 'partner_id'" in partner_picker_block
+    assert "data: { partnerPicker: scope }" in partner_picker_block
+
+    activity_block = source.split("const renderAdminActivityTab = () =>", 1)[1].split("const renderOverviewTab", 1)[0]
+    assert "renderCustomSelect" in activity_block
+    assert "name: 'event_type'" in activity_block
+    assert "data: { adminActivityEventType: true }" in activity_block
+
+    assert "data-custom-select-name" in source
+    assert "custom-select:change" in source
+
+
+def test_frontend_preserves_native_select_fallback_styles() -> None:
+    styles = _frontend_styles()
+
+    for expected_marker in (
+        "Rose glass native select styling",
+        ".form-select",
+        ".app-select",
+        ".select-field",
+        "select option",
+        "select:focus-visible",
+        "select:disabled",
+    ):
+        assert expected_marker in styles
+
+
 def test_frontend_adds_subtle_center_sakura_motion() -> None:
     source = _frontend_main()
     styles = _frontend_styles()

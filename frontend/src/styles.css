@@ -1470,6 +1470,13 @@ select::-ms-expand {
     0 22px 44px rgba(143, 81, 75, 0.18);
 }
 
+.custom-select--invalid .custom-select-trigger {
+  border-color: rgba(180, 64, 76, 0.72);
+  box-shadow:
+    0 0 0 4px rgba(180, 64, 76, 0.12),
+    0 18px 38px rgba(143, 81, 75, 0.14);
+}
+
 .custom-select-trigger:disabled {
   border-color: rgba(125, 111, 107, 0.2);
   background: linear-gradient(145deg, rgba(255, 250, 248, 0.72), rgba(239, 230, 227, 0.68));
