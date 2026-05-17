@@ -324,6 +324,7 @@ const adminTabs = [
   { id: 'partners', label: 'Партнёры', icon: '♡' },
   { id: 'offers', label: 'Предложения', icon: '%' },
   { id: 'contentReview', label: 'На проверке', icon: '◌' },
+  { id: 'paymentRequests', label: 'Оплаты', icon: '₽' },
   { id: 'qr', label: 'QR / лиды', icon: 'QR' },
   { id: 'verifications', label: 'Подтверждения', icon: '✓' },
   { id: 'activity', label: 'Активность', icon: '•' },
@@ -346,6 +347,14 @@ const adminState = {
   qrLinks: [],
   leads: [],
   verifications: [],
+  paymentRequests: [],
+  paymentRequestsLoading: false,
+  paymentRequestsError: '',
+  paymentRequestsStatusFilter: '',
+  selectedPaymentRequest: null,
+  paymentApprovalDays: 30,
+  paymentActionStatus: '',
+  paymentActionError: '',
   selectedPartnerIdForOffers: '',
   selectedPartnerIdForQr: '',
   selectedQrLinkIdForEdit: '',
@@ -366,6 +375,7 @@ const adminState = {
     qr: '',
     leads: '',
     verifications: '',
+    paymentRequests: '',
   },
   activityItems: [],
   activityLoading: false,
@@ -709,6 +719,10 @@ const statusBadgeMappings = {
   'expired': { label: 'Истекло', tone: 'warning' },
   'cancelled': { label: 'Отменено', tone: 'danger' },
   'canceled': { label: 'Отменено', tone: 'danger' },
+  'pending': { label: 'pending', tone: 'warning' },
+  'paid': { label: 'paid', tone: 'success' },
+  'approved': { label: 'approved', tone: 'success' },
+  'rejected': { label: 'rejected', tone: 'danger' },
 };
 
 const getStatusBadgeMeta = (value, tone = '') => {
@@ -910,6 +924,10 @@ const statusLabels = {
   cancelled: 'Отменено',
   canceled: 'Отменено',
   paused: 'Приостановлено',
+  pending: 'pending',
+  paid: 'paid',
+  approved: 'approved',
+  rejected: 'rejected',
 };
 
 const formatStatus = (status) => {
@@ -2694,6 +2712,13 @@ const renderPartnerActivityTab = () => `
 
 const requestAdminMe = () => apiFetch('/api/v1/admin/me');
 
+const buildAdminPaymentRequestsPath = (status = adminState.paymentRequestsStatusFilter) => {
+  const params = new URLSearchParams();
+  if (status) params.set('status', status);
+  const query = params.toString();
+  return `/api/v1/admin/payment-requests${query ? `?${query}` : ''}`;
+};
+
 const postJson = (path, payload) => apiFetch(path, {
   method: 'POST',
   body: JSON.stringify(payload),
@@ -2703,6 +2728,31 @@ const patchJson = (path, payload) => apiFetch(path, {
   method: 'PATCH',
   body: JSON.stringify(payload),
 });
+
+const loadAdminPaymentRequests = async (status = adminState.paymentRequestsStatusFilter) => {
+  adminState.paymentRequestsLoading = true;
+  adminState.paymentRequestsError = '';
+  try {
+    const data = await apiFetch(buildAdminPaymentRequestsPath(status));
+    adminState.paymentRequests = Array.isArray(data) ? data : Array.isArray(data?.items) ? data.items : [];
+    if (adminState.selectedPaymentRequest && !adminState.paymentRequests.some((request) => String(getPaymentRequestId(request)) === String(getPaymentRequestId(adminState.selectedPaymentRequest)))) {
+      adminState.selectedPaymentRequest = null;
+    }
+  } catch (error) {
+    adminState.paymentRequests = [];
+    adminState.paymentRequestsError = error.message || 'Не удалось загрузить заявки на оплату.';
+  } finally {
+    adminState.paymentRequestsLoading = false;
+  }
+};
+
+const loadAdminPaymentRequest = (id) => apiFetch(`/api/v1/admin/payment-requests/${id}`);
+
+const approveAdminPaymentRequest = (id, accessDays) => postJson(`/api/v1/admin/payment-requests/${id}/approve`, {
+  access_days: Number(accessDays) || 30,
+});
+
+const rejectAdminPaymentRequest = (id, comment = 'Отклонено администратором') => postJson(`/api/v1/admin/payment-requests/${id}/reject`, { comment });
 
 const loadUsers = async () => {
   adminState.users = await apiFetch('/api/v1/admin/users');
@@ -2841,6 +2891,8 @@ const renderAdminTabContent = () => {
       return renderOffersTab();
     case 'contentReview':
       return renderContentReviewTab();
+    case 'paymentRequests':
+      return renderAdminPaymentRequestsTab();
     case 'qr':
       return renderQrTab();
     case 'verifications':
@@ -2882,6 +2934,7 @@ const renderOverviewTab = () => {
     ['Категории', adminState.categories.length, 'Направления каталога'],
     ['Партнёры', adminState.partners.length, 'CRM-база клуба'],
     ['Подтверждения', adminState.verifications.length, 'Сессии привилегий'],
+    ['Оплаты', adminState.paymentRequests.length, 'Ручные заявки на оплату'],
     ['Лиды', adminState.leads.reduce((sum, lead) => sum + Number(lead.total_clicks || 0), 0), 'Переходы по QR'],
   ];
   const quickActions = [
@@ -2889,6 +2942,7 @@ const renderOverviewTab = () => {
     ['partners', 'Партнёры', 'Добавить партнёра и владельца'],
     ['cities', 'Города', 'Настроить географию клуба'],
     ['contentReview', 'На проверке', 'Активировать новые материалы партнёров'],
+    ['paymentRequests', 'Оплаты', 'Проверить ручные оплаты'],
     ['qr', 'QR / лиды', 'Посмотреть QR-ссылки и лиды'],
   ];
 
@@ -3525,6 +3579,152 @@ const renderQrEditForm = () => {
   `;
 };
 
+
+const adminPaymentStatusOptions = [
+  { value: '', label: 'Все' },
+  { value: 'pending', label: 'pending' },
+  { value: 'paid', label: 'paid' },
+  { value: 'approved', label: 'approved' },
+  { value: 'rejected', label: 'rejected' },
+];
+
+const getPaymentRequestId = (request) => request?.id ?? request?.payment_request_id ?? request?.request_id;
+
+const getPaymentClientLabel = (request) => {
+  const name = request?.client_full_name || request?.client_name || request?.client?.full_name || request?.client?.name;
+  const userId = request?.client_user_id || request?.user_id || request?.client_id || request?.client?.id;
+  const vkId = request?.vk_id || request?.vk_user_id || request?.client_vk_id || request?.client?.vk_id;
+  return [name, userId ? `user ${userId}` : '', vkId ? `VK ${vkId}` : ''].filter(Boolean).join(' · ') || 'Клиент не указан';
+};
+
+const getPaymentAmountLabel = (request) => {
+  const amount = request?.amount ?? request?.amount_rub ?? request?.price ?? request?.total_amount;
+  const currency = request?.currency || '₽';
+  if (amount === null || amount === undefined || amount === '') return '—';
+  return `${amount} ${currency}`;
+};
+
+const renderAdminPaymentMetaItem = (label, value) => `
+  <div><dt>${escapeHtml(label)}</dt><dd>${formatValue(value)}</dd></div>
+`;
+
+const renderAdminPaymentReceipts = (request) => {
+  const receipts = Array.isArray(request?.receipts) ? request.receipts : Array.isArray(request?.receipt_urls) ? request.receipt_urls : [];
+  if (!receipts.length && !request?.receipt_url) {
+    return '<div class="admin-payment-receipts"><strong>Чеки</strong><span>Чеки не приложены.</span></div>';
+  }
+  const normalizedReceipts = receipts.length ? receipts : [request.receipt_url];
+  return `
+    <div class="admin-payment-receipts">
+      <strong>Чеки</strong>
+      <ul>
+        ${normalizedReceipts.map((receipt, index) => {
+          const url = typeof receipt === 'string' ? receipt : (receipt?.url || receipt?.file_url || receipt?.href || '');
+          const label = typeof receipt === 'string' ? `Чек ${index + 1}` : (receipt?.title || receipt?.filename || `Чек ${index + 1}`);
+          return url
+            ? `<li><a href="${escapeHtml(url)}" target="_blank" rel="noreferrer">${escapeHtml(label)}</a></li>`
+            : `<li>${formatValue(label)}</li>`;
+        }).join('')}
+      </ul>
+    </div>
+  `;
+};
+
+const renderAdminPaymentActions = (request) => {
+  const status = String(request?.status || '').toLowerCase();
+  const requestId = getPaymentRequestId(request);
+  if (status === 'paid') {
+    return `
+      <div class="admin-payment-actions">
+        <label>Дней доступа
+          <input type="number" min="1" step="1" value="${escapeHtml(adminState.paymentApprovalDays)}" data-admin-payment-access-days>
+        </label>
+        <button type="button" class="admin-action-button" data-admin-payment-approve="${escapeHtml(requestId)}">Подтвердить</button>
+        <button type="button" class="admin-inline-action" data-admin-payment-reject="${escapeHtml(requestId)}">Отклонить</button>
+      </div>
+    `;
+  }
+  if (status === 'pending') {
+    return `
+      <div class="admin-payment-actions admin-payment-actions--note">
+        <p>Ожидает отметки клиента “Я оплатил”</p>
+        <button type="button" class="admin-inline-action" data-admin-payment-reject="${escapeHtml(requestId)}">Отклонить</button>
+      </div>
+    `;
+  }
+  if (status === 'approved') {
+    return `<div class="admin-payment-actions admin-payment-actions--note"><p>Подписка продлена до ${formatValue(formatDate(request?.access_until || request?.subscription_ends_at || request?.ends_at))}</p></div>`;
+  }
+  if (status === 'rejected') {
+    return '<div class="admin-payment-actions admin-payment-actions--note"><p>Отклонена</p></div>';
+  }
+  return '<div class="admin-payment-actions admin-payment-actions--note"><p>Действия недоступны для текущего статуса.</p></div>';
+};
+
+const renderAdminPaymentCard = (request) => {
+  const requestId = getPaymentRequestId(request);
+  return `
+    <article class="admin-payment-card" data-admin-payment-request="${escapeHtml(requestId || '')}">
+      <div class="admin-payment-card__header">
+        <div>
+          <p class="section-kicker">ID ${formatValue(requestId)}</p>
+          <h4>${formatValue(getPaymentClientLabel(request))}</h4>
+        </div>
+        <div class="admin-payment-status">${renderStatusBadge(formatStatus(request?.status))}</div>
+      </div>
+      <dl class="admin-payment-meta">
+        ${renderAdminPaymentMetaItem('Клиент', getPaymentClientLabel(request))}
+        ${renderAdminPaymentMetaItem('Сумма', getPaymentAmountLabel(request))}
+        ${renderAdminPaymentMetaItem('Создано', formatDate(request?.created_at))}
+        ${renderAdminPaymentMetaItem('Обновлено', formatDate(request?.updated_at))}
+        ${renderAdminPaymentMetaItem('Подтверждено', formatDate(request?.approved_at))}
+        ${renderAdminPaymentMetaItem('Отклонено', formatDate(request?.rejected_at))}
+        ${renderAdminPaymentMetaItem('Доступ до', formatDate(request?.access_until || request?.subscription_ends_at || request?.ends_at))}
+        ${renderAdminPaymentMetaItem('Комментарий', request?.comment || request?.admin_comment)}
+      </dl>
+      ${renderAdminPaymentReceipts(request)}
+      <div class="admin-payment-actions"><button type="button" class="admin-inline-action" data-admin-payment-open="${escapeHtml(requestId)}">Открыть детали</button></div>
+      ${renderAdminPaymentActions(request)}
+    </article>
+  `;
+};
+
+const renderAdminPaymentRequestsTab = () => `
+  <section class="admin-payments">
+    <div class="admin-section-heading admin-page-heading">
+      <p class="section-eyebrow section-kicker">Manual payments</p>
+      <h4>Заявки на оплату</h4>
+      <p>Проверяйте ручные оплаты и продлевайте доступ после подтверждения.</p>
+    </div>
+    <div class="admin-payments-toolbar admin-toolbar">
+      <label class="admin-select-label">Статус
+        ${renderCustomSelect({
+          id: 'admin-payment-status-filter',
+          name: 'payment_status',
+          value: adminState.paymentRequestsStatusFilter,
+          options: adminPaymentStatusOptions,
+          placeholder: 'Все',
+          label: 'Статус оплаты',
+          data: { adminPaymentStatusFilter: true },
+          ariaLabel: 'Статус оплаты',
+          size: 'compact',
+        })}
+      </label>
+      <button type="button" class="admin-inline-action" data-admin-payment-refresh>Обновить</button>
+    </div>
+    ${adminState.paymentActionStatus ? `<div class="admin-status admin-status--success" role="status">${escapeHtml(adminState.paymentActionStatus)}</div>` : ''}
+    ${adminState.paymentActionError ? `<div class="admin-status admin-status--error" role="alert">${escapeHtml(adminState.paymentActionError)}</div>` : ''}
+    ${adminState.selectedPaymentRequest ? `<section class="admin-payment-card admin-payment-card--details"><div class="admin-section-heading"><h4>Детали заявки ${formatValue(getPaymentRequestId(adminState.selectedPaymentRequest))}</h4><p>Данные загружены через GET /api/v1/admin/payment-requests/{payment_request_id}.</p></div>${renderAdminPaymentCard(adminState.selectedPaymentRequest)}</section>` : ''}
+    ${adminState.paymentRequestsLoading ? '<div class="admin-payment-empty">Загружаем заявки на оплату…</div>' : ''}
+    ${adminState.paymentRequestsError ? `<div class="admin-payment-empty admin-payment-empty--error">${escapeHtml(adminState.paymentRequestsError)}</div>` : ''}
+    ${!adminState.paymentRequestsLoading && !adminState.paymentRequestsError ? (
+      adminState.paymentRequests.length
+        ? `<div class="admin-payment-grid">${adminState.paymentRequests.map(renderAdminPaymentCard).join('')}</div>`
+        : '<div class="admin-payment-empty">Заявок на оплату пока нет.</div>'
+    ) : ''}
+  </section>
+`;
+
 const renderQrTab = () => {
   const qrLinks = filterAdminRows(adminState.qrLinks, adminState.search.qr, ['slug', 'target_url', 'deep_link_payload', (link) => searchableBool(link.is_active)]);
   const leads = filterAdminRows(adminState.leads, adminState.search.leads, ['partner_name', 'city_name', 'qr_slug', 'target_url', 'deep_link_payload', 'total_clicks']);
@@ -3690,6 +3890,8 @@ const loadActiveTabData = async () => {
       await loadOffers();
     } else if (adminState.activeTab === 'contentReview') {
       await Promise.all([ensureAdminDictionaries(), loadContentReview()]);
+    } else if (adminState.activeTab === 'paymentRequests') {
+      await loadAdminPaymentRequests();
     } else if (adminState.activeTab === 'qr') {
       await Promise.all([ensureAdminDictionaries(), loadLeads()]);
       if (!adminState.selectedPartnerIdForQr && adminState.partners[0]) {
@@ -4759,6 +4961,32 @@ root.addEventListener('click', async (event) => {
     return;
   }
 
+  const adminPaymentRefresh = event.target.closest('[data-admin-payment-refresh]');
+  if (adminPaymentRefresh) {
+    adminState.paymentActionStatus = '';
+    adminState.paymentActionError = '';
+    loadActiveTabData();
+    return;
+  }
+
+  const adminPaymentOpen = event.target.closest('[data-admin-payment-open]');
+  if (adminPaymentOpen) {
+    await handleAdminPaymentOpen(adminPaymentOpen.dataset.adminPaymentOpen);
+    return;
+  }
+
+  const adminPaymentApprove = event.target.closest('[data-admin-payment-approve]');
+  if (adminPaymentApprove) {
+    await handleAdminPaymentApprove(adminPaymentApprove.dataset.adminPaymentApprove);
+    return;
+  }
+
+  const adminPaymentReject = event.target.closest('[data-admin-payment-reject]');
+  if (adminPaymentReject) {
+    await handleAdminPaymentReject(adminPaymentReject.dataset.adminPaymentReject);
+    return;
+  }
+
   const adminLogout = event.target.closest('[data-logout-button]');
   if (adminLogout) {
     clearToken();
@@ -4906,6 +5134,12 @@ root.addEventListener('input', (event) => {
     return;
   }
 
+  const paymentAccessDaysInput = event.target.closest('[data-admin-payment-access-days]');
+  if (paymentAccessDaysInput) {
+    adminState.paymentApprovalDays = Math.max(1, Number(paymentAccessDaysInput.value) || 30);
+    return;
+  }
+
   const searchInput = event.target.closest('[data-admin-search]');
   if (!searchInput) {
     return;
@@ -4979,6 +5213,47 @@ const handlePartnerGalleryFormSubmit = async (form) => {
     setPartnerPanelMessage(error.message || 'Не удалось сохранить фото.', 'error');
   }
   renderPartnerLayout();
+};
+
+
+const handleAdminPaymentOpen = async (requestId) => {
+  adminState.paymentActionStatus = '';
+  adminState.paymentActionError = '';
+  renderAdminLayout();
+  try {
+    adminState.selectedPaymentRequest = await loadAdminPaymentRequest(requestId);
+  } catch (error) {
+    adminState.paymentActionError = error.message || 'Не удалось открыть детали заявки.';
+  }
+  renderAdminLayout();
+};
+
+const handleAdminPaymentApprove = async (requestId) => {
+  adminState.paymentActionStatus = '';
+  adminState.paymentActionError = '';
+  renderAdminLayout();
+  try {
+    await approveAdminPaymentRequest(requestId, adminState.paymentApprovalDays);
+    adminState.paymentActionStatus = 'Оплата подтверждена. Подписка продлена.';
+    await loadAdminPaymentRequests();
+  } catch (error) {
+    adminState.paymentActionError = error.message || 'Не удалось подтвердить оплату.';
+  }
+  renderAdminLayout();
+};
+
+const handleAdminPaymentReject = async (requestId) => {
+  adminState.paymentActionStatus = '';
+  adminState.paymentActionError = '';
+  renderAdminLayout();
+  try {
+    await rejectAdminPaymentRequest(requestId, 'Отклонено администратором');
+    adminState.paymentActionStatus = 'Заявка отклонена.';
+    await loadAdminPaymentRequests();
+  } catch (error) {
+    adminState.paymentActionError = error.message || 'Не удалось отклонить заявку.';
+  }
+  renderAdminLayout();
 };
 
 const handleAdminPartnerImageInput = async (input) => {
@@ -5083,6 +5358,21 @@ root.addEventListener('change', (event) => {
     return;
   }
 
+  const paymentAccessDaysInput = event.target.closest('[data-admin-payment-access-days]');
+  if (paymentAccessDaysInput) {
+    adminState.paymentApprovalDays = Math.max(1, Number(paymentAccessDaysInput.value) || 30);
+    return;
+  }
+
+  const paymentStatusFilter = event.target.closest('[data-admin-payment-status-filter]');
+  if (paymentStatusFilter) {
+    adminState.paymentRequestsStatusFilter = paymentStatusFilter.value;
+    adminState.paymentActionStatus = '';
+    adminState.paymentActionError = '';
+    loadActiveTabData();
+    return;
+  }
+
   const activityEventSelect = event.target.closest('[data-admin-activity-event-type]');
   if (activityEventSelect) {
     adminState.activityEventType = activityEventSelect.value;
@@ -5111,6 +5401,14 @@ root.addEventListener('change', (event) => {
 root.addEventListener('custom-select:change', (event) => {
   const customSelect = event.target.closest('[data-custom-select]');
   if (!customSelect) {
+    return;
+  }
+
+  if (customSelect.matches('[data-admin-payment-status-filter]')) {
+    adminState.paymentRequestsStatusFilter = event.detail.value;
+    adminState.paymentActionStatus = '';
+    adminState.paymentActionError = '';
+    loadActiveTabData();
     return;
   }
 

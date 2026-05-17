@@ -685,6 +685,53 @@ def test_frontend_contains_admin_cabinet_tabs() -> None:
         assert tab_text in source
 
 
+
+def test_frontend_contains_admin_payment_requests_ui_markers() -> None:
+    source = _frontend_main()
+    styles = _frontend_styles()
+
+    for expected in (
+        "Оплаты",
+        "Заявки на оплату",
+        "Проверяйте ручные оплаты",
+        "Заявок на оплату пока нет",
+        "Подтвердить",
+        "Отклонить",
+        "Ожидает отметки клиента",
+        "Подписка продлена",
+        "/api/v1/admin/payment-requests",
+        "/approve",
+        "/reject",
+        "admin-payments",
+        "admin-payment-card",
+        "admin-payment-actions",
+        "admin-payment-receipts",
+        "custom-select",
+        "data-custom-select",
+        "custom-select:change",
+    ):
+        assert expected in source or expected in styles
+
+    for preserved_marker in (
+        "Партнёры",
+        "Предложения",
+        "На проверке",
+        "Активность",
+        "Аналитика",
+        "Кабинет клуба",
+        "Кабинет партнёра",
+        "Личный кабинет",
+        "setup-password",
+        "landing",
+        "reference-lotus-layer",
+        "/assets/lotus-bg.png",
+    ):
+        if preserved_marker in ("reference-lotus-layer", "/assets/lotus-bg.png"):
+            assert preserved_marker not in source
+            assert preserved_marker not in styles
+        else:
+            assert preserved_marker in source or preserved_marker in styles
+
 def test_frontend_contains_admin_cabinet_endpoint_strings() -> None:
     source = _frontend_main()
 
