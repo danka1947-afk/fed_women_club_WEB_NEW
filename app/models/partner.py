@@ -44,7 +44,6 @@ class Partner(Base):
         "PrivilegeVerificationSession",
         back_populates="partner",
     )
-    appointments: Mapped[list["PartnerAppointment"]] = relationship("PartnerAppointment", back_populates="partner")
 
 
 class PartnerPhoto(Base):
@@ -90,7 +89,6 @@ class PartnerOffer(Base):
         "PrivilegeVerificationSession",
         back_populates="offer",
     )
-    appointments: Mapped[list["PartnerAppointment"]] = relationship("PartnerAppointment", back_populates="offer")
 
 
 class PartnerQrLink(Base):

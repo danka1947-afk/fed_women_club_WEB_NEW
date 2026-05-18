@@ -41,7 +41,6 @@ class ClientProfile(Base):
         back_populates="client",
     )
     vk_link_codes: Mapped[list["VkLinkCode"]] = relationship("VkLinkCode", back_populates="client")
-    appointments: Mapped[list["PartnerAppointment"]] = relationship("PartnerAppointment", back_populates="client")
 
 
 class VkLinkCode(Base):
