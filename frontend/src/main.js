@@ -465,6 +465,7 @@ const clientTabs = [
   { id: 'catalog', label: 'Каталог', icon: '✦' },
   { id: 'subscription', label: 'Моя подписка', icon: '₽' },
   { id: 'history', label: 'Мои привилегии', legacyLabel: 'История', icon: '↺' },
+  { id: 'appointments', label: 'Мои записи', icon: '☏' },
   { id: 'activity', label: 'Активность', icon: '•' },
 ];
 
@@ -489,6 +490,20 @@ const clientState = {
   vkLinkStatus: '',
   vkLinkMessage: '',
   verifications: [],
+  appointments: [],
+  appointmentsLoading: false,
+  appointmentsError: '',
+  appointmentModalOpen: false,
+  appointmentPartnerId: '',
+  appointmentOfferId: '',
+  appointmentForm: {
+    client_name: '',
+    client_phone: '',
+    desired_at: '',
+    comment: '',
+  },
+  appointmentSubmitStatus: '',
+  appointmentSubmitError: '',
   activityItems: [],
   activityLoading: false,
   activityError: '',
@@ -1955,6 +1970,20 @@ const requestClientUserMe = () => clientApiFetch('/api/v1/auth/user-me');
 const loadClientProfile = async () => { clientState.profile = await clientApiFetch('/api/v1/clients/me'); };
 const loadClientSubscription = async () => { clientState.subscription = await clientApiFetch('/api/v1/clients/me/subscription'); };
 const loadClientVerifications = async () => { clientState.verifications = await clientApiFetch('/api/v1/clients/me/verifications'); };
+const createClientAppointment = (partnerId, payload) => clientPostJson(`/api/v1/clients/partners/${partnerId}/appointments`, payload);
+const loadClientAppointments = async () => {
+  clientState.appointmentsLoading = true;
+  clientState.appointmentsError = '';
+  try {
+    const data = await clientApiFetch('/api/v1/clients/me/appointments');
+    clientState.appointments = Array.isArray(data) ? data : Array.isArray(data?.items) ? data.items : [];
+  } catch (error) {
+    if (!getClientToken()) throw error;
+    clientState.appointmentsError = error.message || 'Не удалось загрузить записи.';
+  } finally {
+    clientState.appointmentsLoading = false;
+  }
+};
 const loadClientActivity = async () => {
   clientState.activityLoading = true;
   clientState.activityError = '';
@@ -2047,6 +2076,111 @@ const openClientPartnerMarketplace = async (partnerId) => {
   await Promise.all([loadClientPartnerDetail(partnerId), loadClientPartnerOffers(partnerId)]);
 };
 
+const getClientPartnerById = (partnerId) => {
+  const normalizedPartnerId = String(partnerId || '');
+  return clientState.selectedPartnerModalPartner && String(clientState.selectedPartnerModalPartner.id) === normalizedPartnerId
+    ? clientState.selectedPartnerModalPartner
+    : clientState.partners.find((partner) => String(partner.id) === normalizedPartnerId)
+      || (clientState.selectedPartner && String(clientState.selectedPartner.id) === normalizedPartnerId ? clientState.selectedPartner : null);
+};
+
+const getClientOfferById = (partnerId, offerId) => {
+  const offers = String(clientState.selectedPartnerModalId) === String(partnerId) && clientState.selectedPartnerModalOffers.length
+    ? clientState.selectedPartnerModalOffers
+    : clientState.offersByPartner[partnerId] || [];
+  return offers.find((offer) => String(offer.id) === String(offerId)) || null;
+};
+
+const resetClientAppointmentForm = () => {
+  clientState.appointmentForm = {
+    client_name: clientState.profile?.full_name || '',
+    client_phone: clientState.profile?.phone || '',
+    desired_at: '',
+    comment: '',
+  };
+};
+
+const openClientAppointmentModal = (partnerId, offerId = '') => {
+  const normalizedPartnerId = String(partnerId || '');
+  if (!normalizedPartnerId) return;
+  clientState.appointmentModalOpen = true;
+  clientState.appointmentPartnerId = normalizedPartnerId;
+  clientState.appointmentOfferId = String(offerId || '');
+  clientState.appointmentSubmitStatus = '';
+  clientState.appointmentSubmitError = '';
+  resetClientAppointmentForm();
+  renderClientLayout();
+};
+
+const closeClientAppointmentModal = () => {
+  clientState.appointmentModalOpen = false;
+  clientState.appointmentPartnerId = '';
+  clientState.appointmentOfferId = '';
+  clientState.appointmentSubmitStatus = '';
+  clientState.appointmentSubmitError = '';
+  resetClientAppointmentForm();
+  renderClientLayout();
+};
+
+const getAppointmentStatusLabel = (status) => ({
+  new: 'Новая',
+  confirmed: 'Подтверждена',
+  cancelled: 'Отменена',
+  completed: 'Завершена',
+  rejected: 'Отклонена',
+}[String(status || '').toLowerCase()] || formatValue(status));
+
+const renderClientAppointmentModal = () => {
+  if (!clientState.appointmentModalOpen) return '';
+
+  const partner = getClientPartnerById(clientState.appointmentPartnerId) || {};
+  const offer = clientState.appointmentOfferId ? getClientOfferById(clientState.appointmentPartnerId, clientState.appointmentOfferId) : null;
+  const form = clientState.appointmentForm || {};
+  const isSubmitting = clientState.appointmentSubmitStatus === 'loading';
+  const isSuccess = clientState.appointmentSubmitStatus === 'success';
+
+  return `
+    <div class="client-appointment-modal" data-client-appointment-modal>
+      <div class="client-appointment-modal__overlay" data-client-appointment-close></div>
+      <section class="client-appointment-modal__panel" role="dialog" aria-modal="true" aria-labelledby="client-appointment-title">
+        <header class="client-partner-modal__header">
+          <div>
+            <span class="section-kicker">Заявка на визит</span>
+            <h3 id="client-appointment-title">Записаться к партнёру</h3>
+          </div>
+          <button class="client-partner-modal__close" type="button" data-client-appointment-close aria-label="Закрыть форму записи">×</button>
+        </header>
+        <div class="client-appointment-modal__body">
+          <div class="client-appointment-status" role="status">
+            <strong>${formatValue(partner.name || 'Партнёр клуба')}</strong>
+            ${offer ? `<span>${formatValue(offer.title || 'Выбранная услуга')}</span>` : '<span>Выберите удобное время, партнёр подтвердит запись.</span>'}
+          </div>
+          ${isSuccess ? '<div class="client-appointment-status client-appointment-status--success">Заявка отправлена. Партнёр свяжется с вами.</div>' : ''}
+          ${clientState.appointmentSubmitError ? `<div class="client-appointment-status client-appointment-status--error">${escapeHtml(clientState.appointmentSubmitError)}</div>` : ''}
+          <form class="client-appointment-form" data-client-appointment-form>
+            <label class="client-appointment-field">Имя
+              <input name="client_name" autocomplete="name" value="${escapeHtml(form.client_name || '')}" placeholder="Как к вам обращаться" />
+            </label>
+            <label class="client-appointment-field">Телефон
+              <input name="client_phone" autocomplete="tel" required value="${escapeHtml(form.client_phone || '')}" placeholder="+7 900 000-00-00" />
+            </label>
+            <label class="client-appointment-field">Желаемая дата и время
+              <input name="desired_at" type="datetime-local" value="${escapeHtml(form.desired_at || '')}" />
+            </label>
+            <label class="client-appointment-field">Комментарий
+              <textarea name="comment" rows="4" placeholder="Напишите пожелания к визиту">${escapeHtml(form.comment || '')}</textarea>
+            </label>
+            <div class="client-appointment-actions">
+              <button type="submit" ${isSubmitting ? 'disabled' : ''}>${isSubmitting ? 'Отправляем…' : 'Отправить заявку'}</button>
+              <button type="button" class="admin-inline-action" data-client-appointment-close>Отмена</button>
+            </div>
+          </form>
+        </div>
+      </section>
+    </div>
+  `;
+};
+
 const renderClientLayout = () => {
   renderDashboardApp('client');
   const profileHome = clientState.activeTab === 'profile'
@@ -2057,6 +2191,7 @@ const renderClientLayout = () => {
     ${profileHome}
     <section class="admin-tab-panel">${renderClientTabContent()}</section>
     ${renderClientPartnerModal()}
+    ${renderClientAppointmentModal()}
   `;
 };
 
@@ -2249,6 +2384,9 @@ const renderClientTabContent = () => {
   }
   if (clientState.activeTab === 'history') {
     return renderClientHistoryTab();
+  }
+  if (clientState.activeTab === 'appointments') {
+    return renderClientAppointmentsTab();
   }
   if (clientState.activeTab === 'activity') {
     return renderClientActivityTab();
@@ -2509,6 +2647,7 @@ const renderClientPartnerCard = (partner) => {
         <div class="client-card-location">${formatValue(cityAddress)}</div>
         <div class="client-partner-card__actions client-card-actions">
           <button type="button" data-client-partner-open data-partner-id="${escapeHtml(partnerId)}">Открыть</button>
+          <button type="button" data-client-appointment-partner data-partner-id="${escapeHtml(partnerId)}">Записаться</button>
           <button type="button" data-client-verify-partner="${escapeHtml(partnerId)}">Получить привилегию</button>
         </div>
       </div>
@@ -2544,7 +2683,10 @@ const renderClientPartnerDetail = (partner = {}) => {
             <div><dt>График работы</dt><dd>${formatValue(partner.working_hours)}</dd></div>
             ${contacts.length ? contacts.map(([label, value]) => `<div><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd></div>`).join('') : ''}
           </dl>
-          <button type="button" data-client-verify-partner="${escapeHtml(partnerId)}">Получить привилегию</button>
+          <div class="client-card-actions">
+            <button type="button" data-client-appointment-partner data-partner-id="${escapeHtml(partnerId)}">Записаться</button>
+            <button type="button" data-client-verify-partner="${escapeHtml(partnerId)}">Получить привилегию</button>
+          </div>
         </div>
       </div>
       <div class="client-partner-offers">
@@ -2609,7 +2751,10 @@ const renderClientPartnerModal = () => {
               <dl class="client-card-details">
                 ${contacts.length ? contacts.map(([label, value]) => `<div><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd></div>`).join('') : '<div><dt>Контакты</dt><dd>Партнёр скоро добавит контакты.</dd></div>'}
               </dl>
-              <button type="button" data-client-verify-partner="${escapeHtml(partnerId)}">Получить привилегию</button>
+              <div class="client-card-actions">
+                <button type="button" data-client-appointment-partner data-partner-id="${escapeHtml(partnerId)}">Записаться</button>
+                <button type="button" data-client-verify-partner="${escapeHtml(partnerId)}">Получить привилегию</button>
+              </div>
             </aside>
           </div>
           <section class="client-partner-modal__offers" aria-label="Предложения партнёра">
@@ -2625,7 +2770,7 @@ const renderClientPartnerModal = () => {
 const renderClientOffer = (partnerId, offer) => renderOfferMarketplaceCard(offer, {
   cta: 'Получить привилегию',
   note: 'Карточка привилегии партнёра',
-  actionHtml: `<button type="button" data-client-verify-offer="${escapeHtml(partnerId)}" data-offer-id="${escapeHtml(offer.id)}">Получить привилегию</button>`,
+  actionHtml: `<button type="button" data-client-appointment-offer data-partner-id="${escapeHtml(partnerId)}" data-offer-id="${escapeHtml(offer.id)}">Записаться</button><button type="button" data-client-verify-offer="${escapeHtml(partnerId)}" data-offer-id="${escapeHtml(offer.id)}">Получить привилегию</button>`,
 });
 
 const renderClientVerificationResult = (verification) => `
@@ -2672,6 +2817,34 @@ const renderClientHistoryTab = () => `
   ${clientState.verifications.length
     ? `<div class="client-privilege-card-grid">${clientState.verifications.map(renderClientPrivilegeCard).join('')}</div>`
     : renderClientEmptyState('Пока нет привилегий', 'Выберите оффер в каталоге и нажмите «Получить привилегию».')}
+`;
+
+const renderClientAppointmentCard = (item) => `
+  <article class="client-appointment-card">
+    <div class="client-card-topline">
+      <span class="client-appointment-badge client-appointment-badge--${escapeHtml(String(item.status || 'new').toLowerCase())}">${getAppointmentStatusLabel(item.status || 'new')}</span>
+      <span>${escapeHtml(formatDate(item.created_at) || 'Дата заявки не указана')}</span>
+    </div>
+    <h4>${formatValue(item.partner_name || item.partner?.name || 'Партнёр клуба')}</h4>
+    <p>${formatValue(item.offer_title || item.offer?.title || 'Запись к партнёру')}</p>
+    <dl class="client-card-details">
+      <div><dt>Желаемая дата и время</dt><dd>${formatValue(formatDate(item.desired_at))}</dd></div>
+      <div><dt>Телефон</dt><dd>${formatValue(item.client_phone)}</dd></div>
+      <div><dt>Комментарий</dt><dd>${formatValue(item.comment)}</dd></div>
+      <div><dt>Создано</dt><dd>${formatValue(formatDate(item.created_at))}</dd></div>
+    </dl>
+  </article>
+`;
+
+const renderClientAppointmentsTab = () => `
+  ${renderClientTabHeader('Мои записи', 'Заявки на услуги партнёров и их текущий статус.')}
+  <section class="client-appointments">
+    ${clientState.appointmentsLoading ? '<div class="client-appointment-empty">Загружаем ваши записи…</div>' : ''}
+    ${clientState.appointmentsError ? `<div class="client-appointment-empty">${escapeHtml(clientState.appointmentsError)}</div>` : ''}
+    ${!clientState.appointmentsLoading && !clientState.appointmentsError ? (clientState.appointments.length
+      ? `<div class="client-privilege-card-grid">${clientState.appointments.map(renderClientAppointmentCard).join('')}</div>`
+      : '<div class="client-appointment-empty">У вас пока нет записей. Откройте каталог и выберите партнёра.</div>') : ''}
+  </section>
 `;
 
 const renderClientActivityTab = () => `
@@ -4224,6 +4397,11 @@ const loadActiveClientTabData = async () => {
       await loadClientSubscription();
     } else if (clientState.activeTab === 'history') {
       await loadClientVerifications();
+    } else if (clientState.activeTab === 'appointments') {
+      clientState.appointmentsLoading = true;
+      clientState.appointmentsError = '';
+      renderClientLayout();
+      await loadClientAppointments();
     } else if (clientState.activeTab === 'activity') {
       clientState.activityLoading = true;
       clientState.activityError = '';
@@ -4352,6 +4530,60 @@ const handleClientFormSubmit = async (form) => {
   }
 
   renderClientLayout();
+};
+
+const submitClientAppointment = async (form) => {
+  const partnerId = clientState.appointmentPartnerId;
+  if (!partnerId) return;
+
+  const formData = new FormData(form);
+  const clientPhone = String(formData.get('client_phone') || '').trim();
+  clientState.appointmentForm = {
+    client_name: String(formData.get('client_name') || '').trim(),
+    client_phone: clientPhone,
+    desired_at: String(formData.get('desired_at') || '').trim(),
+    comment: String(formData.get('comment') || '').trim(),
+  };
+
+  if (!clientPhone) {
+    clientState.appointmentSubmitStatus = 'error';
+    clientState.appointmentSubmitError = 'Телефон обязателен для записи.';
+    renderClientLayout();
+    return;
+  }
+
+  clientState.appointmentSubmitStatus = 'loading';
+  clientState.appointmentSubmitError = '';
+  renderClientLayout();
+
+  try {
+    await createClientAppointment(partnerId, {
+      ...(clientState.appointmentOfferId ? { offer_id: Number(clientState.appointmentOfferId) } : {}),
+      ...(clientState.appointmentForm.client_name ? { client_name: clientState.appointmentForm.client_name } : {}),
+      client_phone: clientPhone,
+      ...(clientState.appointmentForm.desired_at ? { desired_at: clientState.appointmentForm.desired_at } : {}),
+      ...(clientState.appointmentForm.comment ? { comment: clientState.appointmentForm.comment } : {}),
+      source: 'web',
+    });
+    clientState.appointmentSubmitStatus = 'success';
+    clientState.appointmentSubmitError = '';
+    setClientPanelMessage('Заявка отправлена. Партнёр свяжется с вами.', 'success');
+    await loadClientAppointments();
+    renderClientLayout();
+    window.setTimeout(() => {
+      if (clientState.appointmentSubmitStatus === 'success') {
+        clientState.appointmentModalOpen = false;
+        clientState.appointmentPartnerId = '';
+        clientState.appointmentOfferId = '';
+        clientState.appointmentSubmitStatus = '';
+        renderClientLayout();
+      }
+    }, 1800);
+  } catch (error) {
+    clientState.appointmentSubmitStatus = 'error';
+    clientState.appointmentSubmitError = error.message || 'Не удалось отправить заявку.';
+    renderClientLayout();
+  }
 };
 
 const createClientVerification = async (partnerId, offerId = null) => {
@@ -5399,6 +5631,30 @@ root.addEventListener('click', async (event) => {
     return;
   }
 
+  const closeAppointmentButton = event.target.closest('[data-client-appointment-close]');
+  if (closeAppointmentButton) {
+    event.preventDefault();
+    event.stopPropagation();
+    closeClientAppointmentModal();
+    return;
+  }
+
+  const appointmentOfferButton = event.target.closest('[data-client-appointment-offer]');
+  if (appointmentOfferButton) {
+    event.preventDefault();
+    event.stopPropagation();
+    openClientAppointmentModal(appointmentOfferButton.dataset.partnerId, appointmentOfferButton.dataset.offerId);
+    return;
+  }
+
+  const appointmentPartnerButton = event.target.closest('[data-client-appointment-partner]');
+  if (appointmentPartnerButton) {
+    event.preventDefault();
+    event.stopPropagation();
+    openClientAppointmentModal(appointmentPartnerButton.dataset.partnerId);
+    return;
+  }
+
   const createVkCodeButton = event.target.closest('[data-client-create-vk-code]');
   if (createVkCodeButton) {
     await createClientVkLinkCode();
@@ -5463,6 +5719,19 @@ root.addEventListener('input', (event) => {
         }
       }
     });
+    return;
+  }
+
+  const appointmentInput = event.target.closest('[data-client-appointment-form] input, [data-client-appointment-form] textarea');
+  if (appointmentInput && appointmentInput.name) {
+    clientState.appointmentForm = {
+      ...clientState.appointmentForm,
+      [appointmentInput.name]: appointmentInput.value,
+    };
+    clientState.appointmentSubmitError = '';
+    if (clientState.appointmentSubmitStatus === 'error') {
+      clientState.appointmentSubmitStatus = '';
+    }
     return;
   }
 
@@ -5725,6 +5994,19 @@ root.addEventListener('change', (event) => {
     return;
   }
 
+  const appointmentInput = event.target.closest('[data-client-appointment-form] input, [data-client-appointment-form] textarea');
+  if (appointmentInput && appointmentInput.name) {
+    clientState.appointmentForm = {
+      ...clientState.appointmentForm,
+      [appointmentInput.name]: appointmentInput.value,
+    };
+    clientState.appointmentSubmitError = '';
+    if (clientState.appointmentSubmitStatus === 'error') {
+      clientState.appointmentSubmitStatus = '';
+    }
+    return;
+  }
+
   const paymentAccessDaysInput = event.target.closest('[data-admin-payment-access-days]');
   if (paymentAccessDaysInput) {
     adminState.paymentApprovalDays = Math.max(1, Number(paymentAccessDaysInput.value) || 30);
@@ -5807,6 +6089,12 @@ document.addEventListener('click', (event) => {
 });
 
 document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape' && clientState.appointmentModalOpen) {
+    event.preventDefault();
+    closeClientAppointmentModal();
+    return;
+  }
+
   if (event.key === 'Escape' && clientState.selectedPartnerModalId) {
     event.preventDefault();
     resetClientPartnerModalState();
@@ -5903,6 +6191,13 @@ root.addEventListener('submit', (event) => {
   if (partnerForm) {
     event.preventDefault();
     handlePartnerFormSubmit(partnerForm);
+    return;
+  }
+
+  const appointmentForm = event.target.closest('[data-client-appointment-form]');
+  if (appointmentForm) {
+    event.preventDefault();
+    submitClientAppointment(appointmentForm);
     return;
   }
 
