@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import require_partner
 from app.db.session import get_db
+from app.models.appointment import PartnerAppointment, PartnerAppointmentStatus
 from app.models.city import City
 from app.models.client import ClientProfile
 from app.models.lead import LeadClick
@@ -16,6 +17,7 @@ from app.models.partner import Partner, PartnerOffer, PartnerPhoto, PartnerQrLin
 from app.models.verification import PrivilegeVerificationSession, PrivilegeVerificationStatus
 from app.models.user import User
 from app.schemas.activity import ActivityFeedRead
+from app.schemas.appointment import PartnerAppointmentRead, PartnerAppointmentStatusUpdate
 from app.services.activity_feed import build_partner_activity_feed
 from app.services.image_uploads import save_partner_image_upload, save_partner_offer_image_upload, save_partner_photo_image_upload, validate_image_kind
 from app.schemas.partner import (
@@ -159,6 +161,45 @@ def update_partner_photo(
     db.commit()
     db.refresh(photo)
     return photo
+
+
+@router.get("/me/appointments", response_model=list[PartnerAppointmentRead])
+def list_partner_appointments(
+    status: str | None = None,
+    current_user: User = Depends(require_partner),
+    db: Session = Depends(get_db),
+) -> list[PartnerAppointmentRead]:
+    partner = _get_current_partner_or_404(db, current_user.id)
+    statement = _appointment_read_statement().where(PartnerAppointment.partner_id == partner.id)
+    if status is not None:
+        statement = statement.where(PartnerAppointment.status == status)
+    rows = db.execute(
+        statement.order_by(PartnerAppointment.created_at.desc(), PartnerAppointment.id.desc())
+    ).all()
+    return [_appointment_to_read(*row) for row in rows]
+
+
+@router.patch("/me/appointments/{appointment_id}", response_model=PartnerAppointmentRead)
+def update_partner_appointment_status(
+    appointment_id: int,
+    payload: PartnerAppointmentStatusUpdate,
+    current_user: User = Depends(require_partner),
+    db: Session = Depends(get_db),
+) -> PartnerAppointmentRead:
+    partner = _get_current_partner_or_404(db, current_user.id)
+    appointment = db.execute(
+        select(PartnerAppointment).where(
+            PartnerAppointment.id == appointment_id,
+            PartnerAppointment.partner_id == partner.id,
+        )
+    ).scalar_one_or_none()
+    if appointment is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Appointment not found")
+
+    _apply_partner_appointment_status_update(appointment, payload.status, payload.comment)
+    db.commit()
+    row = _get_partner_appointment_row_or_404(db, partner.id, appointment.id)
+    return _appointment_to_read(*row)
 
 
 @router.get("/me/activity", response_model=ActivityFeedRead)
@@ -412,6 +453,105 @@ def _partner_verification_to_read(
             "ttl_seconds": _ttl_seconds(session.expires_at),
         }
     )
+
+
+def _appointment_read_statement():
+    return (
+        select(PartnerAppointment, Partner.name.label("partner_name"), PartnerOffer.title.label("offer_title"))
+        .join(Partner, PartnerAppointment.partner_id == Partner.id)
+        .outerjoin(PartnerOffer, PartnerAppointment.offer_id == PartnerOffer.id)
+    )
+
+
+def _get_partner_appointment_row_or_404(db: Session, partner_id: int, appointment_id: int):
+    row = db.execute(
+        _appointment_read_statement().where(
+            PartnerAppointment.id == appointment_id,
+            PartnerAppointment.partner_id == partner_id,
+        )
+    ).one_or_none()
+    if row is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Appointment not found")
+    return row
+
+
+def _appointment_to_read(
+    appointment: PartnerAppointment,
+    partner_name: str | None,
+    offer_title: str | None,
+) -> PartnerAppointmentRead:
+    return PartnerAppointmentRead.model_validate(
+        {
+            "id": appointment.id,
+            "client_id": appointment.client_id,
+            "partner_id": appointment.partner_id,
+            "partner_name": partner_name,
+            "offer_id": appointment.offer_id,
+            "offer_title": offer_title,
+            "status": appointment.status,
+            "client_name": appointment.client_name,
+            "client_phone": appointment.client_phone,
+            "client_email": appointment.client_email,
+            "comment": appointment.comment,
+            "desired_at": appointment.desired_at,
+            "source": appointment.source,
+            "created_at": appointment.created_at,
+            "updated_at": appointment.updated_at,
+            "confirmed_at": appointment.confirmed_at,
+            "cancelled_at": appointment.cancelled_at,
+            "completed_at": appointment.completed_at,
+            "rejected_at": appointment.rejected_at,
+        }
+    )
+
+
+def _apply_partner_appointment_status_update(
+    appointment: PartnerAppointment,
+    new_status: str,
+    comment: str | None,
+) -> None:
+    if appointment.status == new_status:
+        _update_appointment_comment(appointment, comment)
+        return
+
+    allowed_transitions = {
+        PartnerAppointmentStatus.NEW.value: {
+            PartnerAppointmentStatus.CONFIRMED.value,
+            PartnerAppointmentStatus.REJECTED.value,
+            PartnerAppointmentStatus.CANCELLED.value,
+        },
+        PartnerAppointmentStatus.CONFIRMED.value: {
+            PartnerAppointmentStatus.COMPLETED.value,
+            PartnerAppointmentStatus.CANCELLED.value,
+        },
+    }
+    if new_status not in allowed_transitions.get(appointment.status, set()):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid appointment status transition")
+
+    appointment.status = new_status
+    _set_appointment_status_timestamp(appointment, new_status)
+    _update_appointment_comment(appointment, comment)
+    appointment.updated_at = datetime.now(timezone.utc)
+
+
+def _set_appointment_status_timestamp(appointment: PartnerAppointment, new_status: str) -> None:
+    now = datetime.now(timezone.utc)
+    if new_status == PartnerAppointmentStatus.CONFIRMED.value:
+        appointment.confirmed_at = appointment.confirmed_at or now
+    elif new_status == PartnerAppointmentStatus.REJECTED.value:
+        appointment.rejected_at = appointment.rejected_at or now
+    elif new_status == PartnerAppointmentStatus.COMPLETED.value:
+        appointment.completed_at = appointment.completed_at or now
+    elif new_status == PartnerAppointmentStatus.CANCELLED.value:
+        appointment.cancelled_at = appointment.cancelled_at or now
+
+
+def _update_appointment_comment(appointment: PartnerAppointment, comment: str | None) -> None:
+    normalized_comment = _normalize_optional_text(comment)
+    if normalized_comment is None:
+        return
+    appointment.comment = normalized_comment
+    appointment.updated_at = datetime.now(timezone.utc)
 
 
 def _get_current_partner_or_404(db: Session, owner_user_id: int) -> Partner:

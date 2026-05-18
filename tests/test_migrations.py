@@ -18,6 +18,7 @@ from app.models import (
     LeadClick,
     Partner,
     PartnerOffer,
+    PartnerAppointment,
     PartnerPhoto,
     PartnerQrLink,
     PaymentReceipt,
@@ -53,7 +54,7 @@ def test_migration_files_have_single_head_revision() -> None:
     referenced_revisions = {down_revision for down_revision in revisions.values() if down_revision}
     heads = sorted(set(revisions) - referenced_revisions)
 
-    assert heads == ["20260514_0008"]
+    assert heads == ["20260518_0009"]
 
 
 def test_base_metadata_includes_domain_foundation_tables() -> None:
@@ -64,6 +65,7 @@ def test_base_metadata_includes_domain_foundation_tables() -> None:
         "partners",
         "partner_offers",
         "partner_photos",
+        "partner_appointments",
         "payment_requests",
         "payment_receipts",
         "subscriptions",
@@ -120,6 +122,7 @@ def test_domain_foundation_persists_in_sqlite_memory() -> None:
             assert session.query(Partner).count() == 1
             assert session.query(PartnerOffer).count() == 1
             assert session.query(PartnerPhoto).count() == 1
+            assert session.query(PartnerAppointment).count() == 1
             assert session.query(PartnerQrLink).count() == 1
             assert session.query(LeadClick).count() == 1
             assert session.query(PaymentRequest).count() == 1
@@ -198,5 +201,13 @@ def _create_domain_foundation_graph(session: Session, now: datetime) -> None:
         code="VK123456",
         expires_at=now + timedelta(minutes=10),
     )
-    session.add_all([receipt, subscription, verification_session, vk_link_code])
+    appointment = PartnerAppointment(
+        client_id=client.id,
+        partner_id=partner.id,
+        offer_id=offer.id,
+        client_name="Client Example",
+        client_phone="+79990000001",
+        source="web",
+    )
+    session.add_all([receipt, subscription, verification_session, vk_link_code, appointment])
     session.commit()

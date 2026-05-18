@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.models.appointment import PartnerAppointment
 from app.models.client import ClientProfile
 from app.models.lead import LeadClick
 from app.models.partner import Partner, PartnerOffer, PartnerQrLink
@@ -21,6 +22,11 @@ QR_CLICKED = "qr_clicked"
 PARTNER_CREATED = "partner_created"
 OFFER_CREATED = "offer_created"
 QR_LINK_CREATED = "qr_link_created"
+APPOINTMENT_CREATED = "appointment_created"
+APPOINTMENT_CONFIRMED = "appointment_confirmed"
+APPOINTMENT_CANCELLED = "appointment_cancelled"
+APPOINTMENT_COMPLETED = "appointment_completed"
+APPOINTMENT_REJECTED = "appointment_rejected"
 
 SUPPORTED_EVENT_TYPES = {
     PRIVILEGE_CREATED,
@@ -30,11 +36,16 @@ SUPPORTED_EVENT_TYPES = {
     PARTNER_CREATED,
     OFFER_CREATED,
     QR_LINK_CREATED,
+    APPOINTMENT_CREATED,
+    APPOINTMENT_CONFIRMED,
+    APPOINTMENT_CANCELLED,
+    APPOINTMENT_COMPLETED,
+    APPOINTMENT_REJECTED,
 }
 
 
 def build_client_activity_feed(db: Session, client_id: int, limit: int = DEFAULT_ACTIVITY_LIMIT) -> ActivityFeedRead:
-    items = _privilege_items(db, client_id=client_id)
+    items = [*_privilege_items(db, client_id=client_id), *_appointment_items(db, client_id=client_id)]
     return _feed(items, limit)
 
 
@@ -43,6 +54,7 @@ def build_partner_activity_feed(db: Session, partner_id: int, limit: int = DEFAU
         *_privilege_items(db, partner_id=partner_id),
         *_qr_clicked_items(db, partner_id=partner_id),
         *_offer_created_items(db, partner_id=partner_id),
+        *_appointment_items(db, partner_id=partner_id),
     ]
     return _feed(items, limit)
 
@@ -59,6 +71,7 @@ def build_admin_activity_feed(
         *_qr_link_created_items(db, partner_id=partner_id),
         *_qr_clicked_items(db, partner_id=partner_id),
         *_privilege_items(db, partner_id=partner_id),
+        *_appointment_items(db, partner_id=partner_id),
     ]
     if event_type is not None:
         items = [item for item in items if item.event_type == event_type]
@@ -179,6 +192,118 @@ def _is_expired_privilege(session: PrivilegeVerificationSession, now: datetime) 
         return True
     expires_at = _sort_datetime(session.expires_at)
     return session.status == PrivilegeVerificationStatus.active.value and expires_at <= now
+
+
+def _appointment_items(
+    db: Session,
+    *,
+    client_id: int | None = None,
+    partner_id: int | None = None,
+) -> list[ActivityItemRead]:
+    statement = (
+        select(
+            PartnerAppointment,
+            Partner.name.label("partner_name"),
+            PartnerOffer.title.label("offer_title"),
+        )
+        .join(Partner, PartnerAppointment.partner_id == Partner.id)
+        .outerjoin(PartnerOffer, PartnerAppointment.offer_id == PartnerOffer.id)
+    )
+    if client_id is not None:
+        statement = statement.where(PartnerAppointment.client_id == client_id)
+    if partner_id is not None:
+        statement = statement.where(PartnerAppointment.partner_id == partner_id)
+
+    items: list[ActivityItemRead] = []
+    for appointment, partner_name, offer_title in db.execute(statement).all():
+        client_name = appointment.client_name
+        items.append(
+            _appointment_item(
+                event_type=APPOINTMENT_CREATED,
+                appointment=appointment,
+                occurred_at=appointment.created_at,
+                title="Создана запись к партнёру",
+                client_name=client_name,
+                partner_name=partner_name,
+                offer_title=offer_title,
+            )
+        )
+        if appointment.confirmed_at is not None:
+            items.append(
+                _appointment_item(
+                    event_type=APPOINTMENT_CONFIRMED,
+                    appointment=appointment,
+                    occurred_at=appointment.confirmed_at,
+                    title="Запись подтверждена",
+                    client_name=client_name,
+                    partner_name=partner_name,
+                    offer_title=offer_title,
+                )
+            )
+        if appointment.cancelled_at is not None:
+            items.append(
+                _appointment_item(
+                    event_type=APPOINTMENT_CANCELLED,
+                    appointment=appointment,
+                    occurred_at=appointment.cancelled_at,
+                    title="Запись отменена",
+                    client_name=client_name,
+                    partner_name=partner_name,
+                    offer_title=offer_title,
+                )
+            )
+        if appointment.completed_at is not None:
+            items.append(
+                _appointment_item(
+                    event_type=APPOINTMENT_COMPLETED,
+                    appointment=appointment,
+                    occurred_at=appointment.completed_at,
+                    title="Запись завершена",
+                    client_name=client_name,
+                    partner_name=partner_name,
+                    offer_title=offer_title,
+                )
+            )
+        if appointment.rejected_at is not None:
+            items.append(
+                _appointment_item(
+                    event_type=APPOINTMENT_REJECTED,
+                    appointment=appointment,
+                    occurred_at=appointment.rejected_at,
+                    title="Запись отклонена",
+                    client_name=client_name,
+                    partner_name=partner_name,
+                    offer_title=offer_title,
+                )
+            )
+    return items
+
+
+def _appointment_item(
+    *,
+    event_type: str,
+    appointment: PartnerAppointment,
+    occurred_at: datetime,
+    title: str,
+    client_name: str | None,
+    partner_name: str | None,
+    offer_title: str | None,
+) -> ActivityItemRead:
+    return ActivityItemRead(
+        id=f"{event_type}:{appointment.id}",
+        event_type=event_type,
+        occurred_at=occurred_at,
+        title=title,
+        description=_join_description(client_name, partner_name, offer_title),
+        partner_id=appointment.partner_id,
+        partner_name=partner_name,
+        client_id=appointment.client_id,
+        client_name=client_name,
+        offer_id=appointment.offer_id,
+        offer_title=offer_title,
+        source=appointment.source,
+        status=appointment.status,
+    )
 
 
 def _qr_clicked_items(db: Session, *, partner_id: int | None = None) -> list[ActivityItemRead]:

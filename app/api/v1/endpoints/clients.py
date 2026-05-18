@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.api.deps import require_client
 from app.db.session import get_db
+from app.models.appointment import PartnerAppointment, PartnerAppointmentStatus
 from app.models.city import City
 from app.models.client import ClientProfile, VkLinkCode, VkLinkCodeStatus
 from app.models.partner import Partner, PartnerOffer, PartnerPhoto
@@ -18,6 +19,7 @@ from app.models.payment import PaymentReceipt, PaymentRequest, PaymentRequestSta
 from app.models.verification import PrivilegeVerificationSession, PrivilegeVerificationStatus
 from app.models.user import User
 from app.schemas.activity import ActivityFeedRead
+from app.schemas.appointment import PartnerAppointmentCreate, PartnerAppointmentRead
 from app.schemas.client import (
     ClientCreateVerificationRequest,
     ClientPartnerCatalogItem,
@@ -346,6 +348,64 @@ def list_client_verifications(
     ]
 
 
+@router.post(
+    "/partners/{partner_id}/appointments",
+    response_model=PartnerAppointmentRead,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_client_partner_appointment(
+    partner_id: int,
+    payload: PartnerAppointmentCreate,
+    current_user: User = Depends(require_client),
+    db: Session = Depends(get_db),
+) -> PartnerAppointmentRead:
+    profile = _get_current_client_profile_or_404(db, current_user)
+    partner, _city_name = _get_active_partner_row_or_404(db, partner_id)
+    offer = None
+    if payload.offer_id is not None:
+        offer = _get_active_partner_offer_or_404(db, partner_id, payload.offer_id)
+
+    client_phone = _normalize_optional_text(payload.client_phone) or _normalize_optional_text(current_user.phone)
+    if client_phone is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Client phone is required for appointment",
+        )
+
+    appointment = PartnerAppointment(
+        client_id=profile.id,
+        partner_id=partner.id,
+        offer_id=offer.id if offer is not None else None,
+        status=PartnerAppointmentStatus.NEW.value,
+        client_name=_normalize_optional_text(payload.client_name) or _normalize_optional_text(profile.full_name),
+        client_phone=client_phone,
+        client_email=_normalize_optional_text(current_user.email),
+        comment=_normalize_optional_text(payload.comment),
+        desired_at=payload.desired_at,
+        source=_normalize_optional_text(payload.source) or "web",
+    )
+    db.add(appointment)
+    db.commit()
+    row = _get_client_appointment_row_or_404(db, profile.id, appointment.id)
+    return _appointment_to_read(*row)
+
+
+@router.get("/me/appointments", response_model=list[PartnerAppointmentRead])
+def list_client_appointments(
+    status: str | None = None,
+    current_user: User = Depends(require_client),
+    db: Session = Depends(get_db),
+) -> list[PartnerAppointmentRead]:
+    profile = _get_current_client_profile_or_404(db, current_user)
+    statement = _appointment_read_statement().where(PartnerAppointment.client_id == profile.id)
+    if status is not None:
+        statement = statement.where(PartnerAppointment.status == status)
+    rows = db.execute(
+        statement.order_by(PartnerAppointment.created_at.desc(), PartnerAppointment.id.desc())
+    ).all()
+    return [_appointment_to_read(*row) for row in rows]
+
+
 @router.get("/partners/{partner_id}", response_model=ClientPartnerCatalogItem)
 def read_client_partner(
     partner_id: int,
@@ -371,6 +431,56 @@ def list_client_partner_offers(
         .order_by(PartnerOffer.sort_order.asc(), PartnerOffer.id.asc())
     ).scalars().all()
     return [_partner_offer_to_read(offer) for offer in offers]
+
+
+def _appointment_read_statement():
+    return (
+        select(PartnerAppointment, Partner.name.label("partner_name"), PartnerOffer.title.label("offer_title"))
+        .join(Partner, PartnerAppointment.partner_id == Partner.id)
+        .outerjoin(PartnerOffer, PartnerAppointment.offer_id == PartnerOffer.id)
+    )
+
+
+def _get_client_appointment_row_or_404(db: Session, client_id: int, appointment_id: int):
+    row = db.execute(
+        _appointment_read_statement().where(
+            PartnerAppointment.id == appointment_id,
+            PartnerAppointment.client_id == client_id,
+        )
+    ).one_or_none()
+    if row is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Appointment not found")
+    return row
+
+
+def _appointment_to_read(
+    appointment: PartnerAppointment,
+    partner_name: str | None,
+    offer_title: str | None,
+) -> PartnerAppointmentRead:
+    return PartnerAppointmentRead.model_validate(
+        {
+            "id": appointment.id,
+            "client_id": appointment.client_id,
+            "partner_id": appointment.partner_id,
+            "partner_name": partner_name,
+            "offer_id": appointment.offer_id,
+            "offer_title": offer_title,
+            "status": appointment.status,
+            "client_name": appointment.client_name,
+            "client_phone": appointment.client_phone,
+            "client_email": appointment.client_email,
+            "comment": appointment.comment,
+            "desired_at": appointment.desired_at,
+            "source": appointment.source,
+            "created_at": appointment.created_at,
+            "updated_at": appointment.updated_at,
+            "confirmed_at": appointment.confirmed_at,
+            "cancelled_at": appointment.cancelled_at,
+            "completed_at": appointment.completed_at,
+            "rejected_at": appointment.rejected_at,
+        }
+    )
 
 
 def _get_current_client_profile_or_404(db: Session, current_user: User) -> ClientProfile:
