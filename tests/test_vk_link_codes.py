@@ -17,7 +17,12 @@ from app.db.base import Base
 from app.db.session import get_db
 from app.main import app
 from app.models.city import City
-from app.models.client import ClientPasswordSetupToken, ClientProfile, VkLinkCode, VkLinkCodeStatus
+from app.models.client import (
+    ClientPasswordSetupToken,
+    ClientProfile,
+    VkLinkCode,
+    VkLinkCodeStatus,
+)
 from app.models.user import User, UserRole
 
 BOT_API_TOKEN = "test-vk-bot-service-token"
@@ -30,7 +35,9 @@ def vk_link_client() -> Generator[TestClient, None, None]:
         connect_args={"check_same_thread": False},
         poolclass=StaticPool,
     )
-    session_factory = sessionmaker(bind=engine, autoflush=False, autocommit=False, expire_on_commit=False)
+    session_factory = sessionmaker(
+        bind=engine, autoflush=False, autocommit=False, expire_on_commit=False
+    )
 
     Base.metadata.create_all(bind=engine)
     with session_factory() as session:
@@ -80,15 +87,23 @@ def _bot_headers(token: str = BOT_API_TOKEN) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
 
 
-def _user_login(client: TestClient, login: str = "client@example.com", password: str = "ClientPassword123") -> str:
-    response = client.post("/api/v1/auth/user-login", json={"login": login, "password": password})
+def _user_login(
+    client: TestClient,
+    login: str = "client@example.com",
+    password: str = "ClientPassword123",
+) -> str:
+    response = client.post(
+        "/api/v1/auth/user-login", json={"login": login, "password": password}
+    )
     assert response.status_code == 200
     return str(response.json()["access_token"])
 
 
 def _create_code(client: TestClient) -> str:
     token = _user_login(client)
-    response = client.post("/api/v1/clients/me/vk-link-codes", headers=_auth_headers(token))
+    response = client.post(
+        "/api/v1/clients/me/vk-link-codes", headers=_auth_headers(token)
+    )
     assert response.status_code == 200
     return str(response.json()["code"])
 
@@ -97,7 +112,9 @@ def _db_session() -> Session:
     return next(app.dependency_overrides[get_db]())
 
 
-def test_create_vk_link_code_without_token_returns_401(vk_link_client: TestClient) -> None:
+def test_create_vk_link_code_without_token_returns_401(
+    vk_link_client: TestClient,
+) -> None:
     response = vk_link_client.post("/api/v1/clients/me/vk-link-codes")
 
     assert response.status_code == 401
@@ -106,7 +123,9 @@ def test_create_vk_link_code_without_token_returns_401(vk_link_client: TestClien
 def test_client_creates_vk_link_code(vk_link_client: TestClient) -> None:
     token = _user_login(vk_link_client)
 
-    response = vk_link_client.post("/api/v1/clients/me/vk-link-codes", headers=_auth_headers(token))
+    response = vk_link_client.post(
+        "/api/v1/clients/me/vk-link-codes", headers=_auth_headers(token)
+    )
 
     assert response.status_code == 200
     data = response.json()
@@ -118,20 +137,32 @@ def test_client_creates_vk_link_code(vk_link_client: TestClient) -> None:
     assert 0 < data["ttl_seconds"] <= 600
 
 
-def test_creating_second_code_cancels_previous_active_code(vk_link_client: TestClient) -> None:
+def test_creating_second_code_cancels_previous_active_code(
+    vk_link_client: TestClient,
+) -> None:
     token = _user_login(vk_link_client)
-    first = vk_link_client.post("/api/v1/clients/me/vk-link-codes", headers=_auth_headers(token)).json()["code"]
-    second = vk_link_client.post("/api/v1/clients/me/vk-link-codes", headers=_auth_headers(token)).json()["code"]
+    first = vk_link_client.post(
+        "/api/v1/clients/me/vk-link-codes", headers=_auth_headers(token)
+    ).json()["code"]
+    second = vk_link_client.post(
+        "/api/v1/clients/me/vk-link-codes", headers=_auth_headers(token)
+    ).json()["code"]
 
     assert first != second
     with _db_session() as session:
-        first_code = session.execute(select(VkLinkCode).where(VkLinkCode.code == first)).scalar_one()
-        second_code = session.execute(select(VkLinkCode).where(VkLinkCode.code == second)).scalar_one()
+        first_code = session.execute(
+            select(VkLinkCode).where(VkLinkCode.code == first)
+        ).scalar_one()
+        second_code = session.execute(
+            select(VkLinkCode).where(VkLinkCode.code == second)
+        ).scalar_one()
         assert first_code.status == VkLinkCodeStatus.CANCELLED.value
         assert second_code.status == VkLinkCodeStatus.ACTIVE.value
 
 
-def test_bot_exchange_without_service_token_returns_401(vk_link_client: TestClient) -> None:
+def test_bot_exchange_without_service_token_returns_401(
+    vk_link_client: TestClient,
+) -> None:
     response = vk_link_client.post(
         "/api/v1/bot/vk/exchange-link-code",
         json={"vk_user_id": "123", "code": "ABC12345"},
@@ -140,7 +171,9 @@ def test_bot_exchange_without_service_token_returns_401(vk_link_client: TestClie
     assert response.status_code == 401
 
 
-def test_bot_exchange_with_wrong_service_token_returns_401(vk_link_client: TestClient) -> None:
+def test_bot_exchange_with_wrong_service_token_returns_401(
+    vk_link_client: TestClient,
+) -> None:
     response = vk_link_client.post(
         "/api/v1/bot/vk/exchange-link-code",
         headers=_bot_headers("wrong-token"),
@@ -150,7 +183,9 @@ def test_bot_exchange_with_wrong_service_token_returns_401(vk_link_client: TestC
     assert response.status_code == 401
 
 
-def test_bot_exchange_valid_code_links_vk_and_returns_working_token(vk_link_client: TestClient) -> None:
+def test_bot_exchange_valid_code_links_vk_and_returns_working_token(
+    vk_link_client: TestClient,
+) -> None:
     code = _create_code(vk_link_client)
 
     response = vk_link_client.post(
@@ -165,18 +200,26 @@ def test_bot_exchange_valid_code_links_vk_and_returns_working_token(vk_link_clie
     assert data["access_token"]
     assert data["user"]["email"] == "client@example.com"
     with _db_session() as session:
-        profile = session.execute(select(ClientProfile).where(ClientProfile.vk_user_id == "vk-123")).scalar_one()
-        link_code = session.execute(select(VkLinkCode).where(VkLinkCode.code == code)).scalar_one()
+        profile = session.execute(
+            select(ClientProfile).where(ClientProfile.vk_user_id == "vk-123")
+        ).scalar_one()
+        link_code = session.execute(
+            select(VkLinkCode).where(VkLinkCode.code == code)
+        ).scalar_one()
         assert profile.vk_user_id == "vk-123"
         assert link_code.status == VkLinkCodeStatus.USED.value
         assert link_code.used_at is not None
 
-    me_response = vk_link_client.get("/api/v1/auth/user-me", headers=_auth_headers(data["access_token"]))
+    me_response = vk_link_client.get(
+        "/api/v1/auth/user-me", headers=_auth_headers(data["access_token"])
+    )
     assert me_response.status_code == 200
     assert me_response.json()["email"] == "client@example.com"
 
 
-def test_bot_exchange_accepts_case_and_space_variants(vk_link_client: TestClient) -> None:
+def test_bot_exchange_accepts_case_and_space_variants(
+    vk_link_client: TestClient,
+) -> None:
     variants = [
         lambda code: code,
         lambda code: code.lower(),
@@ -190,25 +233,38 @@ def test_bot_exchange_accepts_case_and_space_variants(vk_link_client: TestClient
         response = vk_link_client.post(
             "/api/v1/bot/vk/exchange-link-code",
             headers=_bot_headers(),
-            json={"vk_user_id": f"vk-normalized-{index}", "code": make_payload_code(code)},
+            json={
+                "vk_user_id": f"vk-normalized-{index}",
+                "code": make_payload_code(code),
+            },
         )
 
         assert response.status_code == 200
         with _db_session() as session:
-            link_code = session.execute(select(VkLinkCode).where(VkLinkCode.code == code)).scalar_one()
+            link_code = session.execute(
+                select(VkLinkCode).where(VkLinkCode.code == code)
+            ).scalar_one()
             profile = session.execute(
-                select(ClientProfile).where(ClientProfile.vk_user_id == f"vk-normalized-{index}")
+                select(ClientProfile).where(
+                    ClientProfile.vk_user_id == f"vk-normalized-{index}"
+                )
             ).scalar_one()
             assert link_code.status == VkLinkCodeStatus.USED.value
             profile.vk_user_id = None
             session.commit()
 
 
-def test_exchange_fresh_code_with_naive_utc_expiry_is_valid(vk_link_client: TestClient) -> None:
+def test_exchange_fresh_code_with_naive_utc_expiry_is_valid(
+    vk_link_client: TestClient,
+) -> None:
     code = _create_code(vk_link_client)
     with _db_session() as session:
-        link_code = session.execute(select(VkLinkCode).where(VkLinkCode.code == code)).scalar_one()
-        link_code.expires_at = (datetime.now(timezone.utc) + timedelta(minutes=5)).replace(tzinfo=None)
+        link_code = session.execute(
+            select(VkLinkCode).where(VkLinkCode.code == code)
+        ).scalar_one()
+        link_code.expires_at = (
+            datetime.now(timezone.utc) + timedelta(minutes=5)
+        ).replace(tzinfo=None)
         session.commit()
 
     response = vk_link_client.post(
@@ -219,11 +275,15 @@ def test_exchange_fresh_code_with_naive_utc_expiry_is_valid(vk_link_client: Test
 
     assert response.status_code == 200
     with _db_session() as session:
-        profile = session.execute(select(ClientProfile).where(ClientProfile.vk_user_id == "vk-naive-fresh")).scalar_one()
+        profile = session.execute(
+            select(ClientProfile).where(ClientProfile.vk_user_id == "vk-naive-fresh")
+        ).scalar_one()
         assert profile.vk_user_id == "vk-naive-fresh"
 
 
-def test_invalid_exchange_attempt_does_not_consume_valid_code(vk_link_client: TestClient) -> None:
+def test_invalid_exchange_attempt_does_not_consume_valid_code(
+    vk_link_client: TestClient,
+) -> None:
     code = _create_code(vk_link_client)
 
     missing_response = vk_link_client.post(
@@ -234,7 +294,9 @@ def test_invalid_exchange_attempt_does_not_consume_valid_code(vk_link_client: Te
 
     assert missing_response.status_code == 404
     with _db_session() as session:
-        link_code = session.execute(select(VkLinkCode).where(VkLinkCode.code == code)).scalar_one()
+        link_code = session.execute(
+            select(VkLinkCode).where(VkLinkCode.code == code)
+        ).scalar_one()
         assert link_code.status == VkLinkCodeStatus.ACTIVE.value
         assert link_code.used_at is None
 
@@ -252,7 +314,9 @@ def test_exchange_rejects_profile_already_linked_to_different_vk_without_consumi
 ) -> None:
     code = _create_code(vk_link_client)
     with _db_session() as session:
-        profile = session.execute(select(ClientProfile).join(User).where(User.email == "client@example.com")).scalar_one()
+        profile = session.execute(
+            select(ClientProfile).join(User).where(User.email == "client@example.com")
+        ).scalar_one()
         profile.vk_user_id = "vk-existing"
         session.commit()
 
@@ -265,8 +329,12 @@ def test_exchange_rejects_profile_already_linked_to_different_vk_without_consumi
     assert response.status_code == 400
     assert response.json()["detail"] == "Client profile is already linked"
     with _db_session() as session:
-        profile = session.execute(select(ClientProfile).join(User).where(User.email == "client@example.com")).scalar_one()
-        link_code = session.execute(select(VkLinkCode).where(VkLinkCode.code == code)).scalar_one()
+        profile = session.execute(
+            select(ClientProfile).join(User).where(User.email == "client@example.com")
+        ).scalar_one()
+        link_code = session.execute(
+            select(VkLinkCode).where(VkLinkCode.code == code)
+        ).scalar_one()
         assert profile.vk_user_id == "vk-existing"
         assert link_code.status == VkLinkCodeStatus.ACTIVE.value
         assert link_code.used_at is None
@@ -276,10 +344,21 @@ def test_exchange_rejects_vk_user_linked_to_different_profile_without_consuming_
     vk_link_client: TestClient,
 ) -> None:
     token = _user_login(vk_link_client)
-    code = vk_link_client.post("/api/v1/clients/me/vk-link-codes", headers=_auth_headers(token)).json()["code"]
+    code = vk_link_client.post(
+        "/api/v1/clients/me/vk-link-codes", headers=_auth_headers(token)
+    ).json()["code"]
     with _db_session() as session:
-        other_user = session.execute(select(User).where(User.email == "other@example.com")).scalar_one()
-        session.add(ClientProfile(user_id=other_user.id, vk_user_id="vk-conflict", is_active=True, source="vk"))
+        other_user = session.execute(
+            select(User).where(User.email == "other@example.com")
+        ).scalar_one()
+        session.add(
+            ClientProfile(
+                user_id=other_user.id,
+                vk_user_id="vk-conflict",
+                is_active=True,
+                source="vk",
+            )
+        )
         session.commit()
 
     response = vk_link_client.post(
@@ -291,9 +370,12 @@ def test_exchange_rejects_vk_user_linked_to_different_profile_without_consuming_
     assert response.status_code == 400
     assert response.json()["detail"] == "VK user is already linked"
     with _db_session() as session:
-        link_code = session.execute(select(VkLinkCode).where(VkLinkCode.code == code)).scalar_one()
+        link_code = session.execute(
+            select(VkLinkCode).where(VkLinkCode.code == code)
+        ).scalar_one()
         assert link_code.status == VkLinkCodeStatus.ACTIVE.value
         assert link_code.used_at is None
+
 
 def test_exchange_missing_code_returns_404(vk_link_client: TestClient) -> None:
     response = vk_link_client.post(
@@ -306,10 +388,14 @@ def test_exchange_missing_code_returns_404(vk_link_client: TestClient) -> None:
     assert response.json()["detail"] == "Link code not found"
 
 
-def test_exchange_expired_code_marks_expired_and_returns_400(vk_link_client: TestClient) -> None:
+def test_exchange_expired_code_marks_expired_and_returns_400(
+    vk_link_client: TestClient,
+) -> None:
     code = _create_code(vk_link_client)
     with _db_session() as session:
-        link_code = session.execute(select(VkLinkCode).where(VkLinkCode.code == code)).scalar_one()
+        link_code = session.execute(
+            select(VkLinkCode).where(VkLinkCode.code == code)
+        ).scalar_one()
         link_code.expires_at = datetime.now(timezone.utc) - timedelta(seconds=1)
         session.commit()
 
@@ -322,11 +408,15 @@ def test_exchange_expired_code_marks_expired_and_returns_400(vk_link_client: Tes
     assert response.status_code == 400
     assert response.json()["detail"] == "Link code expired"
     with _db_session() as session:
-        link_code = session.execute(select(VkLinkCode).where(VkLinkCode.code == code)).scalar_one()
+        link_code = session.execute(
+            select(VkLinkCode).where(VkLinkCode.code == code)
+        ).scalar_one()
         assert link_code.status == VkLinkCodeStatus.EXPIRED.value
 
 
-def test_exchange_used_or_cancelled_code_returns_400(vk_link_client: TestClient) -> None:
+def test_exchange_used_or_cancelled_code_returns_400(
+    vk_link_client: TestClient,
+) -> None:
     used_code = _create_code(vk_link_client)
     used_response = vk_link_client.post(
         "/api/v1/bot/vk/exchange-link-code",
@@ -344,8 +434,12 @@ def test_exchange_used_or_cancelled_code_returns_400(vk_link_client: TestClient)
     assert used_again_response.json()["detail"] == "Link code already used"
 
     token = _user_login(vk_link_client)
-    cancelled_code = vk_link_client.post("/api/v1/clients/me/vk-link-codes", headers=_auth_headers(token)).json()["code"]
-    vk_link_client.post("/api/v1/clients/me/vk-link-codes", headers=_auth_headers(token))
+    cancelled_code = vk_link_client.post(
+        "/api/v1/clients/me/vk-link-codes", headers=_auth_headers(token)
+    ).json()["code"]
+    vk_link_client.post(
+        "/api/v1/clients/me/vk-link-codes", headers=_auth_headers(token)
+    )
     cancelled_response = vk_link_client.post(
         "/api/v1/bot/vk/exchange-link-code",
         headers=_bot_headers(),
@@ -368,7 +462,9 @@ def test_exchange_empty_vk_user_id_returns_400(vk_link_client: TestClient) -> No
     assert response.json()["detail"] == "VK user ID is required"
 
 
-def test_bot_vk_token_returns_token_for_linked_vk_user_id(vk_link_client: TestClient) -> None:
+def test_bot_vk_token_returns_token_for_linked_vk_user_id(
+    vk_link_client: TestClient,
+) -> None:
     code = _create_code(vk_link_client)
     exchange_response = vk_link_client.post(
         "/api/v1/bot/vk/exchange-link-code",
@@ -386,12 +482,16 @@ def test_bot_vk_token_returns_token_for_linked_vk_user_id(vk_link_client: TestCl
     assert response.status_code == 200
     data = response.json()
     assert data["token_type"] == "bearer"
-    me_response = vk_link_client.get("/api/v1/clients/me", headers=_auth_headers(data["access_token"]))
+    me_response = vk_link_client.get(
+        "/api/v1/clients/me", headers=_auth_headers(data["access_token"])
+    )
     assert me_response.status_code == 200
     assert me_response.json()["email"] == "client@example.com"
 
 
-def test_bot_vk_token_returns_404_for_unlinked_vk_user_id(vk_link_client: TestClient) -> None:
+def test_bot_vk_token_returns_404_for_unlinked_vk_user_id(
+    vk_link_client: TestClient,
+) -> None:
     response = vk_link_client.post(
         "/api/v1/bot/vk/token",
         headers=_bot_headers(),
@@ -402,7 +502,9 @@ def test_bot_vk_token_returns_404_for_unlinked_vk_user_id(vk_link_client: TestCl
     assert response.json()["detail"] == "VK user is not linked"
 
 
-def test_bot_onboard_client_without_service_token_returns_401(vk_link_client: TestClient) -> None:
+def test_bot_onboard_client_without_service_token_returns_401(
+    vk_link_client: TestClient,
+) -> None:
     response = vk_link_client.post(
         "/api/v1/bot/vk/onboard-client",
         json={"vk_user_id": "vk-onboard-1"},
@@ -411,7 +513,9 @@ def test_bot_onboard_client_without_service_token_returns_401(vk_link_client: Te
     assert response.status_code == 401
 
 
-def test_bot_onboard_client_with_wrong_service_token_returns_401(vk_link_client: TestClient) -> None:
+def test_bot_onboard_client_with_wrong_service_token_returns_401(
+    vk_link_client: TestClient,
+) -> None:
     response = vk_link_client.post(
         "/api/v1/bot/vk/onboard-client",
         headers=_bot_headers("wrong-token"),
@@ -421,7 +525,9 @@ def test_bot_onboard_client_with_wrong_service_token_returns_401(vk_link_client:
     assert response.status_code == 401
 
 
-def test_bot_onboard_client_empty_vk_user_id_returns_400(vk_link_client: TestClient) -> None:
+def test_bot_onboard_client_empty_vk_user_id_returns_400(
+    vk_link_client: TestClient,
+) -> None:
     response = vk_link_client.post(
         "/api/v1/bot/vk/onboard-client",
         headers=_bot_headers(),
@@ -432,11 +538,17 @@ def test_bot_onboard_client_empty_vk_user_id_returns_400(vk_link_client: TestCli
     assert response.json()["detail"] == "vk_user_id must not be empty"
 
 
-def test_bot_onboard_client_creates_passwordless_client_user_and_profile(vk_link_client: TestClient) -> None:
+def test_bot_onboard_client_creates_client_user_with_temporary_password_and_profile(
+    vk_link_client: TestClient,
+) -> None:
     response = vk_link_client.post(
         "/api/v1/bot/vk/onboard-client",
         headers=_bot_headers(),
-        json={"vk_user_id": "  vk-new-client  ", "full_name": "  New Client  ", "source": None},
+        json={
+            "vk_user_id": "  vk-new-client  ",
+            "full_name": "  New Client  ",
+            "source": None,
+        },
     )
 
     assert response.status_code == 200
@@ -445,9 +557,15 @@ def test_bot_onboard_client_creates_passwordless_client_user_and_profile(vk_link
     assert data["access_token"]
     assert data["is_new"] is True
     assert data["password_setup_required"] is True
+    temporary_password = data["temporary_password"]
+    assert isinstance(temporary_password, str)
+    assert len(temporary_password) >= 20
     assert data["login"].startswith("vk_")
     assert data["login"].endswith("@vk.local")
-    assert data["web_login_url"] == f"{settings.WEB_PUBLIC_URL}/?client_login={data['login'].replace('@', '%40')}"
+    assert (
+        data["web_login_url"]
+        == f"{settings.WEB_PUBLIC_URL}/?client_login={data['login'].replace('@', '%40')}"
+    )
     assert f"login={data['login'].replace('@', '%40')}" in data["password_setup_url"]
     assert data["user"]["email"] == data["login"]
     assert data["user"]["phone"] is None
@@ -462,17 +580,30 @@ def test_bot_onboard_client_creates_passwordless_client_user_and_profile(vk_link
         profile = session.execute(
             select(ClientProfile).where(ClientProfile.vk_user_id == "vk-new-client")
         ).scalar_one()
-        user = session.execute(select(User).where(User.id == profile.user_id)).scalar_one()
+        user = session.execute(
+            select(User).where(User.id == profile.user_id)
+        ).scalar_one()
         assert user.role == UserRole.CLIENT.value
         assert user.is_active is True
-        assert user.password_hash is None
+        assert user.password_hash is not None
+        assert user.password_hash != temporary_password
+        assert temporary_password not in user.password_hash
+        assert verify_password(temporary_password, user.password_hash)
         assert user.email == data["login"]
         assert user.phone is None
         assert profile.full_name == "New Client"
         assert profile.source == "vk"
 
+    login_response = vk_link_client.post(
+        "/api/v1/auth/user-login",
+        json={"login": data["login"], "password": temporary_password},
+    )
+    assert login_response.status_code == 200
 
-def test_bot_onboard_client_returned_token_works_for_client_me(vk_link_client: TestClient) -> None:
+
+def test_bot_onboard_client_returned_token_works_for_client_me(
+    vk_link_client: TestClient,
+) -> None:
     response = vk_link_client.post(
         "/api/v1/bot/vk/onboard-client",
         headers=_bot_headers(),
@@ -489,7 +620,9 @@ def test_bot_onboard_client_returned_token_works_for_client_me(vk_link_client: T
     assert me_response.json()["vk_user_id"] == "vk-token-client"
 
 
-def test_bot_onboard_client_repeated_vk_user_id_returns_existing_profile(vk_link_client: TestClient) -> None:
+def test_bot_onboard_client_repeated_vk_user_id_returns_existing_profile(
+    vk_link_client: TestClient,
+) -> None:
     first_response = vk_link_client.post(
         "/api/v1/bot/vk/onboard-client",
         headers=_bot_headers(),
@@ -512,16 +645,29 @@ def test_bot_onboard_client_repeated_vk_user_id_returns_existing_profile(vk_link
     assert second_data["login"] == first_data["login"]
     assert second_data["login"].startswith("vk_")
     assert second_data["login"].endswith("@vk.local")
+    assert second_data["temporary_password"] is None
+    assert second_data["password_setup_required"] is True
+    assert second_data["password_setup_url"]
     with _db_session() as session:
-        users_count = len(session.execute(select(User).where(User.email == first_data["login"])).scalars().all())
+        users_count = len(
+            session.execute(select(User).where(User.email == first_data["login"]))
+            .scalars()
+            .all()
+        )
         profiles_count = len(
-            session.execute(select(ClientProfile).where(ClientProfile.vk_user_id == "vk-repeat")).scalars().all()
+            session.execute(
+                select(ClientProfile).where(ClientProfile.vk_user_id == "vk-repeat")
+            )
+            .scalars()
+            .all()
         )
         assert users_count == 1
         assert profiles_count == 1
 
 
-def test_bot_onboard_client_later_contact_does_not_overwrite_synthetic_login(vk_link_client: TestClient) -> None:
+def test_bot_onboard_client_later_contact_does_not_overwrite_synthetic_login(
+    vk_link_client: TestClient,
+) -> None:
     first_response = vk_link_client.post(
         "/api/v1/bot/vk/onboard-client",
         headers=_bot_headers(),
@@ -533,7 +679,11 @@ def test_bot_onboard_client_later_contact_does_not_overwrite_synthetic_login(vk_
     second_response = vk_link_client.post(
         "/api/v1/bot/vk/onboard-client",
         headers=_bot_headers(),
-        json={"vk_user_id": "vk-later-contact", "email": "Real@Example.COM", "phone": "+79990001122"},
+        json={
+            "vk_user_id": "vk-later-contact",
+            "email": "Real@Example.COM",
+            "phone": "+79990001122",
+        },
     )
 
     assert second_response.status_code == 200
@@ -543,7 +693,9 @@ def test_bot_onboard_client_later_contact_does_not_overwrite_synthetic_login(vk_
     assert data["user"]["phone"] == "+79990001122"
 
 
-def test_bot_onboard_client_existing_real_email_not_overwritten(vk_link_client: TestClient) -> None:
+def test_bot_onboard_client_existing_real_email_not_overwritten(
+    vk_link_client: TestClient,
+) -> None:
     with _db_session() as session:
         user = User(
             email="real-existing@example.com",
@@ -554,7 +706,11 @@ def test_bot_onboard_client_existing_real_email_not_overwritten(vk_link_client: 
         )
         session.add(user)
         session.flush()
-        session.add(ClientProfile(user_id=user.id, vk_user_id="vk-real-email", is_active=True, source="vk"))
+        session.add(
+            ClientProfile(
+                user_id=user.id, vk_user_id="vk-real-email", is_active=True, source="vk"
+            )
+        )
         session.commit()
 
     response = vk_link_client.post(
@@ -576,7 +732,9 @@ def _extract_setup_token(setup_url: str) -> str:
     return values[0]
 
 
-def test_bot_onboard_client_returns_password_setup_url_and_stores_only_token_hash(vk_link_client: TestClient) -> None:
+def test_bot_onboard_client_returns_password_setup_url_and_stores_only_token_hash(
+    vk_link_client: TestClient,
+) -> None:
     response = vk_link_client.post(
         "/api/v1/bot/vk/onboard-client",
         headers=_bot_headers(),
@@ -586,9 +744,14 @@ def test_bot_onboard_client_returns_password_setup_url_and_stores_only_token_has
     assert response.status_code == 200
     data = response.json()
     assert data["password_setup_required"] is True
-    assert data["password_setup_url"].startswith(f"{settings.WEB_PUBLIC_URL}/?setup_token=")
+    assert data["password_setup_url"].startswith(
+        f"{settings.WEB_PUBLIC_URL}/?setup_token="
+    )
     assert data["login"] == "clientsetup@example.com"
-    assert data["web_login_url"] == f"{settings.WEB_PUBLIC_URL}/?client_login=clientsetup%40example.com"
+    assert (
+        data["web_login_url"]
+        == f"{settings.WEB_PUBLIC_URL}/?client_login=clientsetup%40example.com"
+    )
     assert data["password_setup_ttl_seconds"] == 3600
     assert data["password_setup_expires_at"]
     assert "login=clientsetup%40example.com" in data["password_setup_url"]
@@ -605,7 +768,9 @@ def test_bot_onboard_client_returns_password_setup_url_and_stores_only_token_has
         assert setup_token.vk_user_id == "vk-setup-url"
 
 
-def test_password_setup_complete_sets_password_and_user_can_login(vk_link_client: TestClient) -> None:
+def test_password_setup_complete_sets_password_and_user_can_login(
+    vk_link_client: TestClient,
+) -> None:
     onboard_response = vk_link_client.post(
         "/api/v1/bot/vk/onboard-client",
         headers=_bot_headers(),
@@ -616,14 +781,20 @@ def test_password_setup_complete_sets_password_and_user_can_login(vk_link_client
 
     complete_response = vk_link_client.post(
         "/api/v1/auth/password-setup/complete",
-        json={"token": plain_token, "password": "ClientPass123", "password_confirm": "ClientPass123"},
+        json={
+            "token": plain_token,
+            "password": "ClientPass123",
+            "password_confirm": "ClientPass123",
+        },
     )
 
     assert complete_response.status_code == 200
     assert complete_response.json()["ok"] is True
-    assert complete_response.json()["login"] == "+79990007777"
+    assert complete_response.json()["login"] == onboard_response.json()["login"]
     with _db_session() as session:
-        profile = session.execute(select(ClientProfile).where(ClientProfile.vk_user_id == "vk-complete")).scalar_one()
+        profile = session.execute(
+            select(ClientProfile).where(ClientProfile.vk_user_id == "vk-complete")
+        ).scalar_one()
         user = session.get(User, profile.user_id)
         assert user is not None
         assert user.password_hash is not None
@@ -639,7 +810,9 @@ def test_password_setup_complete_sets_password_and_user_can_login(vk_link_client
     assert login_response.json()["user"]["role"] == UserRole.CLIENT.value
 
 
-def test_password_setup_complete_allows_login_with_synthetic_vk_login(vk_link_client: TestClient) -> None:
+def test_password_setup_complete_allows_login_with_synthetic_vk_login(
+    vk_link_client: TestClient,
+) -> None:
     onboard_response = vk_link_client.post(
         "/api/v1/bot/vk/onboard-client",
         headers=_bot_headers(),
@@ -652,7 +825,11 @@ def test_password_setup_complete_allows_login_with_synthetic_vk_login(vk_link_cl
 
     complete_response = vk_link_client.post(
         "/api/v1/auth/password-setup/complete",
-        json={"token": plain_token, "password": "ClientPass123", "password_confirm": "ClientPass123"},
+        json={
+            "token": plain_token,
+            "password": "ClientPass123",
+            "password_confirm": "ClientPass123",
+        },
     )
 
     assert complete_response.status_code == 200
@@ -675,13 +852,21 @@ def test_password_setup_token_reuse_is_rejected(vk_link_client: TestClient) -> N
     plain_token = _extract_setup_token(onboard_response.json()["password_setup_url"])
     first = vk_link_client.post(
         "/api/v1/auth/password-setup/complete",
-        json={"token": plain_token, "password": "ClientPass123", "password_confirm": "ClientPass123"},
+        json={
+            "token": plain_token,
+            "password": "ClientPass123",
+            "password_confirm": "ClientPass123",
+        },
     )
     assert first.status_code == 200
 
     second = vk_link_client.post(
         "/api/v1/auth/password-setup/complete",
-        json={"token": plain_token, "password": "OtherPass123", "password_confirm": "OtherPass123"},
+        json={
+            "token": plain_token,
+            "password": "OtherPass123",
+            "password_confirm": "OtherPass123",
+        },
     )
     assert second.status_code == 400
 
@@ -700,7 +885,11 @@ def test_expired_password_setup_token_is_rejected(vk_link_client: TestClient) ->
 
     response = vk_link_client.post(
         "/api/v1/auth/password-setup/complete",
-        json={"token": plain_token, "password": "ClientPass123", "password_confirm": "ClientPass123"},
+        json={
+            "token": plain_token,
+            "password": "ClientPass123",
+            "password_confirm": "ClientPass123",
+        },
     )
     assert response.status_code == 400
 
@@ -715,12 +904,18 @@ def test_password_setup_mismatch_is_rejected(vk_link_client: TestClient) -> None
 
     response = vk_link_client.post(
         "/api/v1/auth/password-setup/complete",
-        json={"token": plain_token, "password": "ClientPass123", "password_confirm": "DifferentPass123"},
+        json={
+            "token": plain_token,
+            "password": "ClientPass123",
+            "password_confirm": "DifferentPass123",
+        },
     )
     assert response.status_code == 400
 
 
-def test_onboarding_existing_client_with_password_has_no_setup_url(vk_link_client: TestClient) -> None:
+def test_onboarding_existing_client_with_password_gets_setup_url_without_plain_password(
+    vk_link_client: TestClient,
+) -> None:
     with _db_session() as session:
         user = User(
             email="existing-password@example.com",
@@ -731,7 +926,14 @@ def test_onboarding_existing_client_with_password_has_no_setup_url(vk_link_clien
         )
         session.add(user)
         session.flush()
-        session.add(ClientProfile(user_id=user.id, vk_user_id="vk-has-password", is_active=True, source="vk"))
+        session.add(
+            ClientProfile(
+                user_id=user.id,
+                vk_user_id="vk-has-password",
+                is_active=True,
+                source="vk",
+            )
+        )
         session.commit()
 
     response = vk_link_client.post(
@@ -741,15 +943,23 @@ def test_onboarding_existing_client_with_password_has_no_setup_url(vk_link_clien
     )
     assert response.status_code == 200
     data = response.json()
-    assert data["password_setup_required"] is False
-    assert data["password_setup_url"] is None
-    assert data["password_setup_expires_at"] is None
-    assert data["password_setup_ttl_seconds"] is None
+    assert data["password_setup_required"] is True
+    assert data["password_setup_url"].startswith(
+        f"{settings.WEB_PUBLIC_URL}/?setup_token="
+    )
+    assert data["password_setup_expires_at"]
+    assert data["password_setup_ttl_seconds"] == 3600
+    assert data["temporary_password"] is None
     assert data["login"] == "existing-password@example.com"
-    assert data["web_login_url"] == f"{settings.WEB_PUBLIC_URL}/?client_login=existing-password%40example.com"
+    assert (
+        data["web_login_url"]
+        == f"{settings.WEB_PUBLIC_URL}/?client_login=existing-password%40example.com"
+    )
 
 
-def test_bot_onboard_client_active_city_slug_sets_selected_city_id(vk_link_client: TestClient) -> None:
+def test_bot_onboard_client_active_city_slug_sets_selected_city_id(
+    vk_link_client: TestClient,
+) -> None:
     response = vk_link_client.post(
         "/api/v1/bot/vk/onboard-client",
         headers=_bot_headers(),
@@ -763,7 +973,9 @@ def test_bot_onboard_client_active_city_slug_sets_selected_city_id(vk_link_clien
         assert data["client"]["selected_city_id"] == city.id
 
 
-def test_bot_onboard_client_existing_profile_updates_selected_city(vk_link_client: TestClient) -> None:
+def test_bot_onboard_client_existing_profile_updates_selected_city(
+    vk_link_client: TestClient,
+) -> None:
     first_response = vk_link_client.post(
         "/api/v1/bot/vk/onboard-client",
         headers=_bot_headers(),
@@ -782,7 +994,9 @@ def test_bot_onboard_client_existing_profile_updates_selected_city(vk_link_clien
     assert second_response.json()["is_new"] is False
     with _db_session() as session:
         city = session.execute(select(City).where(City.slug == "moscow")).scalar_one()
-        profile = session.execute(select(ClientProfile).where(ClientProfile.vk_user_id == "vk-city-sync")).scalar_one()
+        profile = session.execute(
+            select(ClientProfile).where(ClientProfile.vk_user_id == "vk-city-sync")
+        ).scalar_one()
         assert second_response.json()["client"]["selected_city_id"] == city.id
         assert profile.selected_city_id == city.id
 
@@ -802,7 +1016,9 @@ def test_bot_onboard_client_missing_or_inactive_city_slug_returns_404(
     assert response.json()["detail"] == "City not found"
 
 
-def test_bot_onboard_client_existing_linked_inactive_user_returns_clean_error(vk_link_client: TestClient) -> None:
+def test_bot_onboard_client_existing_linked_inactive_user_returns_clean_error(
+    vk_link_client: TestClient,
+) -> None:
     with _db_session() as session:
         user = User(
             email="inactive-client@example.com",
@@ -813,7 +1029,14 @@ def test_bot_onboard_client_existing_linked_inactive_user_returns_clean_error(vk
         )
         session.add(user)
         session.flush()
-        session.add(ClientProfile(user_id=user.id, vk_user_id="vk-inactive-user", is_active=True, source="vk"))
+        session.add(
+            ClientProfile(
+                user_id=user.id,
+                vk_user_id="vk-inactive-user",
+                is_active=True,
+                source="vk",
+            )
+        )
         session.commit()
 
     response = vk_link_client.post(
@@ -826,7 +1049,9 @@ def test_bot_onboard_client_existing_linked_inactive_user_returns_clean_error(vk
     assert response.json()["detail"] == "Client user not found"
 
 
-def test_bot_onboard_client_existing_linked_non_client_user_returns_clean_error(vk_link_client: TestClient) -> None:
+def test_bot_onboard_client_existing_linked_non_client_user_returns_clean_error(
+    vk_link_client: TestClient,
+) -> None:
     with _db_session() as session:
         user = User(
             email="partner-linked@example.com",
@@ -837,7 +1062,11 @@ def test_bot_onboard_client_existing_linked_non_client_user_returns_clean_error(
         )
         session.add(user)
         session.flush()
-        session.add(ClientProfile(user_id=user.id, vk_user_id="vk-non-client", is_active=True, source="vk"))
+        session.add(
+            ClientProfile(
+                user_id=user.id, vk_user_id="vk-non-client", is_active=True, source="vk"
+            )
+        )
         session.commit()
 
     response = vk_link_client.post(
