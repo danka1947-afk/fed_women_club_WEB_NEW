@@ -28,7 +28,9 @@ def validate_jwt_secret(config: Settings = settings) -> str:
 
 def _hash_password_stdlib(password: str) -> str:
     salt = os.urandom(16)
-    digest = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, _PASSWORD_ITERATIONS)
+    digest = hashlib.pbkdf2_hmac(
+        "sha256", password.encode("utf-8"), salt, _PASSWORD_ITERATIONS
+    )
     return "$".join(
         [
             _PASSWORD_SCHEME,
@@ -72,7 +74,9 @@ def verify_password(password: str, password_hash: str) -> bool:
         import bcrypt
 
         try:
-            return bcrypt.checkpw(password.encode("utf-8"), password_hash.encode("utf-8"))
+            return bcrypt.checkpw(
+                password.encode("utf-8"), password_hash.encode("utf-8")
+            )
         except ValueError:
             return False
     return False
@@ -89,10 +93,16 @@ def _base64url_decode(data: str) -> bytes:
 
 def _encode_jwt_stdlib(payload: dict[str, Any]) -> str:
     header = {"alg": settings.JWT_ALGORITHM, "typ": "JWT"}
-    header_segment = _base64url_encode(json.dumps(header, separators=(",", ":")).encode("utf-8"))
-    payload_segment = _base64url_encode(json.dumps(payload, separators=(",", ":")).encode("utf-8"))
+    header_segment = _base64url_encode(
+        json.dumps(header, separators=(",", ":")).encode("utf-8")
+    )
+    payload_segment = _base64url_encode(
+        json.dumps(payload, separators=(",", ":")).encode("utf-8")
+    )
     signing_input = f"{header_segment}.{payload_segment}".encode("ascii")
-    signature = hmac.new(validate_jwt_secret().encode("utf-8"), signing_input, hashlib.sha256).digest()
+    signature = hmac.new(
+        validate_jwt_secret().encode("utf-8"), signing_input, hashlib.sha256
+    ).digest()
     return f"{header_segment}.{payload_segment}.{_base64url_encode(signature)}"
 
 
@@ -120,9 +130,12 @@ def _decode_jwt_stdlib(token: str) -> dict[str, Any]:
         raise ValueError("Invalid token") from exc
 
 
-
 def generate_password_setup_token() -> str:
     return secrets.token_urlsafe(48)
+
+
+def generate_temporary_password() -> str:
+    return secrets.token_urlsafe(18)
 
 
 def hash_password_setup_token(token: str) -> str:
@@ -132,6 +145,7 @@ def hash_password_setup_token(token: str) -> str:
         hashlib.sha256,
     ).hexdigest()
 
+
 def create_access_token(subject: str, expires_delta: timedelta | None = None) -> str:
     expire = datetime.now(timezone.utc) + (
         expires_delta or timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
@@ -140,7 +154,9 @@ def create_access_token(subject: str, expires_delta: timedelta | None = None) ->
     if importlib.util.find_spec("jose") is not None:
         from jose import jwt
 
-        return jwt.encode(payload, validate_jwt_secret(), algorithm=settings.JWT_ALGORITHM)
+        return jwt.encode(
+            payload, validate_jwt_secret(), algorithm=settings.JWT_ALGORITHM
+        )
     return _encode_jwt_stdlib(payload)
 
 
@@ -149,7 +165,9 @@ def decode_access_token(token: str) -> dict[str, Any]:
         from jose import JWTError, jwt
 
         try:
-            return jwt.decode(token, validate_jwt_secret(), algorithms=[settings.JWT_ALGORITHM])
+            return jwt.decode(
+                token, validate_jwt_secret(), algorithms=[settings.JWT_ALGORITHM]
+            )
         except JWTError as exc:
             raise ValueError("Invalid token") from exc
     return _decode_jwt_stdlib(token)

@@ -13,11 +13,18 @@ from app.core.config import settings
 from app.core.security import (
     create_access_token,
     generate_password_setup_token,
+    generate_temporary_password,
+    hash_password,
     hash_password_setup_token,
 )
 from app.db.session import get_db
 from app.models.city import City
-from app.models.client import ClientPasswordSetupToken, ClientProfile, VkLinkCode, VkLinkCodeStatus
+from app.models.client import (
+    ClientPasswordSetupToken,
+    ClientProfile,
+    VkLinkCode,
+    VkLinkCodeStatus,
+)
 from app.models.user import User, UserRole
 from app.schemas.auth import UnifiedUserRead
 from app.schemas.vk import (
@@ -45,21 +52,33 @@ def exchange_vk_link_code(
     vk_user_id = _normalize_required(payload.vk_user_id, "VK user ID is required")
     code_value = payload.code.strip().upper()
     if not code_value:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Link code not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Link code not found"
+        )
 
-    link_code = db.execute(select(VkLinkCode).where(VkLinkCode.code == code_value)).scalar_one_or_none()
+    link_code = db.execute(
+        select(VkLinkCode).where(VkLinkCode.code == code_value)
+    ).scalar_one_or_none()
     if link_code is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Link code not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Link code not found"
+        )
     if link_code.status == VkLinkCodeStatus.USED.value:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Link code already used")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Link code already used"
+        )
     if link_code.status != VkLinkCodeStatus.ACTIVE.value:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Link code is not active")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Link code is not active"
+        )
 
     now = datetime.now(timezone.utc)
     if _ensure_aware_utc(link_code.expires_at) <= now:
         link_code.status = VkLinkCodeStatus.EXPIRED.value
         db.commit()
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Link code expired")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Link code expired"
+        )
 
     profile = db.execute(
         select(ClientProfile)
@@ -67,13 +86,20 @@ def exchange_vk_link_code(
         .where(ClientProfile.id == link_code.client_id)
     ).scalar_one_or_none()
     if profile is None or profile.user is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Client user not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Client user not found"
+        )
     user = profile.user
     if not user.is_active or user.role != UserRole.CLIENT.value:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Client user not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Client user not found"
+        )
 
     if profile.vk_user_id is not None and profile.vk_user_id != vk_user_id:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Client profile is already linked")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Client profile is already linked",
+        )
 
     existing_profile_id = db.execute(
         select(ClientProfile.id).where(
@@ -82,7 +108,9 @@ def exchange_vk_link_code(
         )
     ).scalar_one_or_none()
     if existing_profile_id is not None:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="VK user is already linked")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="VK user is already linked"
+        )
 
     profile.vk_user_id = vk_user_id
     link_code.status = VkLinkCodeStatus.USED.value
@@ -105,10 +133,14 @@ def create_vk_user_token(
         .where(ClientProfile.vk_user_id == vk_user_id)
     ).scalar_one_or_none()
     if profile is None or profile.user is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="VK user is not linked")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="VK user is not linked"
+        )
     user = profile.user
     if not user.is_active or user.role != UserRole.CLIENT.value:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="VK user is not linked")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="VK user is not linked"
+        )
     return _token_response(user)
 
 
@@ -129,9 +161,14 @@ def onboard_vk_client(
     if profile is not None:
         user = profile.user
         if user is None or not user.is_active:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Client user not found")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Client user not found"
+            )
         if user.role != UserRole.CLIENT.value:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Linked user is not a client")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Linked user is not a client",
+            )
         if selected_city_id is not None:
             profile.selected_city_id = selected_city_id
         _sync_optional_contact(user, payload.email, payload.phone)
@@ -144,10 +181,11 @@ def onboard_vk_client(
 
     normalized_email = _normalize_optional_email(payload.email)
     normalized_phone = _normalize_optional_text(payload.phone)
+    temporary_password = generate_temporary_password()
     user = User(
-        email=normalized_email or (_synthetic_vk_email(vk_user_id) if normalized_phone is None else None),
+        email=normalized_email or _synthetic_vk_email(vk_user_id),
         phone=normalized_phone,
-        password_hash=None,
+        password_hash=hash_password(temporary_password),
         role=UserRole.CLIENT.value,
         is_active=True,
     )
@@ -167,7 +205,13 @@ def onboard_vk_client(
     db.commit()
     db.refresh(user)
     db.refresh(profile)
-    return _onboard_response(user, profile, is_new=True, setup_data=setup_data)
+    return _onboard_response(
+        user,
+        profile,
+        is_new=True,
+        setup_data=setup_data,
+        temporary_password=temporary_password,
+    )
 
 
 def _token_response(user: User) -> VkExchangeTokenResponse:
@@ -182,6 +226,7 @@ def _onboard_response(
     profile: ClientProfile,
     is_new: bool,
     setup_data: dict[str, object] | None = None,
+    temporary_password: str | None = None,
 ) -> VkOnboardClientResponse:
     login = _user_login_value(user)
     return VkOnboardClientResponse(
@@ -189,27 +234,31 @@ def _onboard_response(
         user=VkOnboardClientUserRead.model_validate(user),
         client=VkOnboardClientProfileRead.model_validate(profile),
         is_new=is_new,
-        password_setup_required=user.password_hash is None,
+        password_setup_required=setup_data is not None,
         password_setup_url=str(setup_data["url"]) if setup_data else None,
         login=login,
         password_setup_expires_at=setup_data["expires_at"] if setup_data else None,
         password_setup_ttl_seconds=PASSWORD_SETUP_TTL_SECONDS if setup_data else None,
         web_login_url=_web_login_url(login),
+        temporary_password=temporary_password,
     )
 
 
-def _prepare_password_setup(db: Session, user: User, vk_user_id: str) -> dict[str, object] | None:
-    if user.password_hash is not None:
-        return None
-
+def _prepare_password_setup(
+    db: Session, user: User, vk_user_id: str
+) -> dict[str, object]:
     now = datetime.now(timezone.utc)
-    active_tokens = db.execute(
-        select(ClientPasswordSetupToken).where(
-            ClientPasswordSetupToken.user_id == user.id,
-            ClientPasswordSetupToken.purpose == PASSWORD_SETUP_PURPOSE,
-            ClientPasswordSetupToken.used_at.is_(None),
+    active_tokens = (
+        db.execute(
+            select(ClientPasswordSetupToken).where(
+                ClientPasswordSetupToken.user_id == user.id,
+                ClientPasswordSetupToken.purpose == PASSWORD_SETUP_PURPOSE,
+                ClientPasswordSetupToken.used_at.is_(None),
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     for setup_token in active_tokens:
         if _ensure_aware_utc(setup_token.expires_at) > now:
             setup_token.used_at = now
@@ -275,7 +324,9 @@ def _normalize_optional_email(value: str | None) -> str | None:
     return normalized.lower() if normalized is not None else None
 
 
-def _resolve_selected_city_id(db: Session, selected_city_slug: str | None) -> int | None:
+def _resolve_selected_city_id(
+    db: Session, selected_city_slug: str | None
+) -> int | None:
     normalized_slug = _normalize_optional_text(selected_city_slug)
     if normalized_slug is None:
         return None
@@ -283,7 +334,9 @@ def _resolve_selected_city_id(db: Session, selected_city_slug: str | None) -> in
         select(City.id).where(City.slug == normalized_slug, City.is_active.is_(True))
     ).scalar_one_or_none()
     if city_id is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="City not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="City not found"
+        )
     return int(city_id)
 
 
