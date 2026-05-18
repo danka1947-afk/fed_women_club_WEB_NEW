@@ -37,6 +37,13 @@ from app.schemas.payment import (
 )
 from app.schemas.vk import VkLinkCodeRead
 from app.services.activity_feed import build_client_activity_feed
+from app.services.privilege_verifications import (
+    PRIVILEGE_VERIFICATION_TTL_SECONDS,
+    apply_verification_status_filter,
+    as_aware_utc,
+    normalize_expired_verifications,
+    ttl_seconds,
+)
 
 router = APIRouter(prefix="/clients", tags=["clients"])
 
@@ -44,7 +51,6 @@ CITY_NOT_FOUND_DETAIL = "City not found"
 PARTNER_NOT_FOUND_DETAIL = "Partner not found"
 OFFER_NOT_FOUND_DETAIL = "Offer not found"
 ACTIVE_SUBSCRIPTION_REQUIRED_DETAIL = "Active subscription required"
-VERIFICATION_TTL_SECONDS = 5 * 60
 VERIFICATION_CODE_ALPHABET = string.digits
 VK_LINK_CODE_TTL_SECONDS = 10 * 60
 VK_LINK_CODE_LENGTH = 8
@@ -297,6 +303,8 @@ def create_client_partner_verification(
             detail=ACTIVE_SUBSCRIPTION_REQUIRED_DETAIL,
         )
 
+    normalize_expired_verifications(db, now=now, client_id=profile.id, partner_id=partner.id)
+
     existing_session = _get_existing_active_verification(
         db,
         profile.id,
@@ -314,7 +322,7 @@ def create_client_partner_verification(
         code=_generate_verification_code(),
         status=PrivilegeVerificationStatus.active.value,
         source=_normalize_optional_text(payload.source) or "web",
-        expires_at=now + timedelta(seconds=VERIFICATION_TTL_SECONDS),
+        expires_at=now + timedelta(seconds=PRIVILEGE_VERIFICATION_TTL_SECONDS),
         created_at=now,
     )
     db.add(session)
@@ -330,6 +338,8 @@ def list_client_verifications(
     db: Session = Depends(get_db),
 ) -> list[ClientVerificationRead]:
     profile = _get_or_create_client_profile(db, current_user.id)
+    now = datetime.now(timezone.utc)
+    normalize_expired_verifications(db, now=now, client_id=profile.id)
     statement = (
         select(PrivilegeVerificationSession, Partner.name.label("partner_name"), PartnerOffer.title.label("offer_title"))
         .join(Partner, PrivilegeVerificationSession.partner_id == Partner.id)
@@ -337,8 +347,7 @@ def list_client_verifications(
         .where(PrivilegeVerificationSession.client_id == profile.id)
         .order_by(PrivilegeVerificationSession.created_at.desc(), PrivilegeVerificationSession.id.desc())
     )
-    if status is not None:
-        statement = statement.where(PrivilegeVerificationSession.status == status)
+    statement = apply_verification_status_filter(statement, status, now=now)
 
     return [
         _client_verification_to_read(session, partner_name, offer_title)
@@ -449,7 +458,7 @@ def _generate_vk_link_code(db: Session) -> str:
 
 
 def _vk_link_code_to_read(link_code: VkLinkCode) -> VkLinkCodeRead:
-    expires_at = _ensure_aware_utc(link_code.expires_at)
+    expires_at = as_aware_utc(link_code.expires_at)
     ttl_seconds = max(0, int((expires_at - datetime.now(timezone.utc)).total_seconds()))
     return VkLinkCodeRead(
         code=link_code.code,
@@ -457,12 +466,6 @@ def _vk_link_code_to_read(link_code: VkLinkCode) -> VkLinkCodeRead:
         expires_at=expires_at,
         ttl_seconds=ttl_seconds,
     )
-
-
-def _ensure_aware_utc(value: datetime) -> datetime:
-    if value.tzinfo is None:
-        return value.replace(tzinfo=timezone.utc)
-    return value.astimezone(timezone.utc)
 
 
 def _has_active_subscription(db: Session, client_id: int, now: datetime) -> bool:
@@ -492,7 +495,7 @@ def _get_existing_active_verification(
             PrivilegeVerificationSession.client_id == client_id,
             PrivilegeVerificationSession.partner_id == partner_id,
             PrivilegeVerificationSession.status == PrivilegeVerificationStatus.active.value,
-            PrivilegeVerificationSession.expires_at > now,
+            PrivilegeVerificationSession.expires_at >= now,
         )
         .order_by(PrivilegeVerificationSession.created_at.desc(), PrivilegeVerificationSession.id.desc())
         .limit(1)
@@ -560,17 +563,6 @@ def _generate_verification_code(length: int = 6) -> str:
     return "".join(secrets.choice(VERIFICATION_CODE_ALPHABET) for _ in range(length))
 
 
-def _as_aware_utc(value: datetime) -> datetime:
-    if value.tzinfo is None:
-        return value.replace(tzinfo=timezone.utc)
-    return value.astimezone(timezone.utc)
-
-
-def _ttl_seconds(expires_at: datetime) -> int | None:
-    seconds = int((_as_aware_utc(expires_at) - datetime.now(timezone.utc)).total_seconds())
-    return max(seconds, 0)
-
-
 def _client_verification_to_read(
     session: PrivilegeVerificationSession,
     partner_name: str | None,
@@ -590,7 +582,7 @@ def _client_verification_to_read(
             "expires_at": session.expires_at,
             "confirmed_at": session.confirmed_at,
             "created_at": session.created_at,
-            "ttl_seconds": _ttl_seconds(session.expires_at),
+            "ttl_seconds": ttl_seconds(session.expires_at),
             "subscription_required": False,
         }
     )

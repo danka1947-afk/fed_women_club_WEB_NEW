@@ -195,7 +195,7 @@ def _create_verification(
     partner_id: int = 1,
     offer_id: int | None = None,
     status: str = PrivilegeVerificationStatus.active.value,
-    expires_delta: timedelta = timedelta(minutes=5),
+    expires_delta: timedelta = timedelta(minutes=15),
 ) -> int:
     now = datetime.now(timezone.utc)
     with _session(client) as session:
@@ -249,7 +249,11 @@ def test_client_post_verify_creates_active_session_for_active_partner(verificati
     assert data["subscription_required"] is False
     assert len(data["code"]) == 6
     assert data["code"].isdigit()
-    assert 0 < data["ttl_seconds"] <= 300
+    assert 0 < data["ttl_seconds"] <= 900
+    created_at = datetime.fromisoformat(data["created_at"])
+    expires_at = datetime.fromisoformat(data["expires_at"])
+    assert abs((expires_at - created_at).total_seconds() - 900) < 1
+    assert 850 <= data["ttl_seconds"] <= 900
 
 
 def test_client_post_verify_with_inactive_or_missing_partner_returns_404(verification_client: TestClient) -> None:
@@ -364,6 +368,57 @@ def test_client_get_own_verifications_supports_status_filter(verification_client
     assert [item["id"] for item in response.json()] == [confirmed_id]
 
 
+def test_client_verification_status_filters_normalize_expired_and_support_all_used(
+    verification_client: TestClient,
+) -> None:
+    active_id = _create_verification(
+        verification_client,
+        client_id=1,
+        partner_id=1,
+        status=PrivilegeVerificationStatus.active.value,
+        expires_delta=timedelta(minutes=1),
+    )
+    expired_id = _create_verification(
+        verification_client,
+        client_id=1,
+        partner_id=1,
+        status=PrivilegeVerificationStatus.active.value,
+        expires_delta=timedelta(seconds=-1),
+    )
+    confirmed_id = _create_verification(
+        verification_client,
+        client_id=1,
+        partner_id=1,
+        status=PrivilegeVerificationStatus.confirmed.value,
+    )
+    used_id = _create_verification(verification_client, client_id=1, partner_id=1, status="used")
+
+    headers = _auth_headers(_client_token(verification_client))
+
+    active_response = verification_client.get("/api/v1/clients/me/verifications?status=active", headers=headers)
+    expired_response = verification_client.get("/api/v1/clients/me/verifications?status=expired", headers=headers)
+    confirmed_response = verification_client.get("/api/v1/clients/me/verifications?status=confirmed", headers=headers)
+    used_response = verification_client.get("/api/v1/clients/me/verifications?status=used", headers=headers)
+    all_response = verification_client.get("/api/v1/clients/me/verifications?status=all", headers=headers)
+
+    assert active_response.status_code == 200
+    assert expired_response.status_code == 200
+    assert confirmed_response.status_code == 200
+    assert used_response.status_code == 200
+    assert all_response.status_code == 200
+    assert [item["id"] for item in active_response.json()] == [active_id]
+    assert [item["id"] for item in expired_response.json()] == [expired_id]
+    assert [item["id"] for item in confirmed_response.json()] == [used_id, confirmed_id]
+    assert [item["id"] for item in used_response.json()] == [used_id, confirmed_id]
+    assert [item["id"] for item in all_response.json()] == [used_id, confirmed_id, expired_id, active_id]
+    assert all(item["status"] != "active" for item in confirmed_response.json())
+
+    with _session(verification_client) as session:
+        stored = session.get(PrivilegeVerificationSession, expired_id)
+        assert stored is not None
+        assert stored.status == PrivilegeVerificationStatus.expired.value
+
+
 def test_partner_get_own_verifications_returns_only_own_partner_sessions(verification_client: TestClient) -> None:
     own_id = _create_verification(verification_client, client_id=1, partner_id=1)
     _create_verification(verification_client, client_id=1, partner_id=2)
@@ -437,7 +492,7 @@ def test_partner_confirm_non_active_session_returns_400(verification_client: Tes
         verification_client,
         client_id=1,
         partner_id=1,
-        status=PrivilegeVerificationStatus.confirmed.value,
+        status=PrivilegeVerificationStatus.expired.value,
     )
 
     response = verification_client.post(
@@ -447,6 +502,30 @@ def test_partner_confirm_non_active_session_returns_400(verification_client: Tes
 
     assert response.status_code == 400
     assert response.json()["detail"] == "Verification session is not active"
+
+
+def test_partner_confirm_confirmed_or_used_session_returns_400(verification_client: TestClient) -> None:
+    confirmed_id = _create_verification(
+        verification_client,
+        client_id=1,
+        partner_id=1,
+        status=PrivilegeVerificationStatus.confirmed.value,
+    )
+    used_id = _create_verification(verification_client, client_id=1, partner_id=1, status="used")
+
+    confirmed_response = verification_client.post(
+        f"/api/v1/partners/me/verifications/{confirmed_id}/confirm",
+        headers=_auth_headers(_partner_token(verification_client)),
+    )
+    used_response = verification_client.post(
+        f"/api/v1/partners/me/verifications/{used_id}/confirm",
+        headers=_auth_headers(_partner_token(verification_client)),
+    )
+
+    assert confirmed_response.status_code == 400
+    assert confirmed_response.json()["detail"] == "Verification session is already confirmed"
+    assert used_response.status_code == 400
+    assert used_response.json()["detail"] == "Verification session is already confirmed"
 
 
 def test_admin_get_verifications_returns_all_sessions(verification_client: TestClient) -> None:

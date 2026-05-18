@@ -34,6 +34,13 @@ from app.schemas.partner import (
     PartnerVerificationRead,
 )
 from app.services.partner_analytics import build_partner_analytics
+from app.services.privilege_verifications import (
+    apply_verification_status_filter,
+    as_aware_utc,
+    is_final_verification_status,
+    normalize_expired_verifications,
+    ttl_seconds,
+)
 from app.services.qr_links import qr_link_to_read
 
 router = APIRouter(prefix="/partners", tags=["partners"])
@@ -230,6 +237,8 @@ def list_partner_verifications(
     db: Session = Depends(get_db),
 ) -> list[PartnerVerificationRead]:
     partner = _get_current_partner_or_404(db, current_user.id)
+    now = datetime.now(timezone.utc)
+    normalize_expired_verifications(db, now=now, partner_id=partner.id)
     statement = (
         select(
             PrivilegeVerificationSession,
@@ -243,8 +252,7 @@ def list_partner_verifications(
         .where(PrivilegeVerificationSession.partner_id == partner.id)
         .order_by(PrivilegeVerificationSession.created_at.desc(), PrivilegeVerificationSession.id.desc())
     )
-    if status is not None:
-        statement = statement.where(PrivilegeVerificationSession.status == status)
+    statement = apply_verification_status_filter(statement, status, now=now)
 
     return [
         _partner_verification_to_read(session, client_name, partner_name, offer_title)
@@ -268,11 +276,13 @@ def confirm_partner_verification(
     if verification is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=VERIFICATION_NOT_FOUND_DETAIL)
 
+    now = datetime.now(timezone.utc)
+    if is_final_verification_status(verification.status):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Verification session is already confirmed")
     if verification.status != PrivilegeVerificationStatus.active.value:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Verification session is not active")
 
-    now = datetime.now(timezone.utc)
-    if _as_aware_utc(verification.expires_at) < now:
+    if as_aware_utc(verification.expires_at) < now:
         verification.status = PrivilegeVerificationStatus.expired.value
         db.commit()
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Verification session expired")
@@ -377,17 +387,6 @@ async def upload_partner_offer_image(
     return {"url": image_url}
 
 
-def _as_aware_utc(value: datetime) -> datetime:
-    if value.tzinfo is None:
-        return value.replace(tzinfo=timezone.utc)
-    return value.astimezone(timezone.utc)
-
-
-def _ttl_seconds(expires_at: datetime) -> int | None:
-    seconds = int((_as_aware_utc(expires_at) - datetime.now(timezone.utc)).total_seconds())
-    return max(seconds, 0)
-
-
 def _partner_verification_to_read(
     session: PrivilegeVerificationSession,
     client_name: str | None,
@@ -409,7 +408,7 @@ def _partner_verification_to_read(
             "expires_at": session.expires_at,
             "confirmed_at": session.confirmed_at,
             "created_at": session.created_at,
-            "ttl_seconds": _ttl_seconds(session.expires_at),
+            "ttl_seconds": ttl_seconds(session.expires_at),
         }
     )
 
