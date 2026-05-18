@@ -1,7 +1,7 @@
 from __future__ import annotations
 
+import hashlib
 from datetime import datetime, timedelta, timezone
-
 from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -135,15 +135,18 @@ def onboard_vk_client(
         if selected_city_id is not None:
             profile.selected_city_id = selected_city_id
         _sync_optional_contact(user, payload.email, payload.phone)
+        _ensure_vk_login(user, vk_user_id)
         setup_data = _prepare_password_setup(db, user, vk_user_id)
         db.commit()
         db.refresh(profile)
         db.refresh(user)
         return _onboard_response(user, profile, is_new=False, setup_data=setup_data)
 
+    normalized_email = _normalize_optional_email(payload.email)
+    normalized_phone = _normalize_optional_text(payload.phone)
     user = User(
-        email=_normalize_optional_email(payload.email),
-        phone=_normalize_optional_text(payload.phone),
+        email=normalized_email or (_synthetic_vk_email(vk_user_id) if normalized_phone is None else None),
+        phone=normalized_phone,
         password_hash=None,
         role=UserRole.CLIENT.value,
         is_active=True,
@@ -191,6 +194,7 @@ def _onboard_response(
         login=login,
         password_setup_expires_at=setup_data["expires_at"] if setup_data else None,
         password_setup_ttl_seconds=PASSWORD_SETUP_TTL_SECONDS if setup_data else None,
+        web_login_url=_web_login_url(login),
     )
 
 
@@ -240,8 +244,30 @@ def _sync_optional_contact(user: User, email: str | None, phone: str | None) -> 
         user.phone = normalized_phone
 
 
+def _ensure_vk_login(user: User, vk_user_id: str) -> None:
+    if _user_login_value(user) is None:
+        user.email = _synthetic_vk_email(vk_user_id)
+
+
 def _user_login_value(user: User) -> str | None:
     return user.email or user.phone
+
+
+def _web_login_url(login: str | None) -> str | None:
+    if login is None:
+        return None
+    public_url = settings.WEB_PUBLIC_URL.rstrip("/")
+    return f"{public_url}/?{urlencode({'client_login': login})}"
+
+
+def _synthetic_vk_email(vk_user_id: str) -> str:
+    """Return a stable technical login for VK onboarding users without real contact data.
+
+    The vk.local domain is intentionally non-customer-facing and should not be
+    treated as the client's real email address.
+    """
+    digest = hashlib.sha256(vk_user_id.encode("utf-8")).hexdigest()[:32]
+    return f"vk_{digest}@vk.local"
 
 
 def _normalize_optional_email(value: str | None) -> str | None:

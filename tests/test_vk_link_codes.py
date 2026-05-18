@@ -445,7 +445,11 @@ def test_bot_onboard_client_creates_passwordless_client_user_and_profile(vk_link
     assert data["access_token"]
     assert data["is_new"] is True
     assert data["password_setup_required"] is True
-    assert data["user"]["email"] is None
+    assert data["login"].startswith("vk_")
+    assert data["login"].endswith("@vk.local")
+    assert data["web_login_url"] == f"{settings.WEB_PUBLIC_URL}/?client_login={data['login'].replace('@', '%40')}"
+    assert f"login={data['login'].replace('@', '%40')}" in data["password_setup_url"]
+    assert data["user"]["email"] == data["login"]
     assert data["user"]["phone"] is None
     assert data["user"]["role"] == UserRole.CLIENT.value
     assert "password_hash" not in data["user"]
@@ -462,7 +466,7 @@ def test_bot_onboard_client_creates_passwordless_client_user_and_profile(vk_link
         assert user.role == UserRole.CLIENT.value
         assert user.is_active is True
         assert user.password_hash is None
-        assert user.email is None
+        assert user.email == data["login"]
         assert user.phone is None
         assert profile.full_name == "New Client"
         assert profile.source == "vk"
@@ -505,14 +509,64 @@ def test_bot_onboard_client_repeated_vk_user_id_returns_existing_profile(vk_link
     assert second_data["is_new"] is False
     assert second_data["user"]["id"] == first_data["user"]["id"]
     assert second_data["client"]["id"] == first_data["client"]["id"]
+    assert second_data["login"] == first_data["login"]
+    assert second_data["login"].startswith("vk_")
+    assert second_data["login"].endswith("@vk.local")
     with _db_session() as session:
-        users_count = len(session.execute(select(User).where(User.email.is_(None))).scalars().all())
+        users_count = len(session.execute(select(User).where(User.email == first_data["login"])).scalars().all())
         profiles_count = len(
             session.execute(select(ClientProfile).where(ClientProfile.vk_user_id == "vk-repeat")).scalars().all()
         )
         assert users_count == 1
         assert profiles_count == 1
 
+
+def test_bot_onboard_client_later_contact_does_not_overwrite_synthetic_login(vk_link_client: TestClient) -> None:
+    first_response = vk_link_client.post(
+        "/api/v1/bot/vk/onboard-client",
+        headers=_bot_headers(),
+        json={"vk_user_id": "vk-later-contact"},
+    )
+    assert first_response.status_code == 200
+    first_login = first_response.json()["login"]
+
+    second_response = vk_link_client.post(
+        "/api/v1/bot/vk/onboard-client",
+        headers=_bot_headers(),
+        json={"vk_user_id": "vk-later-contact", "email": "Real@Example.COM", "phone": "+79990001122"},
+    )
+
+    assert second_response.status_code == 200
+    data = second_response.json()
+    assert data["login"] == first_login
+    assert data["user"]["email"] == first_login
+    assert data["user"]["phone"] == "+79990001122"
+
+
+def test_bot_onboard_client_existing_real_email_not_overwritten(vk_link_client: TestClient) -> None:
+    with _db_session() as session:
+        user = User(
+            email="real-existing@example.com",
+            phone=None,
+            password_hash=None,
+            role=UserRole.CLIENT.value,
+            is_active=True,
+        )
+        session.add(user)
+        session.flush()
+        session.add(ClientProfile(user_id=user.id, vk_user_id="vk-real-email", is_active=True, source="vk"))
+        session.commit()
+
+    response = vk_link_client.post(
+        "/api/v1/bot/vk/onboard-client",
+        headers=_bot_headers(),
+        json={"vk_user_id": "vk-real-email"},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["login"] == "real-existing@example.com"
+    assert data["user"]["email"] == "real-existing@example.com"
 
 
 def _extract_setup_token(setup_url: str) -> str:
@@ -534,6 +588,7 @@ def test_bot_onboard_client_returns_password_setup_url_and_stores_only_token_has
     assert data["password_setup_required"] is True
     assert data["password_setup_url"].startswith(f"{settings.WEB_PUBLIC_URL}/?setup_token=")
     assert data["login"] == "clientsetup@example.com"
+    assert data["web_login_url"] == f"{settings.WEB_PUBLIC_URL}/?client_login=clientsetup%40example.com"
     assert data["password_setup_ttl_seconds"] == 3600
     assert data["password_setup_expires_at"]
     assert "login=clientsetup%40example.com" in data["password_setup_url"]
@@ -582,6 +637,33 @@ def test_password_setup_complete_sets_password_and_user_can_login(vk_link_client
     )
     assert login_response.status_code == 200
     assert login_response.json()["user"]["role"] == UserRole.CLIENT.value
+
+
+def test_password_setup_complete_allows_login_with_synthetic_vk_login(vk_link_client: TestClient) -> None:
+    onboard_response = vk_link_client.post(
+        "/api/v1/bot/vk/onboard-client",
+        headers=_bot_headers(),
+        json={"vk_user_id": "vk-synthetic-complete"},
+    )
+    assert onboard_response.status_code == 200
+    onboard_data = onboard_response.json()
+    returned_login = onboard_data["login"]
+    plain_token = _extract_setup_token(onboard_data["password_setup_url"])
+
+    complete_response = vk_link_client.post(
+        "/api/v1/auth/password-setup/complete",
+        json={"token": plain_token, "password": "ClientPass123", "password_confirm": "ClientPass123"},
+    )
+
+    assert complete_response.status_code == 200
+    assert complete_response.json()["login"] == returned_login
+
+    login_response = vk_link_client.post(
+        "/api/v1/auth/user-login",
+        json={"login": returned_login, "password": "ClientPass123"},
+    )
+    assert login_response.status_code == 200
+    assert login_response.json()["user"]["email"] == returned_login
 
 
 def test_password_setup_token_reuse_is_rejected(vk_link_client: TestClient) -> None:
@@ -663,6 +745,9 @@ def test_onboarding_existing_client_with_password_has_no_setup_url(vk_link_clien
     assert data["password_setup_url"] is None
     assert data["password_setup_expires_at"] is None
     assert data["password_setup_ttl_seconds"] is None
+    assert data["login"] == "existing-password@example.com"
+    assert data["web_login_url"] == f"{settings.WEB_PUBLIC_URL}/?client_login=existing-password%40example.com"
+
 
 def test_bot_onboard_client_active_city_slug_sets_selected_city_id(vk_link_client: TestClient) -> None:
     response = vk_link_client.post(
