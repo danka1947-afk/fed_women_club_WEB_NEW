@@ -125,6 +125,29 @@ const getPasswordSetupParams = () => {
   };
 };
 
+const getClientLoginPrefillParams = () => {
+  const params = new URLSearchParams(window.location.search);
+  const clientLogin = (params.get('client_login') || params.get('login') || '').trim();
+  return {
+    clientLogin,
+  };
+};
+
+const applyClientLoginPrefill = () => {
+  const { clientLogin } = getClientLoginPrefillParams();
+  if (!clientLogin || getPasswordSetupParams().setupToken) {
+    return;
+  }
+
+  // client_login opens client login mode and uses login prefill for VK onboarding links.
+  setLoginMode('client');
+  const loginInput = document.querySelector('[data-login-form] input[name="email"]');
+  if (loginInput) {
+    loginInput.value = clientLogin;
+    loginInput.focus();
+  }
+};
+
 const renderPasswordSetupApp = () => {
   const { login } = getPasswordSetupParams();
   document.body.classList.remove('is-dashboard');
@@ -1211,6 +1234,7 @@ const showLoginForm = () => {
   partnerState.user = null;
   clientState.user = null;
   renderPublicApp();
+  applyClientLoginPrefill();
   setLoginMessage();
 };
 

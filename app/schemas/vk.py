@@ -70,3 +70,4 @@ class VkOnboardClientResponse(BaseModel):
     login: str | None = None
     password_setup_expires_at: datetime | None = None
     password_setup_ttl_seconds: int | None = None
+    web_login_url: str | None = None

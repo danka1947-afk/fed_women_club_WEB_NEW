@@ -1220,11 +1220,15 @@ def test_frontend_contains_vk_password_setup_flow_markers() -> None:
     source = _frontend_main()
 
     assert "setup_token" in source
+    assert "client_login" in source
     assert "getPasswordSetupParams" in source
+    assert "applyClientLoginPrefill" in source
     assert "Задайте пароль" in source
     assert "Новый пароль" in source
     assert "Повторите пароль" in source
     assert "Пароль установлен. Теперь войдите" in source
+    assert "login prefill" in source
+    assert "client login mode" in source
     assert "/api/v1/auth/password-setup/complete" in source
     assert "Ссылка недействительна или истекла" in source
 
