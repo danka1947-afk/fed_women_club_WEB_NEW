@@ -184,7 +184,8 @@ const renderPasswordSetupApp = () => {
 const renderPublicApp = () => {
   document.body.classList.remove('is-dashboard');
   root.innerHTML = `
-  <div class="sakura-layer" aria-hidden="true">
+  <div class="sakura-layer sakura-layer--landing" aria-hidden="true">
+    <div class="sakura-landing-backdrop"></div>
     ${sakuraPetalMarkup}
   </div>
   <main class="app-shell">
