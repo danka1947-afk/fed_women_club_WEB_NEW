@@ -1,3 +1,4 @@
+from app.models.appointment import PartnerAppointment, PartnerAppointmentStatus
 from app.models.category import Category
 from app.models.city import City
 from app.models.client import ClientPasswordSetupToken, ClientProfile, VkLinkCode
@@ -9,6 +10,8 @@ from app.models.verification import PrivilegeVerificationSession, PrivilegeVerif
 
 __all__ = [
     "AdminUser",
+    "PartnerAppointment",
+    "PartnerAppointmentStatus",
     "Category",
     "City",
     "ClientProfile",
