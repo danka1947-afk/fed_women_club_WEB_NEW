@@ -1804,6 +1804,30 @@ def test_frontend_contains_client_home_overview_markers() -> None:
         assert expected in source or expected in styles
 
 
+def test_frontend_contains_client_appointment_booking_flow_markers() -> None:
+    source = _frontend_main()
+    styles = _frontend_styles()
+
+    for expected in (
+        "Записаться",
+        "Записаться к партнёру",
+        "Отправить заявку",
+        "Мои записи",
+        "Заявка отправлена",
+        "У вас пока нет записей",
+        "/api/v1/clients/partners/",
+        "/appointments",
+        "/api/v1/clients/me/appointments",
+        "data-client-appointment-partner",
+        "data-client-appointment-offer",
+        "data-client-appointment-form",
+        "client-appointment-modal",
+        "client-appointment-card",
+        "client-appointment-badge",
+    ):
+        assert expected in source or expected in styles
+
+
 def test_frontend_contains_privilege_marketplace_flow_markers() -> None:
     source = _frontend_main()
     styles = _frontend_styles()
