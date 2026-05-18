@@ -55,6 +55,12 @@ from app.schemas.payment import AdminPaymentRequestRead, PaymentRequestApprove, 
 from app.services.activity_feed import build_admin_activity_feed
 from app.services.image_uploads import save_partner_image_upload, save_partner_offer_image_upload, save_partner_photo_image_upload, validate_image_kind
 from app.services.partner_analytics import build_partner_analytics
+from app.services.privilege_verifications import (
+    apply_verification_status_filter,
+    as_aware_utc,
+    normalize_expired_verifications,
+    ttl_seconds,
+)
 from app.services.qr_links import (
     generate_qr_slug,
     is_valid_qr_slug,
@@ -107,6 +113,8 @@ def list_admin_verifications(
     db: Session = Depends(get_db),
 ) -> list[AdminVerificationRead]:
     _ = admin
+    now = datetime.now(timezone.utc)
+    normalize_expired_verifications(db, now=now, client_id=client_id, partner_id=partner_id)
     statement = (
         select(
             PrivilegeVerificationSession,
@@ -126,8 +134,7 @@ def list_admin_verifications(
         statement = statement.where(PrivilegeVerificationSession.partner_id == partner_id)
     if client_id is not None:
         statement = statement.where(PrivilegeVerificationSession.client_id == client_id)
-    if status is not None:
-        statement = statement.where(PrivilegeVerificationSession.status == status)
+    statement = apply_verification_status_filter(statement, status, now=now)
 
     return [
         _admin_verification_to_read(session, client_name, partner_name, city_id, city_name, offer_title)
@@ -202,12 +209,12 @@ def approve_admin_payment_request(
     if (
         latest_subscription is not None
         and latest_subscription.status == SubscriptionStatus.active.value
-        and _as_aware_utc(latest_subscription.ends_at) > now
+        and as_aware_utc(latest_subscription.ends_at) > now
     ):
         subscription_starts_at = latest_subscription.ends_at
 
     subscription_ends_at = payload.access_until or subscription_starts_at + timedelta(days=payload.access_days or 30)
-    if _as_aware_utc(subscription_ends_at) <= _as_aware_utc(subscription_starts_at):
+    if as_aware_utc(subscription_ends_at) <= as_aware_utc(subscription_starts_at):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Subscription end must be after start")
 
     payment_request.status = PaymentRequestStatus.approved.value
@@ -965,17 +972,6 @@ def update_admin_partner_offer(
     return _get_partner_offer_read_or_404(db, offer.id)
 
 
-def _as_aware_utc(value: datetime) -> datetime:
-    if value.tzinfo is None:
-        return value.replace(tzinfo=timezone.utc)
-    return value.astimezone(timezone.utc)
-
-
-def _ttl_seconds(expires_at: datetime) -> int | None:
-    seconds = int((_as_aware_utc(expires_at) - datetime.now(timezone.utc)).total_seconds())
-    return max(seconds, 0)
-
-
 def _admin_verification_to_read(
     session: PrivilegeVerificationSession,
     client_name: str | None,
@@ -1001,7 +997,7 @@ def _admin_verification_to_read(
             "expires_at": session.expires_at,
             "confirmed_at": session.confirmed_at,
             "created_at": session.created_at,
-            "ttl_seconds": _ttl_seconds(session.expires_at),
+            "ttl_seconds": ttl_seconds(session.expires_at),
         }
     )
 
