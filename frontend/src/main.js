@@ -294,8 +294,9 @@ const renderPublicApp = () => {
         </div>
         <form class="login-form" data-login-form>
           <label>
-            Телефон или email
-            <input type="text" name="email" autocomplete="username" placeholder="name@example.com или +79990000000" required />
+            Логин
+            <input type="text" name="email" autocomplete="username" placeholder="Введите логин" required />
+            <small class="muted-text">Email, телефон или логин, выданный клубом</small>
           </label>
           <label>
             Пароль
@@ -3384,7 +3385,7 @@ const renderUsersTab = () => {
       </div>
       <form class="admin-form" data-admin-form="user">
         <h4>Новый пользователь</h4>
-        <label>Email<input name="email" type="email" autocomplete="email" /></label>
+        <label>Логин<input name="email" type="text" autocomplete="username" placeholder="Введите логин" /></label>
         <label>Телефон<input name="phone" autocomplete="tel" /></label>
         <label>Пароль<input name="password" type="password" autocomplete="new-password" required /></label>
         <label>Роль${renderSelect('role', [['client', 'Клиент'], ['partner', 'Партнёр'], ['admin', 'Администратор']], true, 'client', null, { label: 'Роль', data: { adminUserRole: true } })}</label>
