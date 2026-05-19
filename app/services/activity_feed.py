@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.models.client import ClientProfile
 from app.models.lead import LeadClick
+from app.models.payment import PaymentRequest, PaymentRequestStatus, Subscription, SubscriptionStatus
 from app.models.partner import Partner, PartnerOffer, PartnerQrLink
 from app.models.verification import PrivilegeVerificationSession, PrivilegeVerificationStatus
 from app.schemas.activity import ActivityFeedRead, ActivityItemRead
@@ -21,6 +22,9 @@ QR_CLICKED = "qr_clicked"
 PARTNER_CREATED = "partner_created"
 OFFER_CREATED = "offer_created"
 QR_LINK_CREATED = "qr_link_created"
+PAYMENT_REQUEST_CREATED = "payment_request_created"
+PAYMENT_APPROVED = "payment_approved"
+SUBSCRIPTION_ACTIVATED = "subscription_activated"
 
 SUPPORTED_EVENT_TYPES = {
     PRIVILEGE_CREATED,
@@ -34,7 +38,11 @@ SUPPORTED_EVENT_TYPES = {
 
 
 def build_client_activity_feed(db: Session, client_id: int, limit: int = DEFAULT_ACTIVITY_LIMIT) -> ActivityFeedRead:
-    items = _privilege_items(db, client_id=client_id)
+    items = [
+        *_client_payment_items(db, client_id=client_id),
+        *_client_subscription_items(db, client_id=client_id),
+        *_privilege_items(db, client_id=client_id),
+    ]
     return _feed(items, limit)
 
 
@@ -204,6 +212,57 @@ def _qr_clicked_items(db: Session, *, partner_id: int | None = None) -> list[Act
             source=click.source,
         )
         for click, partner_name, qr_slug in db.execute(statement).all()
+    ]
+
+
+def _client_payment_items(db: Session, *, client_id: int) -> list[ActivityItemRead]:
+    requests = db.execute(select(PaymentRequest).where(PaymentRequest.client_id == client_id)).scalars().all()
+    items: list[ActivityItemRead] = []
+    for request in requests:
+        amount_text = f"{request.amount} ₽"
+        items.append(
+            ActivityItemRead(
+                id=f"{PAYMENT_REQUEST_CREATED}:{request.id}",
+                event_type=PAYMENT_REQUEST_CREATED,
+                occurred_at=request.created_at,
+                title="Запрос на оплату создан",
+                description=f"Сумма: {amount_text}",
+                client_id=request.client_id,
+                source=request.source,
+                status=request.status,
+            )
+        )
+        if request.status == PaymentRequestStatus.approved.value and request.approved_at is not None:
+            items.append(
+                ActivityItemRead(
+                    id=f"{PAYMENT_APPROVED}:{request.id}",
+                    event_type=PAYMENT_APPROVED,
+                    occurred_at=request.approved_at,
+                    title="Оплата подтверждена",
+                    description=f"Сумма: {amount_text}",
+                    client_id=request.client_id,
+                    source=request.source,
+                    status=request.status,
+                )
+            )
+    return items
+
+
+def _client_subscription_items(db: Session, *, client_id: int) -> list[ActivityItemRead]:
+    subscriptions = db.execute(select(Subscription).where(Subscription.client_id == client_id)).scalars().all()
+    return [
+        ActivityItemRead(
+            id=f"{SUBSCRIPTION_ACTIVATED}:{subscription.id}",
+            event_type=SUBSCRIPTION_ACTIVATED,
+            occurred_at=subscription.created_at,
+            title="Подписка активирована",
+            description=f"Действует до {subscription.ends_at.strftime('%d.%m.%Y')}",
+            client_id=subscription.client_id,
+            status=subscription.status,
+            source="payment_request" if subscription.source_payment_request_id else None,
+        )
+        for subscription in subscriptions
+        if subscription.status in {SubscriptionStatus.active.value, SubscriptionStatus.expired.value}
     ]
 
 
