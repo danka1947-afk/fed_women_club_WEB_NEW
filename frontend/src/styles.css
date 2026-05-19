@@ -490,6 +490,10 @@ body:not(.is-dashboard) .panel {
   justify-content: space-between;
   gap: 16px;
   padding: 8px;
+  border-radius: 22px;
+  background:
+    linear-gradient(rgba(255, 251, 249, 0.9), rgba(255, 251, 249, 0.9)),
+    url('/assets/club-header-cover.png') center / cover no-repeat;
 }
 
 .brand {
@@ -500,17 +504,21 @@ body:not(.is-dashboard) .panel {
 
 .brand-mark {
   display: grid;
-  width: 48px;
-  height: 48px;
+  width: clamp(40px, 4.2vw, 54px);
+  height: clamp(40px, 4.2vw, 54px);
   place-items: center;
   border: 1px solid rgba(143, 81, 75, 0.22);
   border-radius: 50%;
+  overflow: hidden;
   background: linear-gradient(145deg, #fff, var(--color-blush));
-  color: rgba(255, 255, 255, 0.96);
+  color: #fffaf8;
   font-weight: 700;
   letter-spacing: 0.02em;
   box-shadow: 0 12px 32px rgba(201, 130, 120, 0.2);
 }
+
+.brand-mark__image { width: 100%; height: 100%; object-fit: cover; }
+.brand-mark__fallback { display: grid; width: 100%; height: 100%; place-items: center; background: linear-gradient(145deg, #d9a89d, #b07b73); }
 
 .brand-name,
 .brand-caption {
@@ -2578,7 +2586,8 @@ body.is-dashboard {
   border-bottom: 1px solid rgba(143, 81, 75, 0.16);
   border-radius: 0 0 28px 28px;
   background:
-    linear-gradient(135deg, rgba(255, 253, 252, 0.96), rgba(255, 247, 244, 0.94));
+    linear-gradient(rgba(255, 252, 250, 0.95), rgba(255, 252, 250, 0.95)),
+    url('/assets/club-header-cover.png') center / cover no-repeat;
   box-shadow: 0 18px 44px rgba(111, 66, 62, 0.09);
   -webkit-backdrop-filter: blur(18px);
   backdrop-filter: blur(18px);
@@ -5661,6 +5670,14 @@ body.is-dashboard {
   padding: 14px;
 }
 
+.admin-payments-toolbar .admin-select-label {
+  min-width: min(100%, 320px);
+}
+
+.admin-payments-toolbar .custom-select-trigger {
+  min-height: 44px;
+}
+
 .admin-payment-grid {
   display: grid;
   gap: 14px;
@@ -5874,7 +5891,8 @@ body.is-dashboard {
   z-index: 1;
   display: grid;
   width: min(1120px, 100%);
-  max-height: calc(100vh - 96px);
+  max-height: calc(100vh - 48px);
+  margin-top: max(8px, env(safe-area-inset-top));
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.58);
   border-radius: 34px;
@@ -5912,6 +5930,15 @@ body.is-dashboard {
   box-shadow: 0 12px 24px rgba(143, 81, 75, 0.16);
   font-size: 1.65rem;
   font-weight: 900;
+  color: #ffffff;
+}
+
+.client-partner-modal__close:hover,
+.client-partner-modal__close:focus-visible {
+  background: #6f3f39;
+  color: #ffffff;
+  outline: 2px solid rgba(255, 255, 255, 0.55);
+  outline-offset: 2px;
 }
 
 .client-partner-modal__body {
@@ -6053,6 +6080,12 @@ body.is-dashboard {
   gap: 14px;
 }
 
+.client-partner-modal .landing-gallery-dots,
+.client-partner-modal .landing-gallery-indicators,
+.client-partner-modal [data-gallery-dots] {
+  display: none !important;
+}
+
 .client-partner-modal__offer .offer-marketplace-card {
   border-radius: 26px;
   box-shadow: 0 14px 34px rgba(143, 81, 75, 0.1);
@@ -6072,7 +6105,7 @@ body.is-dashboard {
 
 @media (max-width: 900px) {
   .client-partner-modal__panel {
-    max-height: calc(100vh - 72px);
+    max-height: calc(100vh - 36px);
     border-radius: 26px;
   }
 
@@ -6088,6 +6121,10 @@ body.is-dashboard {
 @media (max-width: 640px) {
 .client-partner-modal {
     padding: 12px 8px;
+  }
+
+  .topbar {
+    border-radius: 18px;
   }
 
   .client-partner-modal__header,
