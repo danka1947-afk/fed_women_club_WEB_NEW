@@ -11,6 +11,7 @@ class ClientProfileRead(BaseModel):
     user_id: int
     email: str | None
     phone: str | None
+    contact_email: str | None
     full_name: str | None
     selected_city_id: int | None
     selected_city_name: str | None
@@ -22,7 +23,13 @@ class ClientProfileRead(BaseModel):
 
 
 class ClientProfileUpdate(BaseModel):
+    name: str | None = None
     full_name: str | None = None
+    phone: str | None = None
+    email: str | None = None
+    contact_email: str | None = None
+    city_id: int | None = None
+    city_slug: str | None = None
     selected_city_id: int | None = None
 
 

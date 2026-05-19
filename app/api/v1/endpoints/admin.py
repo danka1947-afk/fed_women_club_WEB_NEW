@@ -324,7 +324,18 @@ def list_admin_users(
     db: Session = Depends(get_db),
 ) -> list[User]:
     _ = admin
-    statement = select(User).order_by(User.id.asc())
+    statement = (
+        select(
+            User,
+            ClientProfile.full_name.label("full_name"),
+            ClientProfile.contact_email.label("contact_email"),
+            ClientProfile.selected_city_id.label("selected_city_id"),
+            City.name.label("selected_city_name"),
+        )
+        .outerjoin(ClientProfile, ClientProfile.user_id == User.id)
+        .outerjoin(City, City.id == ClientProfile.selected_city_id)
+        .order_by(User.id.asc())
+    )
 
     if role is not None:
         statement = statement.where(User.role == _normalize_user_role(role))
@@ -334,9 +345,27 @@ def list_admin_users(
         search = q.strip()
         if search:
             pattern = f"%{search}%"
-            statement = statement.where(or_(User.email.ilike(pattern), User.phone.ilike(pattern)))
+            statement = statement.where(or_(User.email.ilike(pattern), User.phone.ilike(pattern), ClientProfile.full_name.ilike(pattern)))
 
-    return list(db.execute(statement).scalars().all())
+    rows = db.execute(statement).all()
+    result: list[AdminManagedUserRead] = []
+    for user, full_name, contact_email, selected_city_id, selected_city_name in rows:
+        result.append(
+            AdminManagedUserRead.model_validate(
+                {
+                    "id": user.id,
+                    "email": user.email,
+                    "phone": user.phone,
+                    "role": user.role,
+                    "is_active": user.is_active,
+                    "full_name": full_name,
+                    "contact_email": contact_email,
+                    "selected_city_id": selected_city_id,
+                    "selected_city_name": selected_city_name,
+                }
+            )
+        )
+    return result
 
 
 @router.post("/users", response_model=AdminManagedUserRead)

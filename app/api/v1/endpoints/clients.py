@@ -75,15 +75,28 @@ def update_client_me(
     profile = _get_or_create_client_profile(db, current_user.id)
     update_data = payload.model_dump(exclude_unset=True)
 
+    if "name" in update_data and "full_name" not in update_data:
+        update_data["full_name"] = update_data["name"]
+
     if "full_name" in update_data:
-        profile.full_name = _normalize_optional_text(update_data["full_name"])
-    if "selected_city_id" in update_data:
-        selected_city_id = update_data["selected_city_id"]
-        if selected_city_id is None:
-            profile.selected_city_id = None
-        else:
-            _get_active_city_or_404(db, selected_city_id)
-            profile.selected_city_id = selected_city_id
+        profile.full_name = _normalize_required_name(update_data["full_name"])
+
+    resolved_city_id = _resolve_city_for_profile_update(
+        db,
+        update_data.get("selected_city_id" if "selected_city_id" in update_data else "city_id"),
+        update_data.get("city_slug"),
+        keep_current=profile.selected_city_id,
+    )
+    if any(field in update_data for field in ("selected_city_id", "city_id", "city_slug")):
+        profile.selected_city_id = resolved_city_id
+
+    if "phone" in update_data:
+        current_user.phone = _normalize_phone(update_data["phone"])
+
+    if "contact_email" in update_data:
+        profile.contact_email = _normalize_email(update_data["contact_email"])
+    elif "email" in update_data:
+        profile.contact_email = _normalize_email(update_data["email"])
 
     db.commit()
     db.refresh(profile)
@@ -435,6 +448,7 @@ def _client_profile_to_read(db: Session, profile: ClientProfile, user: User) -> 
             "user_id": profile.user_id,
             "email": user.email,
             "phone": user.phone,
+            "contact_email": profile.contact_email,
             "full_name": profile.full_name,
             "selected_city_id": profile.selected_city_id,
             "selected_city_name": selected_city_name,
@@ -654,6 +668,57 @@ def _partner_offer_to_read(offer: PartnerOffer) -> ClientPartnerOfferRead:
         }
     )
 
+
+
+def _resolve_city_for_profile_update(
+    db: Session,
+    city_id: int | None,
+    city_slug: str | None,
+    keep_current: int | None,
+) -> int | None:
+    if city_id is not None:
+        _get_active_city_or_404(db, city_id)
+        return city_id
+    normalized_slug = _normalize_optional_text(city_slug)
+    if normalized_slug is not None:
+        city = db.execute(select(City).where(City.slug == normalized_slug, City.is_active.is_(True))).scalar_one_or_none()
+        if city is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=CITY_NOT_FOUND_DETAIL)
+        return city.id
+    if city_slug is not None:
+        return None
+    return keep_current
+
+
+def _normalize_email(value: str | None) -> str | None:
+    normalized = _normalize_optional_text(value)
+    if normalized is None:
+        return None
+    if "@" not in normalized or normalized.startswith("@") or normalized.endswith("@"):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid email format")
+    return normalized.lower()
+
+
+def _normalize_phone(value: str | None) -> str | None:
+    normalized = _normalize_optional_text(value)
+    if normalized is None:
+        return None
+    if normalized.startswith("8") and len(normalized) == 11 and normalized[1:].isdigit():
+        normalized = "+7" + normalized[1:]
+    if len(normalized) > 64:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Phone is too long")
+    return normalized
+
+
+def _normalize_required_name(value: str | None) -> str | None:
+    if value is None:
+        return None
+    normalized = value.strip()
+    if not normalized:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Name must not be empty")
+    if len(normalized) > 255:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Name is too long")
+    return normalized
 
 def _normalize_optional_text(value: str | None) -> str | None:
     if value is None:

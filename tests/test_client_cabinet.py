@@ -338,13 +338,45 @@ def test_client_me_patch_selected_city_id_null_clears_city(client_cabinet_client
         json={"full_name": "   ", "selected_city_id": None},
     )
 
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Name must not be empty"
+
+
+
+
+def test_client_me_patch_updates_contact_fields_without_overwriting_synthetic_login(client_cabinet_client: TestClient) -> None:
+    token = _profile_client_token(client_cabinet_client)
+
+    response = client_cabinet_client.patch(
+        "/api/v1/clients/me",
+        headers=_auth_headers(token),
+        json={
+            "name": "  Jane Client  ",
+            "email": " winner@example.com ",
+            "phone": " 89990000011 ",
+            "city_slug": "moscow",
+        },
+    )
+
     assert response.status_code == 200
     data = response.json()
-    assert data["full_name"] is None
-    assert data["selected_city_id"] is None
-    assert data["selected_city_name"] is None
+    assert data["full_name"] == "Jane Client"
+    assert data["contact_email"] == "winner@example.com"
+    assert data["phone"] == "+79990000011"
+    assert data["selected_city_name"] == "Москва"
 
 
+def test_client_me_patch_invalid_email_returns_400(client_cabinet_client: TestClient) -> None:
+    token = _client_token(client_cabinet_client)
+
+    response = client_cabinet_client.patch(
+        "/api/v1/clients/me",
+        headers=_auth_headers(token),
+        json={"email": "invalid-email"},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Invalid email format"
 def test_client_me_subscription_returns_null_when_none(client_cabinet_client: TestClient) -> None:
     token = _client_token(client_cabinet_client)
 
