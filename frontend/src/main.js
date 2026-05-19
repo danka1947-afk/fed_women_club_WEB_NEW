@@ -238,9 +238,9 @@ const renderPublicApp = () => {
       ${featureCards
         .map(
           (card) => `
-            <article class="feature-card">
+            <article class="feature-card feature-card--${escapeHtml(card.title.toLowerCase().replace(/[^a-zа-я0-9]+/gi, '-').replace(/^-+|-+$/g, ''))}">
               <span aria-hidden="true"></span>
-              <h2>${card.title}</h2>
+              <h2>${card.title === 'QR-подтверждение у партнёра' ? 'QR-подтверждение<br>у партнёра' : card.title}</h2>
               <p>${card.text}</p>
             </article>
           `,
@@ -1273,7 +1273,11 @@ const renderLandingPartnerImage = (partner, activePhotoIndex = 0) => {
     const currentPhoto = photos[safePhotoIndex];
     return `
       <div class="landing-partner-cover landing-partner-gallery" aria-label="Галерея партнёра">
-        <div class="landing-partner-gallery-main" style="background-image: url('${escapeHtml(currentPhoto.url)}')" role="img" aria-label="${escapeHtml(currentPhoto.alt_text || partner?.name || 'Фото партнёра')}"></div>
+        <div class="landing-partner-gallery-main" style="background-image: url('${escapeHtml(currentPhoto.url)}')" role="img" aria-label="${escapeHtml(currentPhoto.alt_text || partner?.name || 'Фото партнёра')}">
+          ${photos.length > 1 ? '<button class=\"landing-gallery-nav landing-gallery-nav--prev\" type=\"button\" data-landing-photo-prev aria-label=\"Предыдущее фото\">←</button>' : ''}
+          ${photos.length > 1 ? '<button class=\"landing-gallery-nav landing-gallery-nav--next\" type=\"button\" data-landing-photo-next aria-label=\"Следующее фото\">→</button>' : ''}
+          <span class=\"landing-gallery-counter\">Фото ${safePhotoIndex + 1} / ${photos.length}</span>
+        </div>
         ${photos.length > 1 ? `<div class="landing-partner-gallery-thumbs">${photos.slice(0, 6).map((photo, index) => `<button type="button" class="landing-partner-gallery-thumb ${index === safePhotoIndex ? 'landing-partner-gallery-thumb--active' : ''}" data-landing-photo-index="${escapeHtml(index)}" style="background-image: url('${escapeHtml(photo.url)}')" aria-label="Показать фото ${escapeHtml(index + 1)}"></button>`).join('')}</div>` : ''}
       </div>
     `;
@@ -1719,9 +1723,11 @@ const renderLandingPartnerModal = () => {
       </div>
       ${!loading && !error && hasPartners ? `<div class="landing-partner-partners">${partners.map((partner, index) => `<button type="button" class="landing-partner-picker ${index === safePartnerIndex ? 'landing-partner-picker--active' : ''}" data-landing-partner-index="${escapeHtml(index)}">${escapeHtml(partner.name || `Партнёр ${index + 1}`)}</button>`).join('')}</div>` : ''}
       <div class="landing-partner-panel-actions">
-        <button class="landing-carousel-button" type="button" data-landing-carousel-prev ${selectedPartnerPhotos.length > 1 ? '' : 'disabled'}>←</button>
-        <span>${selectedPartnerPhotos.length ? `${safePhotoIndex + 1} / ${selectedPartnerPhotos.length}` : '0 / 0'}</span>
-        <button class="landing-carousel-button" type="button" data-landing-carousel-next ${selectedPartnerPhotos.length > 1 ? '' : 'disabled'}>→</button>
+        <div class="landing-partner-switcher">
+          <button class="landing-carousel-button" type="button" data-landing-carousel-prev ${partners.length > 1 ? '' : 'disabled'}>←</button>
+          <span>Партнёр ${hasPartners ? safePartnerIndex + 1 : 0} / ${hasPartners ? partners.length : 0}</span>
+          <button class="landing-carousel-button" type="button" data-landing-carousel-next ${partners.length > 1 ? '' : 'disabled'}>→</button>
+        </div>
         <a class="primary-button" href="#landing-join" data-landing-modal-cta>${hasPartners ? 'Получить привилегию' : 'Вступить в клуб'}</a>
       </div>
     </div>
@@ -1774,13 +1780,23 @@ const closeLandingPartnerModal = () => {
   renderLandingPartnerModal();
 };
 
-const moveLandingPartnerCarousel = (step) => {
+const moveLandingPhotoCarousel = (step) => {
   const partner = landingPartnerModalState.partners[landingPartnerModalState.selectedPartnerIndex];
   const total = partner ? getPartnerGalleryImages(partner).length : 0;
   if (total < 2) {
     return;
   }
   landingPartnerModalState.activePhotoIndex = (landingPartnerModalState.activePhotoIndex + step + total) % total;
+  renderLandingPartnerModal();
+};
+
+const moveLandingPartnerCarousel = (step) => {
+  const total = landingPartnerModalState.partners.length;
+  if (total < 2) {
+    return;
+  }
+  landingPartnerModalState.selectedPartnerIndex = (landingPartnerModalState.selectedPartnerIndex + step + total) % total;
+  landingPartnerModalState.activePhotoIndex = 0;
   renderLandingPartnerModal();
 };
 
@@ -5166,6 +5182,16 @@ root.addEventListener('click', async (event) => {
   const landingPhotoPicker = event.target.closest('[data-landing-photo-index]');
   if (landingPhotoPicker) {
     selectLandingModalPhoto(Number(landingPhotoPicker.dataset.landingPhotoIndex || 0));
+    return;
+  }
+
+  if (event.target.closest('[data-landing-photo-prev]')) {
+    moveLandingPhotoCarousel(-1);
+    return;
+  }
+
+  if (event.target.closest('[data-landing-photo-next]')) {
+    moveLandingPhotoCarousel(1);
     return;
   }
 

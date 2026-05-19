@@ -769,6 +769,23 @@ h2 {
   backdrop-filter: blur(10px) saturate(1.05);
 }
 
+
+.feature-card h2 {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: normal;
+  hyphens: auto;
+  line-height: 1.14;
+  font-size: clamp(1.05rem, 1.8vw, 1.28rem);
+}
+
+.feature-card--qr-podtverzhdenie-u-partnyora h2 {
+  line-height: 1.1;
+}
+
+.feature-card h2 br {
+  display: block;
+}
 .feature-card span {
   display: block;
   width: 44px;
@@ -4407,24 +4424,70 @@ body.is-dashboard {
 }
 
 .landing-partner-gallery-main {
+  position: relative;
   min-height: 210px;
   border-radius: 24px;
   background-position: center;
   background-size: cover;
 }
 
+
+.landing-gallery-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 38px;
+  height: 38px;
+  border: 1px solid rgba(255,255,255,0.75);
+  border-radius: 50%;
+  background: rgba(39, 27, 23, 0.58);
+  color: #fff;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 800;
+}
+
+.landing-gallery-nav--prev { left: 10px; }
+.landing-gallery-nav--next { right: 10px; }
+
+.landing-gallery-counter {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(39, 27, 23, 0.65);
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.landing-partner-switcher {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
 .landing-partner-gallery-thumbs {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 8px;
 }
 
-.landing-partner-gallery-thumbs span {
+.landing-partner-gallery-thumb {
+  min-height: 48px;
+  border: 0;
   min-height: 48px;
   border-radius: 14px;
   background-position: center;
   background-size: cover;
+  cursor: pointer;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.64);
+}
+
+.landing-partner-gallery-thumb--active {
+  box-shadow:
+    inset 0 0 0 2px rgba(143, 81, 75, 0.88),
+    0 8px 16px rgba(143, 81, 75, 0.2);
 }
 
 .client-marketplace-grid {
