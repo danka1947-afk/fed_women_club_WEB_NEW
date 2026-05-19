@@ -2993,6 +2993,10 @@ const patchJson = (path, payload) => apiFetch(path, {
   body: JSON.stringify(payload),
 });
 
+const deleteJson = (path) => apiFetch(path, {
+  method: 'DELETE',
+});
+
 const loadAdminPaymentRequests = async (status = adminState.paymentRequestsStatusFilter) => {
   adminState.paymentRequestsLoading = true;
   adminState.paymentRequestsError = '';
@@ -3251,6 +3255,9 @@ const renderAdminTableActions = (content) => `
 const renderUserActionButton = (user) => renderAdminTableActions(`
   <button class="admin-inline-action admin-action-button admin-table-action" type="button" data-user-active-toggle="${escapeHtml(user.id)}">
     ${user.is_active ? 'Заблокировать' : 'Активировать'}
+  </button>
+  <button class="admin-inline-action admin-action-button admin-table-action admin-inline-action--danger" type="button" data-user-delete="${escapeHtml(user.id)}">
+    Удалить
   </button>
 `);
 
@@ -4540,6 +4547,24 @@ const toggleUserActive = async (userId) => {
   renderAdminLayout();
 };
 
+
+const deleteUser = async (userId) => {
+  const confirmationText = 'Вы уверены? Будет удалена вся информация по выбранному пользователю. Действие нельзя отменить.';
+  if (!window.confirm(confirmationText)) {
+    return;
+  }
+
+  try {
+    await deleteJson(`/api/v1/admin/users/${userId}`);
+    adminState.users = adminState.users.filter((item) => String(item.id) !== String(userId));
+    setPanelMessage('Пользователь удалён.', 'success');
+  } catch (error) {
+    setPanelMessage(error.message || 'Не удалось удалить пользователя. Попробуйте позже.', 'error');
+  }
+
+  renderAdminLayout();
+};
+
 const buildPartnerPayload = (formData) => ({
   city_id: Number(formData.get('city_id')),
   category_slug: getOptionalText(formData, 'category_slug'),
@@ -5111,6 +5136,12 @@ root.addEventListener('click', async (event) => {
   const userToggle = event.target.closest('[data-user-active-toggle]');
   if (userToggle) {
     toggleUserActive(userToggle.dataset.userActiveToggle);
+    return;
+  }
+
+  const userDeleteButton = event.target.closest('[data-user-delete]');
+  if (userDeleteButton) {
+    deleteUser(userDeleteButton.dataset.userDelete);
     return;
   }
 
