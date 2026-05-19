@@ -102,6 +102,20 @@ async def upload_partner_me_image(
     return {"url": image_url, "kind": normalized_kind}
 
 
+@router.delete("/me/images/{kind}")
+def clear_partner_me_image(
+    kind: str,
+    current_user: User = Depends(require_partner),
+    db: Session = Depends(get_db),
+) -> PartnerProfileRead:
+    partner = _get_current_partner_or_404(db, current_user.id)
+    normalized_kind = validate_image_kind(kind)
+    setattr(partner, f"{normalized_kind}_url", None)
+    db.commit()
+    db.refresh(partner)
+    return _get_partner_profile_read(db, partner.id)
+
+
 @router.post("/me/photos", response_model=PartnerPhotoUploadResponse)
 async def upload_partner_photo(
     file: UploadFile = File(...),
@@ -123,6 +137,26 @@ async def upload_partner_photo(
     db.commit()
     db.refresh(photo)
     return photo
+
+
+@router.delete("/me/photos/{photo_id}")
+def delete_partner_photo(
+    photo_id: int,
+    current_user: User = Depends(require_partner),
+    db: Session = Depends(get_db),
+) -> dict[str, bool]:
+    partner = _get_current_partner_or_404(db, current_user.id)
+    photo = db.execute(
+        select(PartnerPhoto).where(
+            PartnerPhoto.id == photo_id,
+            PartnerPhoto.partner_id == partner.id,
+        )
+    ).scalar_one_or_none()
+    if photo is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Partner photo not found")
+    db.delete(photo)
+    db.commit()
+    return {"ok": True}
 
 
 @router.get("/me/photos", response_model=list[PartnerPhotoRead])
@@ -385,6 +419,20 @@ async def upload_partner_offer_image(
     offer.image_url = image_url
     db.commit()
     return {"url": image_url}
+
+
+@router.delete("/me/offers/{offer_id}/image", response_model=PartnerOfferRead)
+def clear_partner_offer_image(
+    offer_id: int,
+    current_user: User = Depends(require_partner),
+    db: Session = Depends(get_db),
+) -> PartnerOfferRead:
+    partner = _get_current_partner_or_404(db, current_user.id)
+    offer = _get_owned_offer_or_404(db, partner.id, offer_id)
+    offer.image_url = None
+    db.commit()
+    db.refresh(offer)
+    return _partner_offer_to_read(offer)
 
 
 def _partner_verification_to_read(
