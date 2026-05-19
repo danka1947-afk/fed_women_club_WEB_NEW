@@ -1868,16 +1868,17 @@ select::-ms-expand {
   min-height: 112px;
   padding: 16px;
   overflow: hidden;
-  border: 1px solid rgba(201, 130, 120, 0.26);
+  border: 1px solid rgba(160, 83, 75, 0.2);
   border-radius: 24px;
   background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.94), rgba(255, 247, 244, 0.86)),
-    radial-gradient(circle at top right, rgba(246, 216, 210, 0.5), transparent 9rem);
+    linear-gradient(140deg, rgba(255, 255, 255, 0.94), rgba(255, 248, 246, 0.88)),
+    radial-gradient(circle at top right, rgba(246, 216, 210, 0.46), transparent 10rem);
   color: var(--color-text);
   text-align: left;
-  box-shadow: 0 16px 34px rgba(143, 81, 75, 0.09);
+  box-shadow: 0 12px 28px rgba(143, 81, 75, 0.1);
   backdrop-filter: blur(16px) saturate(1.06);
   -webkit-backdrop-filter: blur(16px) saturate(1.06);
+  appearance: none;
 }
 
 .client-quick-action::after {
@@ -1895,7 +1896,7 @@ select::-ms-expand {
 .client-quick-action:hover,
 .client-quick-action:focus-visible {
   transform: translateY(-2px);
-  border-color: rgba(201, 130, 120, 0.5);
+  border-color: rgba(160, 83, 75, 0.34);
   background:
     linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(255, 241, 238, 0.94)),
     radial-gradient(circle at top right, rgba(246, 216, 210, 0.72), transparent 10rem);
@@ -1915,7 +1916,7 @@ select::-ms-expand {
   position: relative;
   z-index: 1;
   max-width: 92%;
-  color: var(--color-muted);
+  color: rgba(98, 74, 69, 0.9);
   font-size: 0.88rem;
   font-weight: 650;
   line-height: 1.4;
