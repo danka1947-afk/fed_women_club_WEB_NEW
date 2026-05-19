@@ -753,14 +753,14 @@ const statusBadgeMappings = {
   'истекло': { label: 'Истекло', tone: 'warning' },
   'отменено': { label: 'Отменено', tone: 'danger' },
   'active': { label: 'Активно', tone: 'success' },
-  'confirmed': { label: 'Подтверждено', tone: 'success' },
+  'confirmed': { label: 'Использовано', tone: 'success' },
   'expired': { label: 'Истекло', tone: 'warning' },
   'cancelled': { label: 'Отменено', tone: 'danger' },
   'canceled': { label: 'Отменено', tone: 'danger' },
-  'pending': { label: 'pending', tone: 'warning' },
-  'paid': { label: 'paid', tone: 'warning' },
-  'approved': { label: 'approved', tone: 'success' },
-  'rejected': { label: 'rejected', tone: 'danger' },
+  'pending': { label: 'Ожидает', tone: 'warning' },
+  'paid': { label: 'Оплачено / на проверке', tone: 'warning' },
+  'approved': { label: 'Подтверждено', tone: 'success' },
+  'rejected': { label: 'Отклонено', tone: 'danger' },
   'waiting': { label: 'waiting', tone: 'warning' },
   'error': { label: 'Ошибка', tone: 'danger' },
 };
@@ -962,15 +962,15 @@ const renderActivityFeed = (items = [], options = {}) => {
 
 const statusLabels = {
   active: 'Активно',
-  confirmed: 'Подтверждено',
+  confirmed: 'Использовано',
   expired: 'Истекло',
   cancelled: 'Отменено',
   canceled: 'Отменено',
   paused: 'Приостановлено',
-  pending: 'pending',
-  paid: 'paid',
-  approved: 'approved',
-  rejected: 'rejected',
+  pending: 'Ожидает',
+  paid: 'Оплачено / на проверке',
+  approved: 'Подтверждено',
+  rejected: 'Отклонено',
 };
 
 const formatStatus = (status) => {
@@ -3430,19 +3430,10 @@ const renderUsersTab = () => {
         <div class="admin-section-heading"><h4>Пользователи</h4><p>Unified users для клиентских, партнёрских и административных кабинетов.</p></div>
         ${renderAdminSearch('users', 'Поиск по пользователям')}
         ${renderTable(
-          ['ID', 'Имя', 'Login', 'Email', 'Телефон', 'Город', 'VK', 'Роль', 'Активен', 'Действие'],
+          ['Пользователь', 'Контакты', 'Роль', 'Статус', 'Действия'],
           users.map((item) => [
-            formatValue(item.id),
-            formatValue(item.display_name || item.full_name),
-            item.is_synthetic_email
-              ? `<span class="muted-text">${formatValue(item.email)}</span>`
-              : formatValue(item.email),
-            formatValue(item.contact_email),
-            formatValue(item.phone),
-            formatValue(item.selected_city_name),
-            item.vk_url
-              ? `<a href="${escapeHtml(item.vk_url)}" target="_blank" rel="noopener noreferrer">Открыть VK</a>${item.vk_user_id ? `<br><small class="muted-text">id: ${escapeHtml(item.vk_user_id)}</small>` : ''}`
-              : '—',
+            `<strong>${formatValue(item.display_name || item.full_name)}</strong><br><small class="muted-text">ID: ${formatValue(item.id)}</small>${item.selected_city_name ? `<br><small class="muted-text">${formatValue(item.selected_city_name)}</small>` : ''}`,
+            `<div><strong>Login:</strong> ${item.is_synthetic_email ? `<span class="muted-text">${formatValue(item.email)}</span>` : formatValue(item.email)}</div><div><strong>Email:</strong> ${formatValue(item.contact_email)}</div><div><strong>Телефон:</strong> ${formatValue(item.phone)}</div><div><strong>VK:</strong> ${item.vk_url ? `<a href="${escapeHtml(item.vk_url)}" target="_blank" rel="noopener noreferrer">Открыть</a>${item.vk_user_id ? ` <small class="muted-text">(id: ${escapeHtml(item.vk_user_id)})</small>` : ''}` : '—'}</div>`,
             formatValue(formatRole(item.role)),
             renderBoolStatusBadge(item.is_active),
             renderUserActionButton(item),
@@ -3454,7 +3445,8 @@ const renderUsersTab = () => {
       </div>
       <form class="admin-form" data-admin-form="user">
         <h4>Новый пользователь</h4>
-        <label>Логин<input name="email" type="text" autocomplete="username" placeholder="Введите логин" /></label>
+        <label>Логин<input name="email" type="text" autocomplete="username" placeholder="Введите логин" /><small class="helper-text">Логин — email, телефон или технический логин.</small></label>
+        <label>Контактный email<input name="contact_email" type="email" autocomplete="email" placeholder="name@example.com" /><small class="helper-text">Контактный email — почта для связи.</small></label>
         <label>Телефон<input name="phone" autocomplete="tel" /></label>
         <label>Пароль<input name="password" type="password" autocomplete="new-password" required /></label>
         <label>Роль${renderSelect('role', [['client', 'Клиент'], ['partner', 'Партнёр'], ['admin', 'Администратор']], true, 'client', null, { label: 'Роль', data: { adminUserRole: true } })}</label>
@@ -3946,7 +3938,7 @@ const renderContentReviewSection = (title, items, renderer) => `
       <h4 class="section-title">${escapeHtml(title)}</h4>
       <p class="helper-text compact-copy">${items.length ? `Ожидают проверки: ${items.length}` : 'Новых материалов нет.'}</p>
     </div>
-    ${items.length ? `<div class="content-review-grid">${items.map(renderer).join('')}</div>` : '<div class="content-review-empty">Материалов на проверке нет.</div>'}
+    ${items.length ? `<div class="content-review-grid">${items.map(renderer).join('')}</div>` : '<div class="content-review-empty ui-empty-state">Партнёров на проверке нет.</div>'}
   </section>
 `;
 
@@ -3960,7 +3952,7 @@ const renderContentReviewTab = () => {
         <h4 class="section-title">На проверке</h4>
         <p class="section-description compact-copy">Новые предложения и фото перед публикацией.</p>
       </div>
-      ${!offers.length && !photos.length ? '<div class="content-review-empty">Материалов на проверке нет.</div>' : ''}
+      ${!offers.length && !photos.length ? '<div class="content-review-empty ui-empty-state">Партнёров на проверке нет.</div>' : ''}
       ${renderContentReviewSection('Предложения', offers, renderContentReviewOfferCard)}
       ${renderContentReviewSection('Фото галереи', photos, renderContentReviewPhotoCard)}
       <p class="form-message" data-form-message="contentReview">${escapeHtml(adminState.formMessages.contentReview || '')}</p>
@@ -4009,7 +4001,7 @@ const renderQrEditForm = () => {
 
 const adminPaymentStatusOptions = [
   { value: '', label: 'Все' },
-  { value: 'pending', label: 'Ожидает оплаты' },
+  { value: 'pending', label: 'Ожидает' },
   { value: 'paid', label: 'Оплачено / на проверке' },
   { value: 'approved', label: 'Подтверждено' },
   { value: 'rejected', label: 'Отклонено' },
@@ -4066,7 +4058,7 @@ const renderAdminPaymentActions = (request) => {
           <input type="number" min="1" step="1" value="${escapeHtml(adminState.paymentApprovalDays)}" data-admin-payment-access-days>
         </label>
         <button type="button" class="admin-action-button" data-admin-payment-approve="${escapeHtml(requestId)}">Подтвердить</button>
-        <button type="button" class="admin-inline-action" data-admin-payment-reject="${escapeHtml(requestId)}">Отклонить</button>
+        <button type="button" class="admin-inline-action admin-inline-action--danger" data-admin-payment-reject="${escapeHtml(requestId)}">Отклонить</button>
       </div>
     `;
   }
@@ -4074,7 +4066,7 @@ const renderAdminPaymentActions = (request) => {
     return `
       <div class="admin-payment-actions admin-payment-actions--note">
         <p>Ожидает отметки клиента “Я оплатил”</p>
-        <button type="button" class="admin-inline-action" data-admin-payment-reject="${escapeHtml(requestId)}">Отклонить</button>
+        <button type="button" class="admin-inline-action admin-inline-action--danger" data-admin-payment-reject="${escapeHtml(requestId)}">Отклонить</button>
       </div>
     `;
   }
@@ -4106,12 +4098,11 @@ const renderAdminPaymentCard = (request) => {
       </div>
       <dl class="admin-payment-meta">
         ${renderAdminPaymentMetaItem('Клиент', `${displayName || '—'}${userId ? `\nuser ${userId}` : ''}`)}
-        ${renderAdminPaymentMetaItem('Телефон', request?.user_phone)}
-        ${renderAdminPaymentMetaItem('Email', contactEmail || '—')}
-        ${renderAdminPaymentMetaItem('Город', request?.selected_city_name || '—')}
+        ${renderAdminPaymentMetaItem('Контакты', `${request?.user_phone || '—'}\n${contactEmail || '—'}`)}
         ${renderAdminPaymentMetaItem('VK', vkUrl ? `<a href="${escapeHtml(vkUrl)}" target="_blank" rel="noopener noreferrer">Открыть VK</a>${vkUserId ? `<br><small class="muted-text">id: ${escapeHtml(vkUserId)}</small>` : ''}` : '—', true)}
         ${renderAdminPaymentMetaItem('Login', login || '—')}
-        ${renderAdminPaymentMetaItem('Сумма', getPaymentAmountLabel(request))}
+        ${renderAdminPaymentMetaItem('Сумма / статус', `${getPaymentAmountLabel(request)}\n${formatStatus(request?.status)}`)}
+        ${renderAdminPaymentMetaItem('Город', request?.selected_city_name || '—')}
         ${renderAdminPaymentMetaItem('Создано', formatDate(request?.created_at))}
         ${renderAdminPaymentMetaItem('Обновлено', formatDate(request?.updated_at))}
         ${renderAdminPaymentMetaItem('Подтверждено', formatDate(request?.approved_at))}
@@ -4208,7 +4199,7 @@ const renderVerificationsTab = () => {
       verifications.map((item) => [renderStatusBadge(formatStatus(item.status)), formatValue(item.code), formatValue(item.partner_name), formatValue(`${item.client_name || '—'} / ${item.client_id}`), formatValue(item.offer_title), formatValue(formatDate(item.created_at)), formatValue(formatDate(item.expires_at)), formatValue(formatDate(item.confirmed_at))]),
       true,
       'admin-table--compact',
-      adminState.search.verifications ? 'Ничего не найдено.' : 'Пока нет данных.',
+      adminState.search.verifications ? 'Ничего не найдено.' : 'Подтверждений пока нет.',
     )}
   `;
 };
