@@ -665,6 +665,48 @@ def test_bot_onboard_client_repeated_vk_user_id_returns_existing_profile(
         assert profiles_count == 1
 
 
+def test_bot_onboard_client_restores_missing_bind_for_existing_synthetic_account(
+    vk_link_client: TestClient,
+) -> None:
+    with _db_session() as session:
+        user = User(
+            email="vk_d7a4bcaee5a6c79f523d4c356a74b016@vk.local",
+            phone=None,
+            password_hash=hash_password("ExistingSyntheticPass123"),
+            role=UserRole.CLIENT.value,
+            is_active=True,
+        )
+        session.add(user)
+        session.flush()
+        session.add(
+            ClientProfile(
+                user_id=user.id,
+                vk_user_id=None,
+                is_active=True,
+                source="vk",
+            )
+        )
+        session.commit()
+
+    response = vk_link_client.post(
+        "/api/v1/bot/vk/onboard-client",
+        headers=_bot_headers(),
+        json={"vk_user_id": "vk-restore-bind"},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["is_new"] is False
+    assert data["temporary_password"] is None
+    assert data["client"]["vk_user_id"] == "vk-restore-bind"
+
+    with _db_session() as session:
+        profile = session.execute(
+            select(ClientProfile).where(ClientProfile.id == data["client"]["id"])
+        ).scalar_one()
+        assert profile.vk_user_id == "vk-restore-bind"
+
+
 def test_bot_onboard_client_later_contact_does_not_overwrite_synthetic_login(
     vk_link_client: TestClient,
 ) -> None:
