@@ -1381,6 +1381,7 @@ const renderOfferImageUploader = (offer, scope) => {
             disabledMessage: 'Сначала сохраните предложение, затем загрузите фото',
           })}
       </div>
+      <p class="helper-text compact-copy">Рекомендуемый формат: горизонтальное фото 16:9 или 4:3. Важные элементы размещайте ближе к центру.</p>
       ${!isAdmin && !offerId ? '<p class="helper-text form-message compact-copy">Сначала сохраните предложение, затем загрузите фото</p>' : ''}
       ${isAdmin ? `<p class="form-message offer-image-status" data-form-message="${messageKey}">${escapeHtml(message)}</p>` : renderPartnerUploadStatus(statusKey)}
       ${!isAdmin ? `<p class="form-message offer-image-status" data-partner-form-message="${messageKey}">${escapeHtml(message)}</p>` : ''}
@@ -1408,6 +1409,7 @@ const renderPartnerImageUploader = (partner, scope) => {
               ? `<label class="admin-inline-action">Загрузить логотип<input type="file" accept="image/jpeg,image/png,image/webp" ${logoInputAttr} /></label>`
               : renderPartnerUploadButton({ label: 'Загрузить логотип', trigger: 'profile-image', inputAttr: logoInputAttr, inputSelector: '[data-partner-image-upload="logo"]', statusKey: 'profileImages:logo', kind: 'logo' })}
           </div>
+          <p class="helper-text compact-copy">Рекомендуемый формат: квадратное фото 1:1.</p>
           ${!isAdmin ? renderPartnerUploadStatus('profileImages:logo') : ''}
         </article>
         <article>
@@ -1418,6 +1420,7 @@ const renderPartnerImageUploader = (partner, scope) => {
               ? `<label class="admin-inline-action">Загрузить обложку<input type="file" accept="image/jpeg,image/png,image/webp" ${coverInputAttr} /></label>`
               : renderPartnerUploadButton({ label: 'Загрузить обложку', trigger: 'profile-image', inputAttr: coverInputAttr, inputSelector: '[data-partner-image-upload="cover"]', statusKey: 'profileImages:cover', kind: 'cover' })}
           </div>
+          <p class="helper-text compact-copy">Рекомендуемый формат: горизонтальное фото 16:9 или 4:3. Важные элементы размещайте ближе к центру.</p>
           ${!isAdmin ? renderPartnerUploadStatus('profileImages:cover') : ''}
         </article>
       </div>
@@ -1446,6 +1449,7 @@ const renderPartnerGallery = (partner, photos = [], scope = 'partner') => {
           ? `<label class="admin-inline-action">Загрузить фото в галерею<input type="file" accept="image/jpeg,image/png,image/webp" ${uploadAttr} /></label>`
           : renderPartnerUploadButton({ label: 'Загрузить фото в галерею', trigger: 'gallery-photo', inputAttr: uploadAttr, inputSelector: '[data-partner-gallery-upload]', statusKey: 'partnerGallery', kind: 'gallery' })) : '<p class="form-message">Сначала сохраните партнёра, затем загрузите фото.</p>'}
       </div>
+      <p class="helper-text compact-copy">Рекомендуемый формат: горизонтальное фото 16:9 или 4:3. Важные элементы размещайте ближе к центру.</p>
       ${!isAdmin ? renderPartnerUploadStatus('partnerGallery') : ''}
       ${visiblePhotos.length ? `
         <div class="partner-gallery-grid">
@@ -2313,6 +2317,8 @@ const renderClientTabContent = () => {
 
 const renderClientProfileTab = () => {
   const profile = clientState.profile || {};
+  const isVkBound = Boolean(profile.is_vk_bound || profile.vk_user_id);
+  const vkUrl = String(profile.vk_url || '').trim() || (profile.vk_user_id ? `https://vk.com/id${profile.vk_user_id}` : '');
   const cityOptions = getClientCityOptions();
   return `
     ${renderClientTabHeader('Профиль', 'Город помогает подобрать предложения рядом.')}
@@ -2331,12 +2337,14 @@ const renderClientProfileTab = () => {
     <section class="client-vk-link-card" aria-labelledby="client-vk-link-title">
       <div class="client-vk-link-header">
         <div>
-          <h4 id="client-vk-link-title">Привязка VK</h4>
-          <p class="helper-text compact-copy">Создайте код и отправьте VK-боту: Привязать КОД</p>
+          <h4 id="client-vk-link-title">${isVkBound ? 'VK привязан' : 'Привязка VK'}</h4>
+          <p class="helper-text compact-copy">${isVkBound ? 'Ваш VK уже связан с WEB-кабинетом.' : 'Создайте код и отправьте VK-боту: Привязать КОД'}</p>
         </div>
-        <button type="button" data-client-create-vk-code>Создать код для VK</button>
+        ${isVkBound
+          ? (vkUrl ? `<a class="admin-inline-action" href="${escapeHtml(vkUrl)}" target="_blank" rel="noopener noreferrer">Открыть VK</a>` : '')
+          : '<button type="button" data-client-create-vk-code>Создать код для VK</button>'}
       </div>
-      ${renderClientVkLinkCode()}
+      ${isVkBound ? '' : renderClientVkLinkCode()}
     </section>
     <form class="admin-form admin-form--inline" data-client-form="profile">
       <h4>Обновить профиль</h4>
