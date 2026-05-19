@@ -69,3 +69,14 @@ class AdminPaymentRequestRead(PaymentRequestRead):
     client_full_name: str | None = None
     client_user_id: int | None = None
     client_vk_user_id: str | None = None
+    user_id: int | None = None
+    user_email: str | None = None
+    user_login: str | None = None
+    user_phone: str | None = None
+    full_name: str | None = None
+    contact_email: str | None = None
+    selected_city_name: str | None = None
+    vk_user_id: str | None = None
+    vk_url: str | None = None
+    display_name: str | None = None
+    is_synthetic_email: bool = False

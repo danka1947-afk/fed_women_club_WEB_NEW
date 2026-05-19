@@ -155,7 +155,11 @@ def list_admin_payment_requests(
     _ = admin
     statement = (
         select(PaymentRequest)
-        .options(selectinload(PaymentRequest.receipts), selectinload(PaymentRequest.client))
+        .options(
+            selectinload(PaymentRequest.receipts),
+            selectinload(PaymentRequest.client).selectinload(ClientProfile.user),
+            selectinload(PaymentRequest.client).selectinload(ClientProfile.selected_city),
+        )
         .order_by(PaymentRequest.created_at.desc(), PaymentRequest.id.desc())
         .limit(limit)
     )
@@ -1059,7 +1063,11 @@ def _admin_verification_to_read(
 def _get_admin_payment_request_or_404(db: Session, payment_request_id: int) -> PaymentRequest:
     payment_request = db.execute(
         select(PaymentRequest)
-        .options(selectinload(PaymentRequest.receipts), selectinload(PaymentRequest.client))
+        .options(
+            selectinload(PaymentRequest.receipts),
+            selectinload(PaymentRequest.client).selectinload(ClientProfile.user),
+            selectinload(PaymentRequest.client).selectinload(ClientProfile.selected_city),
+        )
         .where(PaymentRequest.id == payment_request_id)
     ).scalar_one_or_none()
     if payment_request is None:
@@ -1069,7 +1077,16 @@ def _get_admin_payment_request_or_404(db: Session, payment_request_id: int) -> P
 
 def _admin_payment_request_to_read(payment_request: PaymentRequest) -> AdminPaymentRequestRead:
     client = payment_request.client
+    user = client.user if client is not None else None
+    city = client.selected_city if client is not None else None
     client_full_name = client.full_name if client is not None else None
+    user_email = user.email if user is not None else None
+    is_synthetic_email = bool(user_email and user_email.endswith("@vk.local"))
+    vk_user_id = client.vk_user_id if client is not None else None
+    vk_url = f"https://vk.com/id{vk_user_id}" if vk_user_id else None
+    display_name = client_full_name or (client.contact_email if client is not None else None) or user_email
+    if display_name is None and client is not None:
+        display_name = f"Пользователь #{client.id}"
     return AdminPaymentRequestRead.model_validate(
         {
             "id": payment_request.id,
@@ -1088,7 +1105,18 @@ def _admin_payment_request_to_read(payment_request: PaymentRequest) -> AdminPaym
             "client_name": client_full_name,
             "client_full_name": client_full_name,
             "client_user_id": client.user_id if client is not None else None,
-            "client_vk_user_id": client.vk_user_id if client is not None else None,
+            "client_vk_user_id": vk_user_id,
+            "user_id": client.user_id if client is not None else None,
+            "user_email": user_email,
+            "user_login": user_email,
+            "user_phone": user.phone if user is not None else None,
+            "full_name": client_full_name,
+            "contact_email": client.contact_email if client is not None else None,
+            "selected_city_name": city.name if city is not None else None,
+            "vk_user_id": vk_user_id,
+            "vk_url": vk_url,
+            "display_name": display_name,
+            "is_synthetic_email": is_synthetic_email,
         }
     )
 

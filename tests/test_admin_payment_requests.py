@@ -17,6 +17,7 @@ from app.db.base import Base
 from app.db.session import get_db
 from app.main import app
 from app.models.client import ClientProfile
+from app.models.city import City
 from app.models.payment import (
     PaymentReceipt,
     PaymentRequest,
@@ -61,7 +62,7 @@ def admin_payment_harness() -> Generator[AdminPaymentHarness, None, None]:
                     is_active=True,
                 ),
                 User(
-                    email="client@example.com",
+                    email="vk_client@vk.local",
                     phone="+79990000001",
                     password_hash=hash_password("ClientPassword123"),
                     role=UserRole.CLIENT.value,
@@ -79,15 +80,22 @@ def admin_payment_harness() -> Generator[AdminPaymentHarness, None, None]:
         session.flush()
         session.add_all(
             [
+                City(name="Новосибирск", slug="novosibirsk", is_active=True),
                 ClientProfile(
                     user_id=1,
                     full_name="Client One",
+                    contact_email="client.one@mail.test",
+                    selected_city_id=1,
                     vk_user_id="vk-client-one",
                     source="seed",
                     is_active=True,
                 ),
                 ClientProfile(
-                    user_id=2, full_name="Other Client", source="seed", is_active=True
+                    user_id=2,
+                    contact_email="other-client@mail.test",
+                    selected_city_id=1,
+                    source="seed",
+                    is_active=True,
                 ),
             ]
         )
@@ -134,7 +142,7 @@ def _partner_admin_row_token(harness: AdminPaymentHarness) -> str:
 def _client_token(harness: AdminPaymentHarness) -> str:
     response = harness.client.post(
         "/api/v1/auth/user-login",
-        json={"login": "client@example.com", "password": "ClientPassword123"},
+        json={"login": "vk_client@vk.local", "password": "ClientPassword123"},
     )
     assert response.status_code == 200
     return str(response.json()["access_token"])
@@ -233,7 +241,18 @@ def test_admin_can_list_all_payment_requests(
     assert data[0]["client_full_name"] == "Client One"
     assert data[0]["client_user_id"] == 1
     assert data[0]["client_vk_user_id"] == "vk-client-one"
+    assert data[0]["user_email"] == "vk_client@vk.local"
+    assert data[0]["user_phone"] == "+79990000001"
+    assert data[0]["full_name"] == "Client One"
+    assert data[0]["contact_email"] == "client.one@mail.test"
+    assert data[0]["selected_city_name"] == "Новосибирск"
+    assert data[0]["vk_user_id"] == "vk-client-one"
+    assert data[0]["vk_url"] == "https://vk.com/idvk-client-one"
+    assert data[0]["display_name"] == "Client One"
+    assert data[0]["is_synthetic_email"] is True
     assert data[0]["receipts"][0]["file_url"] == "https://example.com/receipt.jpg"
+    assert "password_hash" not in data[0]
+    assert "temporary_password" not in data[0]
 
 
 def test_admin_payment_request_status_filter_works(
@@ -256,6 +275,29 @@ def test_admin_payment_request_status_filter_works(
     data = response.json()
     assert [item["id"] for item in data] == [paid_id]
     assert data[0]["status"] == PaymentRequestStatus.paid.value
+    assert data[0]["vk_url"] == "https://vk.com/idvk-client-one"
+
+
+def test_admin_payment_request_profile_fallbacks_and_vk_null(
+    admin_payment_harness: AdminPaymentHarness,
+) -> None:
+    payment_request_id = _create_payment_request(admin_payment_harness, client_id=2)
+    token = _admin_token(admin_payment_harness)
+
+    response = admin_payment_harness.client.get(
+        f"/api/v1/admin/payment-requests/{payment_request_id}",
+        headers=_auth_headers(token),
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["vk_user_id"] is None
+    assert data["vk_url"] is None
+    assert data["full_name"] is None
+    assert data["display_name"] == "other-client@mail.test"
+    assert data["contact_email"] == "other-client@mail.test"
+    assert data["selected_city_name"] == "Новосибирск"
+    assert data["is_synthetic_email"] is False
 
 
 def test_admin_can_read_payment_request_detail(
