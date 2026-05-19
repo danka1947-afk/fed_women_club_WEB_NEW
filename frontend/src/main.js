@@ -1411,7 +1411,7 @@ const renderPartnerImageUploader = (partner, scope) => {
           <div class="partner-upload-actions">
             ${isAdmin
               ? `<label class="admin-inline-action">Загрузить логотип<input type="file" accept="image/jpeg,image/png,image/webp" ${logoInputAttr} /></label>`
-              : `${renderPartnerUploadButton({ label: 'Загрузить логотип', trigger: 'profile-image', inputAttr: logoInputAttr, inputSelector: '[data-partner-image-upload="logo"]', statusKey: 'profileImages:logo', kind: 'logo' })}${partner.logo_url ? '<button class="admin-inline-action admin-inline-action--danger" type="button" data-partner-image-clear="logo">Удалить логотип</button>' : ''}`}
+              : `${renderPartnerUploadButton({ label: partner.logo_url ? 'Заменить логотип' : 'Загрузить логотип', trigger: 'profile-image', inputAttr: logoInputAttr, inputSelector: '[data-partner-image-upload="logo"]', statusKey: 'profileImages:logo', kind: 'logo' })}${partner.logo_url ? '<button class="admin-inline-action admin-inline-action--danger" type="button" data-partner-image-clear="logo">Удалить логотип</button>' : ''}`}
           </div>
           <p class="helper-text compact-copy">Рекомендуемый формат: квадратное фото 1:1.</p>
           ${!isAdmin ? renderPartnerUploadStatus('profileImages:logo') : ''}
@@ -1422,7 +1422,7 @@ const renderPartnerImageUploader = (partner, scope) => {
           <div class="partner-upload-actions">
             ${isAdmin
               ? `<label class="admin-inline-action">Загрузить обложку<input type="file" accept="image/jpeg,image/png,image/webp" ${coverInputAttr} /></label>`
-              : `${renderPartnerUploadButton({ label: 'Загрузить обложку', trigger: 'profile-image', inputAttr: coverInputAttr, inputSelector: '[data-partner-image-upload="cover"]', statusKey: 'profileImages:cover', kind: 'cover' })}${partner.cover_url ? '<button class="admin-inline-action admin-inline-action--danger" type="button" data-partner-image-clear="cover">Удалить обложку</button>' : ''}`}
+              : `${renderPartnerUploadButton({ label: partner.cover_url ? 'Заменить обложку' : 'Загрузить обложку', trigger: 'profile-image', inputAttr: coverInputAttr, inputSelector: '[data-partner-image-upload="cover"]', statusKey: 'profileImages:cover', kind: 'cover' })}${partner.cover_url ? '<button class="admin-inline-action admin-inline-action--danger" type="button" data-partner-image-clear="cover">Удалить обложку</button>' : ''}`}
           </div>
           <p class="helper-text compact-copy">Рекомендуемый формат: горизонтальное фото 16:9 или 4:3. Важные элементы размещайте ближе к центру.</p>
           ${!isAdmin ? renderPartnerUploadStatus('profileImages:cover') : ''}
@@ -1451,7 +1451,7 @@ const renderPartnerGallery = (partner, photos = [], scope = 'partner') => {
       <div class="partner-gallery-upload">
         ${partnerId ? (isAdmin
           ? `<label class="admin-inline-action">Загрузить фото в галерею<input type="file" accept="image/jpeg,image/png,image/webp" ${uploadAttr} /></label>`
-          : renderPartnerUploadButton({ label: 'Загрузить фото в галерею', trigger: 'gallery-photo', inputAttr: uploadAttr, inputSelector: '[data-partner-gallery-upload]', statusKey: 'partnerGallery', kind: 'gallery' })) : '<p class="form-message">Сначала сохраните партнёра, затем загрузите фото.</p>'}
+          : renderPartnerUploadButton({ label: photos.length ? 'Загрузить ещё фото' : 'Загрузить фото в галерею', trigger: 'gallery-photo', inputAttr: uploadAttr, inputSelector: '[data-partner-gallery-upload]', statusKey: 'partnerGallery', kind: 'gallery' })) : '<p class="form-message">Сначала сохраните партнёра, затем загрузите фото.</p>'}
       </div>
       <p class="helper-text compact-copy">Рекомендуемый формат: горизонтальное фото 16:9 или 4:3. Важные элементы размещайте ближе к центру.</p>
       ${!isAdmin ? renderPartnerUploadStatus('partnerGallery') : ''}
@@ -1554,7 +1554,7 @@ const getPartnerOnboardingSteps = (partner = {}, options = {}) => {
   const contactFilled = Boolean(String(partner.phone || partner.website_url || partner.social_url || '').trim());
   return [
     {
-      title: 'Заполните профиль',
+      title: 'Основная информация',
       isComplete: Boolean(
         String(partner.description || '').trim()
         && String(partner.address || '').trim()
@@ -1565,22 +1565,22 @@ const getPartnerOnboardingSteps = (partner = {}, options = {}) => {
       tab: 'profile',
     },
     {
-      title: 'Загрузите обложку и логотип',
+      title: 'Фото и обложка',
       isComplete: Boolean(String(partner.logo_url || '').trim() && String(partner.cover_url || '').trim()),
       action: 'Загрузить изображения',
       tab: 'profile',
     },
     {
-      title: 'Добавьте фото в галерею',
-      isComplete: Array.isArray(options.photos) && options.photos.length > 0,
-      action: 'Добавить фото',
-      tab: 'profile',
-    },
-    {
-      title: 'Создайте первое предложение',
+      title: 'Предложения',
       isComplete: Array.isArray(options.offers) && options.offers.length > 0,
       action: 'Создать предложение',
       tab: 'offers',
+    },
+    {
+      title: 'Публикация и проверка',
+      isComplete: Boolean(partner.is_active) && Boolean(partner.is_verified),
+      action: 'Проверить статус',
+      tab: 'activity',
     },
   ];
 };
@@ -1589,6 +1589,7 @@ const renderPartnerOnboardingChecklist = (partner, options = {}) => {
   const steps = getPartnerOnboardingSteps(partner, options);
   const completedCount = steps.filter((step) => step.isComplete).length;
   const isReady = completedCount === steps.length;
+  const readinessPercent = steps.length ? Math.round((completedCount / steps.length) * 100) : 0;
 
   return `
     <section class="partner-onboarding" aria-labelledby="partner-onboarding-title">
@@ -1599,8 +1600,9 @@ const renderPartnerOnboardingChecklist = (partner, options = {}) => {
           <p class="section-description compact-copy">Заполните главное для понятной витрины.</p>
         </div>
         <div class="partner-onboarding-progress" aria-live="polite">
-          <strong>Витрина заполнена на ${escapeHtml(completedCount)} из ${escapeHtml(steps.length)}</strong>
+          <strong>Готовность витрины: ${escapeHtml(readinessPercent)}% (${escapeHtml(completedCount)} из ${escapeHtml(steps.length)} шагов)</strong>
           ${isReady ? '<span>Витрина готова к публикации</span>' : '<span>Продолжайте настройку витрины</span>'}
+          <div class="partner-onboarding-progressbar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${escapeHtml(readinessPercent)}"><span style="width: ${escapeHtml(readinessPercent)}%"></span></div>
         </div>
       </div>
       <div class="partner-onboarding-steps">
@@ -2919,7 +2921,7 @@ const renderPartnerProfileTab = () => {
           <div class="partner-side-stack">
             <section class="partner-section partner-profile-preview partner-section--compact">
               ${renderPartnerSectionHeader('Витрина партнёра', 'Preview карточки.')}
-              <span class="section-eyebrow section-kicker">Preview витрины</span>
+              <span class="section-eyebrow section-kicker">Так клиент увидит вашу карточку</span>
               ${renderPartnerMarketplaceCard(profile, { offers: partnerState.offers, note: 'Preview для клиента', photos: partnerState.photos })}
             </section>
 
@@ -2933,7 +2935,7 @@ const renderPartnerProfileTab = () => {
             </section>
 
             <section class="partner-section partner-combined-section partner-section--compact">
-              ${renderPartnerSectionHeader('Фотографии профиля', 'Логотип, обложка, галерея.')}
+              ${renderPartnerSectionHeader('Фотографии профиля', 'Добавьте качественные фото для доверия.')}
               ${renderPartnerImageUploader(profile, 'partner')}
               <details class="partner-profile-advanced">
                 <summary>URL изображений</summary>
@@ -2976,6 +2978,7 @@ const renderPartnerOfferAction = (offer) => `
   ${offer.is_active
     ? `<button class="admin-inline-action" type="button" data-partner-offer-toggle="${escapeHtml(offer.id)}">Скрыть</button>`
     : '<button class="admin-inline-action" type="button" disabled>На проверке</button>'}
+  ${offer.image_url ? `<button class="admin-inline-action admin-inline-action--danger" type="button" data-partner-offer-image-clear="${escapeHtml(offer.id)}">Удалить фото</button>` : ''}
 `;
 
 const renderPartnerOfferForm = () => {
@@ -3039,7 +3042,7 @@ const renderPartnerOffersTab = () => `
       ]),
       true,
     )}
-  ` : renderPartnerEmptyState('Пока нет предложений.', 'Добавьте первую привилегию.')}
+  ` : renderPartnerEmptyState('Пока нет предложений.', 'Добавьте первое предложение, чтобы клиент мог получить привилегию.')}
   ${renderPartnerOfferForm()}
 `;
 
