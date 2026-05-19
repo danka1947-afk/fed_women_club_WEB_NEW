@@ -39,7 +39,8 @@ const landingPartnerModalState = {
   selectedLandingDirection: null,
   partners: [],
   cache: {},
-  currentIndex: 0,
+  selectedPartnerIndex: 0,
+  activePhotoIndex: 0,
   loading: false,
   error: '',
 };
@@ -881,6 +882,9 @@ const activityEventMeta = {
   partner_created: { label: 'Партнёр', icon: '✦', tone: 'partner' },
   offer_created: { label: 'Предложение', icon: '%', tone: 'privilege' },
   qr_link_created: { label: 'QR-ссылка', icon: '⌁', tone: 'qr' },
+  payment_request_created: { label: 'Оплата', icon: '₽', tone: 'partner' },
+  payment_approved: { label: 'Оплата подтверждена', icon: '✓', tone: 'confirmed' },
+  subscription_activated: { label: 'Подписка', icon: '★', tone: 'privilege' },
 };
 
 const activityEventFilters = [
@@ -1262,13 +1266,15 @@ const getActivePartnerGalleryPhotos = (photos = []) => (Array.isArray(photos) ? 
   .filter((photo) => photo?.is_active !== false && isSafePublicAssetUrl(photo?.url))
   .sort((left, right) => Number(left.sort_order || 0) - Number(right.sort_order || 0) || Number(left.id || 0) - Number(right.id || 0));
 
-const renderLandingPartnerImage = (partner) => {
-  const photos = getActivePartnerGalleryPhotos(partner?.photos);
+const renderLandingPartnerImage = (partner, activePhotoIndex = 0) => {
+  const photos = getPartnerGalleryImages(partner || {});
   if (photos.length) {
+    const safePhotoIndex = Math.min(Math.max(Number(activePhotoIndex || 0), 0), photos.length - 1);
+    const currentPhoto = photos[safePhotoIndex];
     return `
       <div class="landing-partner-cover landing-partner-gallery" aria-label="Галерея партнёра">
-        <div class="landing-partner-gallery-main" style="background-image: url('${escapeHtml(photos[0].url)}')" role="img" aria-label="${escapeHtml(photos[0].alt_text || partner?.name || 'Фото партнёра')}"></div>
-        ${photos.length > 1 ? `<div class="landing-partner-gallery-thumbs">${photos.slice(0, 4).map((photo) => `<span style="background-image: url('${escapeHtml(photo.url)}')" aria-hidden="true"></span>`).join('')}</div>` : ''}
+        <div class="landing-partner-gallery-main" style="background-image: url('${escapeHtml(currentPhoto.url)}')" role="img" aria-label="${escapeHtml(currentPhoto.alt_text || partner?.name || 'Фото партнёра')}"></div>
+        ${photos.length > 1 ? `<div class="landing-partner-gallery-thumbs">${photos.slice(0, 6).map((photo, index) => `<button type="button" class="landing-partner-gallery-thumb ${index === safePhotoIndex ? 'landing-partner-gallery-thumb--active' : ''}" data-landing-photo-index="${escapeHtml(index)}" style="background-image: url('${escapeHtml(photo.url)}')" aria-label="Показать фото ${escapeHtml(index + 1)}"></button>`).join('')}</div>` : ''}
       </div>
     `;
   }
@@ -1645,13 +1651,13 @@ const renderPartnerMarketplaceCard = (partner = {}, options = {}) => {
   `;
 };
 
-const renderLandingPartnerCard = (partner) => {
+const renderLandingPartnerCard = (partner, activePhotoIndex = 0) => {
   const offers = Array.isArray(partner?.offers) ? partner.offers : [];
   const firstOffer = offers[0] || null;
   const logoUrl = isSafePublicAssetUrl(partner?.logo_url) ? partner.logo_url : '';
   return `
     <article class="landing-partner-card">
-      ${renderLandingPartnerImage(partner)}
+      ${renderLandingPartnerImage(partner, activePhotoIndex)}
       <div class="landing-partner-card-body">
         <div class="landing-partner-card-heading">
           ${logoUrl ? `<span class="landing-partner-logo" style="background-image: url('${escapeHtml(logoUrl)}')" aria-hidden="true"></span>` : '<span class="landing-partner-logo landing-partner-logo--placeholder" aria-hidden="true">ЖК</span>'}
@@ -1686,10 +1692,14 @@ const renderLandingPartnerModal = () => {
     return;
   }
 
-  const { selectedLandingDirection, partners, currentIndex, loading, error } = landingPartnerModalState;
+  const { selectedLandingDirection, partners, selectedPartnerIndex, activePhotoIndex, loading, error } = landingPartnerModalState;
   const hasPartners = partners.length > 0;
-  const safeIndex = hasPartners ? Math.min(currentIndex, partners.length - 1) : 0;
-  landingPartnerModalState.currentIndex = safeIndex;
+  const safePartnerIndex = hasPartners ? Math.min(selectedPartnerIndex, partners.length - 1) : 0;
+  landingPartnerModalState.selectedPartnerIndex = safePartnerIndex;
+  const selectedPartner = hasPartners ? partners[safePartnerIndex] : null;
+  const selectedPartnerPhotos = selectedPartner ? getPartnerGalleryImages(selectedPartner) : [];
+  const safePhotoIndex = selectedPartnerPhotos.length ? Math.min(Math.max(activePhotoIndex, 0), selectedPartnerPhotos.length - 1) : 0;
+  landingPartnerModalState.activePhotoIndex = safePhotoIndex;
 
   modal.hidden = false;
   modal.innerHTML = `
@@ -1704,13 +1714,14 @@ const renderLandingPartnerModal = () => {
       <div class="landing-partner-carousel">
         ${loading ? '<p class="landing-partner-status">Загружаем партнёров направления…</p>' : ''}
         ${error ? `<p class="landing-partner-status">${escapeHtml(error)}</p>` : ''}
-        ${!loading && !error && hasPartners ? renderLandingPartnerCard(partners[safeIndex]) : ''}
+        ${!loading && !error && hasPartners ? renderLandingPartnerCard(selectedPartner, safePhotoIndex) : ''}
         ${!loading && !error && !hasPartners ? '<p class="landing-partner-empty">Партнёры этого направления скоро появятся.</p>' : ''}
       </div>
+      ${!loading && !error && hasPartners ? `<div class="landing-partner-partners">${partners.map((partner, index) => `<button type="button" class="landing-partner-picker ${index === safePartnerIndex ? 'landing-partner-picker--active' : ''}" data-landing-partner-index="${escapeHtml(index)}">${escapeHtml(partner.name || `Партнёр ${index + 1}`)}</button>`).join('')}</div>` : ''}
       <div class="landing-partner-panel-actions">
-        <button class="landing-carousel-button" type="button" data-landing-carousel-prev ${hasPartners && partners.length > 1 ? '' : 'disabled'}>←</button>
-        <span>${hasPartners ? `${safeIndex + 1} / ${partners.length}` : '0 / 0'}</span>
-        <button class="landing-carousel-button" type="button" data-landing-carousel-next ${hasPartners && partners.length > 1 ? '' : 'disabled'}>→</button>
+        <button class="landing-carousel-button" type="button" data-landing-carousel-prev ${selectedPartnerPhotos.length > 1 ? '' : 'disabled'}>←</button>
+        <span>${selectedPartnerPhotos.length ? `${safePhotoIndex + 1} / ${selectedPartnerPhotos.length}` : '0 / 0'}</span>
+        <button class="landing-carousel-button" type="button" data-landing-carousel-next ${selectedPartnerPhotos.length > 1 ? '' : 'disabled'}>→</button>
         <a class="primary-button" href="#landing-join" data-landing-modal-cta>${hasPartners ? 'Получить привилегию' : 'Вступить в клуб'}</a>
       </div>
     </div>
@@ -1725,7 +1736,8 @@ const openLandingDirection = async (slug) => {
 
   landingPartnerModalState.isOpen = true;
   landingPartnerModalState.selectedLandingDirection = direction;
-  landingPartnerModalState.currentIndex = 0;
+  landingPartnerModalState.selectedPartnerIndex = 0;
+  landingPartnerModalState.activePhotoIndex = 0;
   landingPartnerModalState.error = '';
   landingPartnerModalState.partners = landingPartnerModalState.cache[slug] || [];
   landingPartnerModalState.loading = !landingPartnerModalState.cache[slug];
@@ -1755,18 +1767,36 @@ const closeLandingPartnerModal = () => {
   landingPartnerModalState.isOpen = false;
   landingPartnerModalState.selectedLandingDirection = null;
   landingPartnerModalState.partners = [];
-  landingPartnerModalState.currentIndex = 0;
+  landingPartnerModalState.selectedPartnerIndex = 0;
+  landingPartnerModalState.activePhotoIndex = 0;
   landingPartnerModalState.loading = false;
   landingPartnerModalState.error = '';
   renderLandingPartnerModal();
 };
 
 const moveLandingPartnerCarousel = (step) => {
-  const total = landingPartnerModalState.partners.length;
+  const partner = landingPartnerModalState.partners[landingPartnerModalState.selectedPartnerIndex];
+  const total = partner ? getPartnerGalleryImages(partner).length : 0;
   if (total < 2) {
     return;
   }
-  landingPartnerModalState.currentIndex = (landingPartnerModalState.currentIndex + step + total) % total;
+  landingPartnerModalState.activePhotoIndex = (landingPartnerModalState.activePhotoIndex + step + total) % total;
+  renderLandingPartnerModal();
+};
+
+const selectLandingModalPartner = (index) => {
+  const total = landingPartnerModalState.partners.length;
+  if (!total) return;
+  landingPartnerModalState.selectedPartnerIndex = Math.min(Math.max(index, 0), total - 1);
+  landingPartnerModalState.activePhotoIndex = 0;
+  renderLandingPartnerModal();
+};
+
+const selectLandingModalPhoto = (index) => {
+  const partner = landingPartnerModalState.partners[landingPartnerModalState.selectedPartnerIndex];
+  const total = partner ? getPartnerGalleryImages(partner).length : 0;
+  if (!total) return;
+  landingPartnerModalState.activePhotoIndex = Math.min(Math.max(index, 0), total - 1);
   renderLandingPartnerModal();
 };
 
@@ -2485,9 +2515,6 @@ const renderClientPartnerModalGallery = (partner = {}) => {
         ` : ''}
       </div>
       ${hasMany ? `
-        <div class="client-partner-modal__dots" aria-label="Выбор фото">
-          ${images.map((image, index) => `<button class="client-partner-modal__dot ${index === safeIndex ? 'client-partner-modal__dot--active' : ''}" type="button" data-gallery-action="select" data-gallery-index="${escapeHtml(index)}" aria-label="Открыть фото ${escapeHtml(index + 1)}"></button>`).join('')}
-        </div>
         <div class="client-partner-modal__thumbs">
           ${images.map((image, index) => `<button class="client-partner-modal__thumb ${index === safeIndex ? 'client-partner-modal__thumb--active' : ''}" type="button" data-gallery-action="select" data-gallery-index="${escapeHtml(index)}" aria-label="Показать фото ${escapeHtml(index + 1)}"><img src="${escapeHtml(image.url)}" alt="" loading="lazy" /></button>`).join('')}
         </div>
@@ -2505,6 +2532,7 @@ const renderClientPartnerCard = (partner) => {
     <article class="client-partner-card" data-partner-id="${escapeHtml(partnerId)}">
       <div class="client-partner-card__cover ${coverUrl ? '' : 'client-partner-card__cover--placeholder'}" ${coverUrl ? `style="background-image: url('${escapeHtml(coverUrl)}')" role="img" aria-label="${escapeHtml(partner.name || 'Партнёр')}"` : 'aria-hidden="true"'}>${coverUrl ? '' : '<span>Фото партнёра</span>'}</div>
       <div class="client-partner-card-body">
+        <h4>${formatValue(partner.name)}</h4>
         <div class="client-card-topline">
           <div class="client-partner-card__avatar ${logoUrl ? '' : 'client-partner-card__avatar--placeholder'}" ${logoUrl ? `style="background-image: url('${escapeHtml(logoUrl)}')"` : ''} aria-hidden="true">${logoUrl ? '' : '♡'}</div>
           <div>
@@ -2512,7 +2540,6 @@ const renderClientPartnerCard = (partner) => {
             ${partner.is_verified ? '<span class="status-badge status-badge--success">Проверенный партнёр</span>' : ''}
           </div>
         </div>
-        <h4>${formatValue(partner.name)}</h4>
         <p>${formatValue(partner.description || 'Витрина услуг партнёра скоро пополнится подробностями.')}</p>
         <div class="client-card-location">${formatValue(cityAddress)}</div>
         <div class="client-partner-card__actions client-card-actions">
@@ -5127,6 +5154,18 @@ root.addEventListener('click', async (event) => {
 
   if (event.target.closest('[data-landing-partner-close]')) {
     closeLandingPartnerModal();
+    return;
+  }
+
+  const landingPartnerPicker = event.target.closest('[data-landing-partner-index]');
+  if (landingPartnerPicker) {
+    selectLandingModalPartner(Number(landingPartnerPicker.dataset.landingPartnerIndex || 0));
+    return;
+  }
+
+  const landingPhotoPicker = event.target.closest('[data-landing-photo-index]');
+  if (landingPhotoPicker) {
+    selectLandingModalPhoto(Number(landingPhotoPicker.dataset.landingPhotoIndex || 0));
     return;
   }
 

@@ -3336,6 +3336,10 @@ body.is-dashboard {
   margin: 0;
   color: var(--color-rose-dark);
   font-size: 1.35rem;
+  overflow-wrap: anywhere;
+  word-break: normal;
+  line-height: 1.3;
+  max-width: 100%;
 }
 
 .landing-partner-logo {
@@ -5807,7 +5811,7 @@ body.is-dashboard {
   z-index: 1;
   display: grid;
   width: min(1120px, 100%);
-  max-height: 88vh;
+  max-height: calc(100vh - 96px);
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.58);
   border-radius: 34px;
@@ -5840,8 +5844,8 @@ body.is-dashboard {
   place-items: center;
   border: 0;
   border-radius: 999px;
-  background: rgba(255, 250, 248, 0.92);
-  color: var(--color-rose-dark);
+  background: var(--color-rose-dark);
+  color: #fffaf8;
   box-shadow: 0 12px 24px rgba(143, 81, 75, 0.16);
   font-size: 1.65rem;
   font-weight: 900;
@@ -5851,7 +5855,7 @@ body.is-dashboard {
   display: grid;
   gap: 22px;
   overflow: auto;
-  padding: 22px 24px 26px;
+  padding: 22px 24px 34px;
 }
 
 .client-partner-modal__hero {
@@ -5923,29 +5927,12 @@ body.is-dashboard {
 .client-partner-modal__nav--prev { left: 14px; }
 .client-partner-modal__nav--next { right: 14px; }
 
-.client-partner-modal__dots {
-  display: flex;
-  justify-content: center;
-  gap: 8px;
-}
-
-.client-partner-modal__dot {
-  width: 10px;
-  height: 10px;
-  border: 0;
-  border-radius: 999px;
-  background: rgba(201, 130, 120, 0.32);
-}
-
-.client-partner-modal__dot--active {
-  width: 26px;
-  background: var(--color-rose-dark);
-}
-
 .client-partner-modal__thumbs {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(74px, 1fr));
   gap: 10px;
+  padding-bottom: 8px;
+  overflow: visible;
 }
 
 .client-partner-modal__thumb {
@@ -6022,7 +6009,7 @@ body.is-dashboard {
 
 @media (max-width: 900px) {
   .client-partner-modal__panel {
-    max-height: 92vh;
+    max-height: calc(100vh - 72px);
     border-radius: 26px;
   }
 
@@ -6036,8 +6023,8 @@ body.is-dashboard {
 }
 
 @media (max-width: 640px) {
-  .client-partner-modal {
-    padding: 8px;
+.client-partner-modal {
+    padding: 12px 8px;
   }
 
   .client-partner-modal__header,
@@ -6060,6 +6047,17 @@ body.is-dashboard {
   .client-partner-card__actions {
     flex-direction: column;
   }
+}
+
+.feature-card h3,
+.landing-benefit-card h3,
+.landing-benefit-card h4,
+.client-cabinet .admin-section-heading h3,
+.client-cabinet .admin-section-heading h4 {
+  overflow-wrap: anywhere;
+  word-break: normal;
+  line-height: 1.3;
+  max-width: 100%;
 }
 
 .admin-inline-action--danger {
