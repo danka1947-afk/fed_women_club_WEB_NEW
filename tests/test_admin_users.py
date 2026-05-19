@@ -13,6 +13,8 @@ from app.core.security import hash_password
 from app.db.base import Base
 from app.db.session import get_db
 from app.main import app
+from app.models.city import City
+from app.models.client import ClientProfile
 from app.models.user import AdminUser, User, UserRole
 
 
@@ -57,6 +59,27 @@ def admin_users_client() -> Generator[TestClient, None, None]:
                     password_hash=hash_password("AdminUserPassword123"),
                     role=UserRole.ADMIN.value,
                     is_active=True,
+                ),
+            ]
+        )
+        session.flush()
+        city = City(name="Moscow", slug="moskva", is_active=True, sort_order=1)
+        session.add(city)
+        session.flush()
+        partner_user = session.query(User).filter(User.email == "existing-partner@example.com").one()
+        client_user = session.query(User).filter(User.email == "existing-client@example.com").one()
+        session.add_all(
+            [
+                ClientProfile(
+                    user_id=partner_user.id,
+                    full_name="Анна Иванова",
+                    contact_email="anna.real@example.com",
+                    selected_city_id=city.id,
+                    vk_user_id="1234567",
+                ),
+                ClientProfile(
+                    user_id=client_user.id,
+                    contact_email="fallback@example.com",
                 ),
             ]
         )
@@ -246,6 +269,71 @@ def test_admin_users_list_q_search_works(admin_users_client: TestClient, admin_t
     assert [user["email"] for user in data] == ["manager@example.com"]
 
 
+
+
+def test_admin_users_list_returns_vk_and_display_fields(admin_users_client: TestClient, admin_token: str) -> None:
+    response = admin_users_client.get("/api/v1/admin/users", headers=_auth_headers(admin_token))
+
+    assert response.status_code == 200
+    data = response.json()
+    partner = next(user for user in data if user["email"] == "existing-partner@example.com")
+    assert partner["full_name"] == "Анна Иванова"
+    assert partner["contact_email"] == "anna.real@example.com"
+    assert partner["selected_city_name"] == "Moscow"
+    assert partner["vk_user_id"] == "1234567"
+    assert partner["vk_url"] == "https://vk.com/id1234567"
+    assert partner["display_name"] == "Анна Иванова"
+    assert partner["is_synthetic_email"] is False
+
+
+def test_admin_users_list_vk_url_is_null_without_vk_id(admin_users_client: TestClient, admin_token: str) -> None:
+    response = admin_users_client.get("/api/v1/admin/users", headers=_auth_headers(admin_token))
+
+    assert response.status_code == 200
+    data = response.json()
+    client = next(user for user in data if user["email"] == "existing-client@example.com")
+    assert client["vk_user_id"] is None
+    assert client["vk_url"] is None
+
+
+def test_admin_users_list_display_name_fallbacks(admin_users_client: TestClient, admin_token: str) -> None:
+    create_fallback_email = admin_users_client.post(
+        "/api/v1/admin/users",
+        headers=_auth_headers(admin_token),
+        json={"email": "vk_hash@vk.local", "password": "StrongPass123", "role": "client"},
+    )
+    assert create_fallback_email.status_code == 200
+    created = create_fallback_email.json()
+
+    response = admin_users_client.get("/api/v1/admin/users", headers=_auth_headers(admin_token))
+    data = response.json()
+
+    with_contact_email = next(user for user in data if user["email"] == "existing-client@example.com")
+    assert with_contact_email["display_name"] == "fallback@example.com"
+
+    with_user_email = next(user for user in data if user["email"] == "manager@example.com")
+    assert with_user_email["display_name"] == "manager@example.com"
+
+    synthetic = next(user for user in data if user["id"] == created["id"])
+    assert synthetic["is_synthetic_email"] is True
+
+
+def test_admin_users_list_q_search_includes_profile_city_vk(admin_users_client: TestClient, admin_token: str) -> None:
+    for query in ("anna", "anna.real", "mos", "1234567"):
+        response = admin_users_client.get(f"/api/v1/admin/users?q={query}", headers=_auth_headers(admin_token))
+        assert response.status_code == 200
+        emails = [user["email"] for user in response.json()]
+        assert "existing-partner@example.com" in emails
+
+
+def test_admin_users_list_response_has_no_sensitive_fields(admin_users_client: TestClient, admin_token: str) -> None:
+    response = admin_users_client.get("/api/v1/admin/users", headers=_auth_headers(admin_token))
+    assert response.status_code == 200
+    for user in response.json():
+        assert "password_hash" not in user
+        assert "tokens" not in user
+        assert "setup_tokens" not in user
+        assert "temporary_password" not in user
 def test_admin_users_patch_updates_email_phone_role_is_active(
     admin_users_client: TestClient,
     admin_token: str,
