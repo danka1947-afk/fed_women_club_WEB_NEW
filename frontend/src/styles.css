@@ -4214,7 +4214,7 @@ body.is-dashboard {
   min-height: 150px;
   place-items: center;
   background-color: rgba(255, 250, 248, 0.78);
-  background-position: center;
+  background-position: center top;
   background-repeat: no-repeat;
   background-size: cover;
 }
@@ -5226,7 +5226,7 @@ body.is-dashboard {
   min-height: 260px;
   max-height: 420px;
   background-color: rgba(255, 248, 246, 0.88);
-  background-position: center;
+  background-position: center top;
   background-repeat: no-repeat;
   background-size: contain;
 }
@@ -5492,6 +5492,10 @@ body.is-dashboard {
 
 .partner-profile-offers .offer-marketplace-image {
   min-height: 118px;
+  background-color: rgba(255, 248, 246, 0.88);
+  background-position: center top;
+  background-repeat: no-repeat;
+  background-size: contain;
 }
 
 .partner-progress-track {
