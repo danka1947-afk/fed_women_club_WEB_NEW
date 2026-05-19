@@ -327,7 +327,7 @@ def test_exchange_rejects_profile_already_linked_to_different_vk_without_consumi
     )
 
     assert response.status_code == 400
-    assert response.json()["detail"] == "Client profile is already linked"
+    assert response.json()["detail"] == "Этот аккаунт уже привязан к другому VK-профилю."
     with _db_session() as session:
         profile = session.execute(
             select(ClientProfile).join(User).where(User.email == "client@example.com")
@@ -368,7 +368,7 @@ def test_exchange_rejects_vk_user_linked_to_different_profile_without_consuming_
     )
 
     assert response.status_code == 400
-    assert response.json()["detail"] == "VK user is already linked"
+    assert response.json()["detail"] == "Этот VK уже привязан к другому участнику клуба."
     with _db_session() as session:
         link_code = session.execute(
             select(VkLinkCode).where(VkLinkCode.code == code)
@@ -385,7 +385,7 @@ def test_exchange_missing_code_returns_404(vk_link_client: TestClient) -> None:
     )
 
     assert response.status_code == 404
-    assert response.json()["detail"] == "Link code not found"
+    assert response.json()["detail"] == "Код привязки не найден. Проверьте код и попробуйте снова."
 
 
 def test_exchange_expired_code_marks_expired_and_returns_400(
@@ -406,7 +406,7 @@ def test_exchange_expired_code_marks_expired_and_returns_400(
     )
 
     assert response.status_code == 400
-    assert response.json()["detail"] == "Link code expired"
+    assert response.json()["detail"] == "Срок действия кода истёк. Запросите новый — код действует 15 минут."
     with _db_session() as session:
         link_code = session.execute(
             select(VkLinkCode).where(VkLinkCode.code == code)
@@ -431,7 +431,7 @@ def test_exchange_used_or_cancelled_code_returns_400(
         json={"vk_user_id": "123", "code": used_code},
     )
     assert used_again_response.status_code == 400
-    assert used_again_response.json()["detail"] == "Link code already used"
+    assert used_again_response.json()["detail"] == "Этот код уже использован. Запросите новый в личном кабинете."
 
     token = _user_login(vk_link_client)
     cancelled_code = vk_link_client.post(
@@ -446,7 +446,7 @@ def test_exchange_used_or_cancelled_code_returns_400(
         json={"vk_user_id": "456", "code": cancelled_code},
     )
     assert cancelled_response.status_code == 400
-    assert cancelled_response.json()["detail"] == "Link code is not active"
+    assert cancelled_response.json()["detail"] == "Этот код уже неактивен. Запросите новый в личном кабинете."
 
 
 def test_exchange_empty_vk_user_id_returns_400(vk_link_client: TestClient) -> None:
@@ -459,7 +459,7 @@ def test_exchange_empty_vk_user_id_returns_400(vk_link_client: TestClient) -> No
     )
 
     assert response.status_code == 400
-    assert response.json()["detail"] == "VK user ID is required"
+    assert response.json()["detail"] == "Не удалось распознать ваш профиль VK. Попробуйте ещё раз."
 
 
 def test_bot_vk_token_returns_token_for_linked_vk_user_id(
@@ -499,7 +499,7 @@ def test_bot_vk_token_returns_404_for_unlinked_vk_user_id(
     )
 
     assert response.status_code == 404
-    assert response.json()["detail"] == "VK user is not linked"
+    assert response.json()["detail"] == "VK пока не привязан к личному кабинету."
 
 
 def test_bot_onboard_client_without_service_token_returns_401(
@@ -535,7 +535,7 @@ def test_bot_onboard_client_empty_vk_user_id_returns_400(
     )
 
     assert response.status_code == 400
-    assert response.json()["detail"] == "vk_user_id must not be empty"
+    assert response.json()["detail"] == "Не удалось распознать ваш профиль VK. Попробуйте ещё раз."
 
 
 def test_bot_onboard_client_creates_client_user_with_temporary_password_and_profile(
@@ -1055,7 +1055,7 @@ def test_bot_onboard_client_missing_or_inactive_city_slug_returns_404(
     )
 
     assert response.status_code == 404
-    assert response.json()["detail"] == "City not found"
+    assert response.json()["detail"] == "Город не найден. Выберите город из списка ещё раз."
 
 
 def test_bot_onboard_client_existing_linked_inactive_user_returns_clean_error(
@@ -1088,7 +1088,7 @@ def test_bot_onboard_client_existing_linked_inactive_user_returns_clean_error(
     )
 
     assert response.status_code == 404
-    assert response.json()["detail"] == "Client user not found"
+    assert response.json()["detail"] == "Не удалось подключиться к кабинету. Попробуйте позже."
 
 
 def test_bot_onboard_client_existing_linked_non_client_user_returns_clean_error(
@@ -1118,4 +1118,4 @@ def test_bot_onboard_client_existing_linked_non_client_user_returns_clean_error(
     )
 
     assert response.status_code == 400
-    assert response.json()["detail"] == "Linked user is not a client"
+    assert response.json()["detail"] == "Не удалось подключиться к кабинету. Попробуйте позже."
