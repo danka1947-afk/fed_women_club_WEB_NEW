@@ -1381,6 +1381,7 @@ const renderOfferImageUploader = (offer, scope) => {
             disabledMessage: 'Сначала сохраните предложение, затем загрузите фото',
           })}
       </div>
+      ${!isAdmin && offer?.id && offer?.image_url ? `<button class="admin-inline-action admin-inline-action--danger" type="button" data-partner-offer-image-clear="${escapeHtml(offer.id)}">Удалить фото услуги</button>` : ''}
       <p class="helper-text compact-copy">Рекомендуемый формат: горизонтальное фото 16:9 или 4:3. Важные элементы размещайте ближе к центру.</p>
       ${!isAdmin && !offerId ? '<p class="helper-text form-message compact-copy">Сначала сохраните предложение, затем загрузите фото</p>' : ''}
       ${isAdmin ? `<p class="form-message offer-image-status" data-form-message="${messageKey}">${escapeHtml(message)}</p>` : renderPartnerUploadStatus(statusKey)}
@@ -1407,7 +1408,7 @@ const renderPartnerImageUploader = (partner, scope) => {
           <div class="partner-upload-actions">
             ${isAdmin
               ? `<label class="admin-inline-action">Загрузить логотип<input type="file" accept="image/jpeg,image/png,image/webp" ${logoInputAttr} /></label>`
-              : renderPartnerUploadButton({ label: 'Загрузить логотип', trigger: 'profile-image', inputAttr: logoInputAttr, inputSelector: '[data-partner-image-upload="logo"]', statusKey: 'profileImages:logo', kind: 'logo' })}
+              : `${renderPartnerUploadButton({ label: 'Загрузить логотип', trigger: 'profile-image', inputAttr: logoInputAttr, inputSelector: '[data-partner-image-upload="logo"]', statusKey: 'profileImages:logo', kind: 'logo' })}${partner.logo_url ? '<button class="admin-inline-action admin-inline-action--danger" type="button" data-partner-image-clear="logo">Удалить логотип</button>' : ''}`}
           </div>
           <p class="helper-text compact-copy">Рекомендуемый формат: квадратное фото 1:1.</p>
           ${!isAdmin ? renderPartnerUploadStatus('profileImages:logo') : ''}
@@ -1418,7 +1419,7 @@ const renderPartnerImageUploader = (partner, scope) => {
           <div class="partner-upload-actions">
             ${isAdmin
               ? `<label class="admin-inline-action">Загрузить обложку<input type="file" accept="image/jpeg,image/png,image/webp" ${coverInputAttr} /></label>`
-              : renderPartnerUploadButton({ label: 'Загрузить обложку', trigger: 'profile-image', inputAttr: coverInputAttr, inputSelector: '[data-partner-image-upload="cover"]', statusKey: 'profileImages:cover', kind: 'cover' })}
+              : `${renderPartnerUploadButton({ label: 'Загрузить обложку', trigger: 'profile-image', inputAttr: coverInputAttr, inputSelector: '[data-partner-image-upload="cover"]', statusKey: 'profileImages:cover', kind: 'cover' })}${partner.cover_url ? '<button class="admin-inline-action admin-inline-action--danger" type="button" data-partner-image-clear="cover">Удалить обложку</button>' : ''}`}
           </div>
           <p class="helper-text compact-copy">Рекомендуемый формат: горизонтальное фото 16:9 или 4:3. Важные элементы размещайте ближе к центру.</p>
           ${!isAdmin ? renderPartnerUploadStatus('profileImages:cover') : ''}
@@ -1466,6 +1467,7 @@ const renderPartnerGallery = (partner, photos = [], scope = 'partner') => {
                   <div class="admin-form-actions">
                     <button type="submit">Сохранить</button>
                     <button class="admin-inline-action" type="button" data-${isAdmin ? 'admin' : 'partner'}-photo-hide="${escapeHtml(photo.id)}">Скрыть фото</button>
+                    ${!isAdmin ? `<button class="admin-inline-action admin-inline-action--danger" type="button" data-partner-photo-delete="${escapeHtml(photo.id)}">Удалить фото</button>` : ''}
                   </div>
                 </form>
               </article>
@@ -4803,6 +4805,24 @@ const hidePartnerPhoto = async (photoId) => {
   await loadPartnerPhotos();
 };
 
+const clearPartnerProfileImage = async (kind) => {
+  const response = await partnerApiFetch(`/api/v1/partners/me/images/${kind}`, { method: 'DELETE' });
+  if (partnerState.profile) partnerState.profile[`${kind}_url`] = null;
+  await loadPartnerProfile();
+  return response;
+};
+
+const deletePartnerPhoto = async (photoId) => {
+  await partnerApiFetch(`/api/v1/partners/me/photos/${photoId}`, { method: 'DELETE' });
+  await loadPartnerPhotos();
+};
+
+const clearPartnerOfferImage = async (offerId) => {
+  const response = await partnerApiFetch(`/api/v1/partners/me/offers/${offerId}/image`, { method: 'DELETE' });
+  await loadPartnerOffers();
+  return response;
+};
+
 
 const activateContentReviewOffer = async (offerId) => {
   await patchJson(`/api/v1/admin/offers/${offerId}`, { is_active: true });
@@ -5436,6 +5456,57 @@ root.addEventListener('click', async (event) => {
     } catch (error) {
       setPartnerFormMessage('partnerGallery', error.message || 'Не удалось скрыть фото.');
       setPartnerPanelMessage(error.message || 'Не удалось скрыть фото.', 'error');
+    }
+    renderPartnerLayout();
+    return;
+  }
+
+  const partnerImageClear = event.target.closest('[data-partner-image-clear]');
+  if (partnerImageClear) {
+    if (!window.confirm('Удалить это фото? Действие нельзя отменить.')) return;
+    partnerImageClear.disabled = true;
+    setPartnerFormMessage('profileImages');
+    try {
+      await clearPartnerProfileImage(partnerImageClear.dataset.partnerImageClear);
+      setPartnerFormMessage('profileImages', 'Изображение удалено.');
+      setPartnerPanelMessage('Удалена связь с изображением в профиле.', 'success');
+    } catch (error) {
+      setPartnerFormMessage('profileImages', error.message || 'Не удалось удалить изображение.');
+      setPartnerPanelMessage(error.message || 'Не удалось удалить изображение.', 'error');
+    }
+    renderPartnerLayout();
+    return;
+  }
+
+  const partnerPhotoDelete = event.target.closest('[data-partner-photo-delete]');
+  if (partnerPhotoDelete) {
+    if (!window.confirm('Удалить это фото? Действие нельзя отменить.')) return;
+    partnerPhotoDelete.disabled = true;
+    setPartnerFormMessage('partnerGallery');
+    try {
+      await deletePartnerPhoto(partnerPhotoDelete.dataset.partnerPhotoDelete);
+      setPartnerFormMessage('partnerGallery', 'Фото удалено.');
+      setPartnerPanelMessage('Фото удалено из галереи.', 'success');
+    } catch (error) {
+      setPartnerFormMessage('partnerGallery', error.message || 'Не удалось удалить фото.');
+      setPartnerPanelMessage(error.message || 'Не удалось удалить фото.', 'error');
+    }
+    renderPartnerLayout();
+    return;
+  }
+
+  const partnerOfferImageClear = event.target.closest('[data-partner-offer-image-clear]');
+  if (partnerOfferImageClear) {
+    if (!window.confirm('Удалить это фото? Действие нельзя отменить.')) return;
+    partnerOfferImageClear.disabled = true;
+    setPartnerFormMessage('offerEdit');
+    try {
+      await clearPartnerOfferImage(partnerOfferImageClear.dataset.partnerOfferImageClear);
+      setPartnerFormMessage('offerEdit', 'Фото услуги удалено.');
+      setPartnerPanelMessage('Фото услуги удалено из предложения.', 'success');
+    } catch (error) {
+      setPartnerFormMessage('offerEdit', error.message || 'Не удалось удалить фото услуги.');
+      setPartnerPanelMessage(error.message || 'Не удалось удалить фото услуги.', 'error');
     }
     renderPartnerLayout();
     return;

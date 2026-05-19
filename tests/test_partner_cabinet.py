@@ -584,6 +584,42 @@ def test_partner_offer_upload_rejects_unauthorized_request(partner_client: TestC
     assert response.status_code == 401
 
 
+def test_partner_can_clear_own_logo_and_cover(partner_client: TestClient) -> None:
+    token = _partner_token(partner_client)
+    logo_response = partner_client.delete("/api/v1/partners/me/images/logo", headers=_auth_headers(token))
+    cover_response = partner_client.delete("/api/v1/partners/me/images/cover", headers=_auth_headers(token))
+
+    assert logo_response.status_code == 200
+    assert cover_response.status_code == 200
+    assert logo_response.json()["logo_url"] is None
+    assert cover_response.json()["cover_url"] is None
+
+
+def test_partner_can_clear_own_offer_image(partner_client: TestClient) -> None:
+    token = _partner_token(partner_client)
+
+    upload_response = partner_client.post(
+        "/api/v1/partners/me/offers/1/image",
+        headers=_auth_headers(token),
+        files={"file": ("offer.png", TINY_PROFILE_PNG_BYTES, "image/png")},
+    )
+    assert upload_response.status_code == 200
+
+    clear_response = partner_client.delete("/api/v1/partners/me/offers/1/image", headers=_auth_headers(token))
+    assert clear_response.status_code == 200
+    assert clear_response.json()["image_url"] is None
+
+
+def test_partner_clear_offer_image_returns_404_for_missing_or_foreign_offer(partner_client: TestClient) -> None:
+    token = _partner_token(partner_client)
+
+    missing_response = partner_client.delete("/api/v1/partners/me/offers/99999/image", headers=_auth_headers(token))
+    foreign_response = partner_client.delete("/api/v1/partners/me/offers/4/image", headers=_auth_headers(token))
+
+    assert missing_response.status_code == 404
+    assert foreign_response.status_code == 404
+
+
 def test_partner_uploads_own_gallery_photo_lists_sorted_and_patches(partner_client: TestClient) -> None:
     token = _partner_token(partner_client)
 
@@ -679,6 +715,40 @@ def test_partner_cannot_update_another_partner_photo(partner_client: TestClient,
         json={"is_active": False},
     )
 
+    assert response.status_code == 404
+
+
+def test_partner_can_delete_own_gallery_photo(partner_client: TestClient) -> None:
+    token = _partner_token(partner_client)
+    upload_response = partner_client.post(
+        "/api/v1/partners/me/photos",
+        headers=_auth_headers(token),
+        files={"file": ("gallery.png", TINY_PROFILE_PNG_BYTES, "image/png")},
+    )
+    assert upload_response.status_code == 200
+    photo_id = upload_response.json()["id"]
+
+    delete_response = partner_client.delete(f"/api/v1/partners/me/photos/{photo_id}", headers=_auth_headers(token))
+    assert delete_response.status_code == 200
+    assert delete_response.json()["ok"] is True
+
+    list_response = partner_client.get("/api/v1/partners/me/photos", headers=_auth_headers(token))
+    assert all(item["id"] != photo_id for item in list_response.json())
+
+
+def test_partner_cannot_delete_another_partner_photo(partner_client: TestClient, admin_token: str) -> None:
+    token = _partner_token(partner_client)
+    admin_upload = partner_client.post(
+        "/api/v1/admin/partners/2/photos",
+        headers=_auth_headers(admin_token),
+        files={"file": ("foreign.png", TINY_PROFILE_PNG_BYTES, "image/png")},
+    )
+    assert admin_upload.status_code == 200
+
+    response = partner_client.delete(
+        f"/api/v1/partners/me/photos/{admin_upload.json()['id']}",
+        headers=_auth_headers(token),
+    )
     assert response.status_code == 404
 
 
