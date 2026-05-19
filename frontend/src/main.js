@@ -758,9 +758,11 @@ const statusBadgeMappings = {
   'cancelled': { label: 'Отменено', tone: 'danger' },
   'canceled': { label: 'Отменено', tone: 'danger' },
   'pending': { label: 'pending', tone: 'warning' },
-  'paid': { label: 'paid', tone: 'success' },
+  'paid': { label: 'paid', tone: 'warning' },
   'approved': { label: 'approved', tone: 'success' },
   'rejected': { label: 'rejected', tone: 'danger' },
+  'waiting': { label: 'waiting', tone: 'warning' },
+  'error': { label: 'Ошибка', tone: 'danger' },
 };
 
 const getStatusBadgeMeta = (value, tone = '') => {
@@ -782,7 +784,7 @@ const renderStatusBadge = (label, tone = '') => {
     return '—';
   }
 
-  return `<span class="status-badge status-badge--${escapeHtml(meta.tone)}">${escapeHtml(meta.label)}</span>`;
+  return `<span class="status-badge ui-badge ui-badge--${escapeHtml(meta.tone)} status-badge--${escapeHtml(meta.tone)}">${escapeHtml(meta.label)}</span>`;
 };
 
 const renderBoolStatusBadge = (value) => renderStatusBadge(formatBool(value));
@@ -1007,10 +1009,10 @@ const formatClientCategory = (slug) => {
 const formatPartnerCategory = (partner) => partner.category_title || partner.category_name || partner.category || partner.category_slug || '—';
 
 const renderEmptyState = (title, text, icon = '♡') => `
-  <article class="client-empty-state">
+  <article class="client-empty-state ui-empty-state">
     <span class="client-empty-state__icon" aria-hidden="true">${escapeHtml(icon)}</span>
-    <h4>${escapeHtml(title)}</h4>
-    <p>${escapeHtml(text)}</p>
+    <h4 class="ui-card__title">${escapeHtml(title)}</h4>
+    <p class="ui-card__meta">${escapeHtml(text)}</p>
   </article>
 `;
 
@@ -4027,8 +4029,8 @@ const renderAdminPaymentCard = (request) => {
   const vkUrl = request?.vk_url;
   const vkUserId = request?.vk_user_id || request?.client_vk_user_id;
   return `
-    <article class="admin-payment-card" data-admin-payment-request="${escapeHtml(requestId || '')}">
-      <div class="admin-payment-card__header">
+    <article class="admin-payment-card ui-card" data-admin-payment-request="${escapeHtml(requestId || '')}">
+      <div class="admin-payment-card__header ui-card__header">
         <div>
           <p class="section-kicker">ID ${formatValue(requestId)}</p>
           <h4>${formatValue(getPaymentClientLabel(request))}</h4>
@@ -4051,7 +4053,7 @@ const renderAdminPaymentCard = (request) => {
         ${renderAdminPaymentMetaItem('Комментарий', request?.comment || request?.admin_comment)}
       </dl>
       ${renderAdminPaymentReceipts(request)}
-      <div class="admin-payment-actions"><button type="button" class="admin-inline-action" data-admin-payment-open="${escapeHtml(requestId)}">Открыть детали</button></div>
+      <div class="admin-payment-actions"><button type="button" class="admin-inline-action ui-button ui-button--secondary" data-admin-payment-open="${escapeHtml(requestId)}">Открыть детали</button></div>
       ${renderAdminPaymentActions(request)}
     </article>
   `;
@@ -4078,17 +4080,17 @@ const renderAdminPaymentRequestsTab = () => `
           size: 'compact',
         })}
       </label>
-      <button type="button" class="admin-inline-action" data-admin-payment-refresh>Обновить</button>
+      <button type="button" class="admin-inline-action ui-button ui-button--ghost" data-admin-payment-refresh>Обновить</button>
     </div>
     ${adminState.paymentActionStatus ? `<div class="admin-status admin-status--success" role="status">${escapeHtml(adminState.paymentActionStatus)}</div>` : ''}
     ${adminState.paymentActionError ? `<div class="admin-status admin-status--error" role="alert">${escapeHtml(adminState.paymentActionError)}</div>` : ''}
-    ${adminState.selectedPaymentRequest ? `<section class="admin-payment-card admin-payment-card--details"><div class="admin-section-heading"><h4>Детали заявки ${formatValue(getPaymentRequestId(adminState.selectedPaymentRequest))}</h4><p>Данные загружены через GET /api/v1/admin/payment-requests/{payment_request_id}.</p></div>${renderAdminPaymentCard(adminState.selectedPaymentRequest)}</section>` : ''}
+    ${adminState.selectedPaymentRequest ? `<section class="admin-payment-card ui-card admin-payment-card--details"><div class="admin-section-heading"><h4>Детали заявки ${formatValue(getPaymentRequestId(adminState.selectedPaymentRequest))}</h4><p>Данные загружены через GET /api/v1/admin/payment-requests/{payment_request_id}.</p></div>${renderAdminPaymentCard(adminState.selectedPaymentRequest)}</section>` : ''}
     ${adminState.paymentRequestsLoading ? '<div class="admin-payment-empty">Загружаем заявки на оплату…</div>' : ''}
     ${adminState.paymentRequestsError ? `<div class="admin-payment-empty admin-payment-empty--error">${escapeHtml(adminState.paymentRequestsError)}</div>` : ''}
     ${!adminState.paymentRequestsLoading && !adminState.paymentRequestsError ? (
       adminState.paymentRequests.length
         ? `<div class="admin-payment-grid">${adminState.paymentRequests.map(renderAdminPaymentCard).join('')}</div>`
-        : '<div class="admin-payment-empty">Заявок на оплату пока нет.</div>'
+        : '<div class="admin-payment-empty ui-empty-state">Заявок на оплату пока нет.</div>'
     ) : ''}
   </section>
 `;
