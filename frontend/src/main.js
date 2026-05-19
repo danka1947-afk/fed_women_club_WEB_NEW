@@ -1733,7 +1733,6 @@ const renderLandingPartnerModal = () => {
         ${!loading && !error && hasPartners ? renderLandingPartnerCard(selectedPartner, safePhotoIndex) : ''}
         ${!loading && !error && !hasPartners ? '<p class="landing-partner-empty">Партнёры этого направления скоро появятся.</p>' : ''}
       </div>
-      ${!loading && !error && hasPartners ? `<div class="landing-partner-partners">${partners.map((partner, index) => `<button type="button" class="landing-partner-picker ${index === safePartnerIndex ? 'landing-partner-picker--active' : ''}" data-landing-partner-index="${escapeHtml(index)}">${escapeHtml(partner.name || `Партнёр ${index + 1}`)}</button>`).join('')}</div>` : ''}
       <div class="landing-partner-panel-actions">
         <div class="landing-partner-switcher">
           <button class="landing-carousel-button" type="button" data-landing-carousel-prev ${partners.length > 1 ? '' : 'disabled'}>←</button>
