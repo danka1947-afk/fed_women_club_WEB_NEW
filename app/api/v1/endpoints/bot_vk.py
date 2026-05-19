@@ -49,11 +49,11 @@ def exchange_vk_link_code(
     _: None = Depends(require_bot_api_token),
     db: Session = Depends(get_db),
 ) -> VkExchangeTokenResponse:
-    vk_user_id = _normalize_required(payload.vk_user_id, "Не удалось распознать ваш профиль VK. Попробуйте ещё раз.")
+    vk_user_id = _normalize_required(payload.vk_user_id, "VK user ID is required")
     code_value = payload.code.strip().upper()
     if not code_value:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Код привязки не найден. Проверьте код и попробуйте снова."
+            status_code=status.HTTP_404_NOT_FOUND, detail="Link code not found"
         )
 
     link_code = db.execute(
@@ -61,15 +61,15 @@ def exchange_vk_link_code(
     ).scalar_one_or_none()
     if link_code is None:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Код привязки не найден. Проверьте код и попробуйте снова."
+            status_code=status.HTTP_404_NOT_FOUND, detail="Link code not found"
         )
     if link_code.status == VkLinkCodeStatus.USED.value:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Этот код уже использован. Запросите новый в личном кабинете."
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Link code already used"
         )
     if link_code.status != VkLinkCodeStatus.ACTIVE.value:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Этот код уже неактивен. Запросите новый в личном кабинете."
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Link code is not active"
         )
 
     now = datetime.now(timezone.utc)
@@ -77,7 +77,7 @@ def exchange_vk_link_code(
         link_code.status = VkLinkCodeStatus.EXPIRED.value
         db.commit()
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Срок действия кода истёк. Запросите новый — код действует 15 минут."
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Link code expired"
         )
 
     profile = db.execute(
@@ -87,18 +87,18 @@ def exchange_vk_link_code(
     ).scalar_one_or_none()
     if profile is None or profile.user is None:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Не удалось подключиться к кабинету. Попробуйте позже."
+            status_code=status.HTTP_404_NOT_FOUND, detail="Client user not found"
         )
     user = profile.user
     if not user.is_active or user.role != UserRole.CLIENT.value:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Не удалось подключиться к кабинету. Попробуйте позже."
+            status_code=status.HTTP_404_NOT_FOUND, detail="Client user not found"
         )
 
     if profile.vk_user_id is not None and profile.vk_user_id != vk_user_id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Этот аккаунт уже привязан к другому VK-профилю.",
+            detail="Client profile is already linked",
         )
 
     existing_profile_id = db.execute(
@@ -109,7 +109,7 @@ def exchange_vk_link_code(
     ).scalar_one_or_none()
     if existing_profile_id is not None:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Этот VK уже привязан к другому участнику клуба."
+            status_code=status.HTTP_400_BAD_REQUEST, detail="VK user is already linked"
         )
 
     profile.vk_user_id = vk_user_id
@@ -126,7 +126,7 @@ def create_vk_user_token(
     _: None = Depends(require_bot_api_token),
     db: Session = Depends(get_db),
 ) -> VkExchangeTokenResponse:
-    vk_user_id = _normalize_required(payload.vk_user_id, "Не удалось распознать ваш профиль VK. Попробуйте ещё раз.")
+    vk_user_id = _normalize_required(payload.vk_user_id, "VK user ID is required")
     profile = db.execute(
         select(ClientProfile)
         .options(joinedload(ClientProfile.user))
@@ -134,12 +134,12 @@ def create_vk_user_token(
     ).scalar_one_or_none()
     if profile is None or profile.user is None:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="VK пока не привязан к личному кабинету."
+            status_code=status.HTTP_404_NOT_FOUND, detail="VK user is not linked"
         )
     user = profile.user
     if not user.is_active or user.role != UserRole.CLIENT.value:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="VK пока не привязан к личному кабинету."
+            status_code=status.HTTP_404_NOT_FOUND, detail="VK user is not linked"
         )
     return _token_response(user)
 
@@ -150,7 +150,7 @@ def onboard_vk_client(
     _: None = Depends(require_bot_api_token),
     db: Session = Depends(get_db),
 ) -> VkOnboardClientResponse:
-    vk_user_id = _normalize_required(payload.vk_user_id, "Не удалось распознать ваш профиль VK. Попробуйте ещё раз.")
+    vk_user_id = _normalize_required(payload.vk_user_id, "vk_user_id must not be empty")
     selected_city_id = _resolve_selected_city_id(db, payload.selected_city_slug)
 
     profile = _find_vk_profile(db, vk_user_id)
@@ -158,12 +158,12 @@ def onboard_vk_client(
         user = profile.user
         if user is None or not user.is_active:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Не удалось подключиться к кабинету. Попробуйте позже."
+                status_code=status.HTTP_404_NOT_FOUND, detail="Client user not found"
             )
         if user.role != UserRole.CLIENT.value:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Не удалось подключиться к кабинету. Попробуйте позже.",
+                detail="Linked user is not a client",
             )
         if selected_city_id is not None:
             profile.selected_city_id = selected_city_id
@@ -180,7 +180,7 @@ def onboard_vk_client(
         user = synthetic_profile.user
         if user is None:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Не удалось подключиться к кабинету. Попробуйте позже."
+                status_code=status.HTTP_404_NOT_FOUND, detail="Client user not found"
             )
         synthetic_profile.vk_user_id = vk_user_id
         if selected_city_id is not None:
@@ -375,7 +375,7 @@ def _resolve_selected_city_id(
     ).scalar_one_or_none()
     if city_id is None:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Город не найден. Выберите город из списка ещё раз."
+            status_code=status.HTTP_404_NOT_FOUND, detail="City not found"
         )
     return int(city_id)
 
