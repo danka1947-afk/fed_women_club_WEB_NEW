@@ -5717,19 +5717,24 @@ body.is-dashboard {
 .client-partner-card {
   position: relative;
   display: grid;
+  grid-template-columns: minmax(180px, 220px) minmax(0, 1fr);
+  gap: 0;
   min-height: 100%;
   border: 1px solid rgba(201, 130, 120, 0.18);
+  border-radius: 28px;
+  overflow: hidden;
   box-shadow: 0 20px 46px rgba(143, 81, 75, 0.12);
 }
 
 .client-partner-card__cover {
   display: grid;
-  min-height: 196px;
+  min-height: 210px;
+  height: 100%;
   place-items: center;
   background-color: rgba(255, 250, 248, 0.96);
   background-position: center top;
   background-repeat: no-repeat;
-  background-size: contain;
+  background-size: cover;
 }
 
 .client-partner-card__cover--placeholder {
@@ -5772,6 +5777,13 @@ body.is-dashboard {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
+}
+
+.client-partner-card-body {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+  padding: 16px 18px 18px;
 }
 
 .client-partner-modal {
@@ -6031,6 +6043,14 @@ body.is-dashboard {
   .client-partner-modal__header,
   .client-partner-modal__body {
     padding-inline: 14px;
+  }
+
+  .client-partner-card {
+    grid-template-columns: 1fr;
+  }
+
+  .client-partner-card__cover {
+    min-height: 190px;
   }
 
   .client-partner-modal__main-image {
