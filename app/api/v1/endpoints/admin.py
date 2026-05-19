@@ -333,6 +333,7 @@ def list_admin_users(
             ClientProfile.contact_email.label("contact_email"),
             ClientProfile.selected_city_id.label("selected_city_id"),
             City.name.label("selected_city_name"),
+            ClientProfile.vk_user_id.label("vk_user_id"),
         )
         .outerjoin(ClientProfile, ClientProfile.user_id == User.id)
         .outerjoin(City, City.id == ClientProfile.selected_city_id)
@@ -347,11 +348,20 @@ def list_admin_users(
         search = q.strip()
         if search:
             pattern = f"%{search}%"
-            statement = statement.where(or_(User.email.ilike(pattern), User.phone.ilike(pattern), ClientProfile.full_name.ilike(pattern)))
+            statement = statement.where(or_(User.email.ilike(pattern), User.phone.ilike(pattern), ClientProfile.full_name.ilike(pattern), ClientProfile.contact_email.ilike(pattern), City.name.ilike(pattern), ClientProfile.vk_user_id.ilike(pattern)))
 
     rows = db.execute(statement).all()
     result: list[AdminManagedUserRead] = []
-    for user, full_name, contact_email, selected_city_id, selected_city_name in rows:
+    for user, full_name, contact_email, selected_city_id, selected_city_name, vk_user_id in rows:
+        normalized_email = (user.email or "").strip().lower()
+        is_synthetic_email = normalized_email.startswith("vk_") and normalized_email.endswith("@vk.local") or normalized_email.endswith("@vk.local")
+        vk_url = f"https://vk.com/id{vk_user_id}" if vk_user_id else None
+        display_name = (
+            (full_name.strip() if isinstance(full_name, str) and full_name.strip() else None)
+            or (contact_email.strip() if isinstance(contact_email, str) and contact_email.strip() else None)
+            or (user.email.strip() if isinstance(user.email, str) and user.email.strip() else None)
+            or f"Пользователь #{user.id}"
+        )
         result.append(
             AdminManagedUserRead.model_validate(
                 {
@@ -364,6 +374,10 @@ def list_admin_users(
                     "contact_email": contact_email,
                     "selected_city_id": selected_city_id,
                     "selected_city_name": selected_city_name,
+                    "vk_user_id": vk_user_id,
+                    "vk_url": vk_url,
+                    "display_name": display_name,
+                    "is_synthetic_email": is_synthetic_email,
                 }
             )
         )

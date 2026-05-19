@@ -40,6 +40,10 @@ class AdminManagedUserRead(BaseModel):
     contact_email: str | None = None
     selected_city_id: int | None = None
     selected_city_name: str | None = None
+    vk_user_id: str | None = None
+    vk_url: str | None = None
+    display_name: str | None = None
+    is_synthetic_email: bool = False
 
     model_config = {"from_attributes": True}
 

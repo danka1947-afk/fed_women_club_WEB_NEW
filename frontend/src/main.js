@@ -3275,18 +3275,37 @@ const renderAdminSearch = (scope, placeholder) => {
 };
 
 const renderUsersTab = () => {
-  const users = filterAdminRows(adminState.users, adminState.search.users, ['email', 'phone', 'role', (item) => formatRole(item.role), (item) => searchableBool(item.is_active)]);
+  const users = filterAdminRows(adminState.users, adminState.search.users, [
+    'email',
+    'contact_email',
+    'phone',
+    'full_name',
+    'selected_city_name',
+    'vk_user_id',
+    'role',
+    (item) => item.display_name,
+    (item) => formatRole(item.role),
+    (item) => searchableBool(item.is_active),
+  ]);
   return `
     <div class="admin-two-column admin-two-column--wide">
       <div>
         <div class="admin-section-heading"><h4>Пользователи</h4><p>Unified users для клиентских, партнёрских и административных кабинетов.</p></div>
         ${renderAdminSearch('users', 'Поиск по пользователям')}
         ${renderTable(
-          ['ID', 'Email', 'Телефон', 'Роль', 'Активен', 'Действие'],
+          ['ID', 'Имя', 'Login', 'Email', 'Телефон', 'Город', 'VK', 'Роль', 'Активен', 'Действие'],
           users.map((item) => [
             formatValue(item.id),
-            formatValue(item.email),
+            formatValue(item.display_name || item.full_name),
+            item.is_synthetic_email
+              ? `<span class="muted-text">${formatValue(item.email)}</span>`
+              : formatValue(item.email),
+            formatValue(item.contact_email),
             formatValue(item.phone),
+            formatValue(item.selected_city_name),
+            item.vk_url
+              ? `<a href="${escapeHtml(item.vk_url)}" target="_blank" rel="noopener noreferrer">Открыть VK</a>${item.vk_user_id ? `<br><small class="muted-text">id: ${escapeHtml(item.vk_user_id)}</small>` : ''}`
+              : '—',
             formatValue(formatRole(item.role)),
             renderBoolStatusBadge(item.is_active),
             renderUserActionButton(item),
