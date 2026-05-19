@@ -2146,6 +2146,36 @@ const getClientActiveVerification = () => {
   return active[0] || null;
 };
 
+const isClientSubscriptionActive = () => {
+  const subscription = clientState.subscription || {};
+  const status = String(subscription.status || '').toLowerCase();
+  return status === 'active' || status === 'paid' || status === 'approved';
+};
+
+const isClientProfileCompleted = () => {
+  const profile = clientState.profile || {};
+  return Boolean(String(profile.full_name || '').trim() && String(profile.phone || '').trim() && String(profile.email || '').trim());
+};
+
+const renderClientActivityPreview = () => {
+  const items = Array.isArray(clientState.activityItems) ? clientState.activityItems.slice(0, 3) : [];
+  if (clientState.activityLoading) {
+    return '<div class="activity-empty" role="status">Загружаем последние события клуба…</div>';
+  }
+  if (clientState.activityError) {
+    return '<div class="activity-empty activity-empty--error" role="alert">Не удалось загрузить события. Откройте вкладку «Активность» чуть позже.</div>';
+  }
+  if (!items.length) {
+    return `
+      <div class="activity-empty activity-empty--friendly" role="status">
+        <strong>Пока тихо, но клуб уже готов</strong>
+        <p>Откройте каталог партнёров, получите первую привилегию — и здесь появится ваша активность.</p>
+      </div>
+    `;
+  }
+  return renderActivityFeed(items);
+};
+
 const renderClientActivePrivilege = () => {
   const activeVerification = getClientActiveVerification();
 
@@ -2177,12 +2207,21 @@ const renderClientActivePrivilege = () => {
 };
 
 const renderClientHome = () => {
+  const profile = clientState.profile || {};
   const cityName = getClientSelectedCityName();
-  const { active, confirmed } = getClientVerificationStats();
+  const { active } = getClientVerificationStats();
+  const isVkBound = Boolean(profile.is_vk_bound || profile.vk_user_id);
+  const vkUrl = String(profile.vk_url || '').trim() || (profile.vk_user_id ? `https://vk.com/id${profile.vk_user_id}` : '');
+  const hasActiveSubscription = isClientSubscriptionActive();
+  const activeSubscriptionUntil = formatDate(clientState.subscription?.ends_at);
+  const subscriptionSubtitle = hasActiveSubscription
+    ? `Подписка активна до ${formatValue(activeSubscriptionUntil)}`
+    : 'Оформите подписку, чтобы получать привилегии у партнёров';
+  const hasProfileContacts = isClientProfileCompleted();
   const quickActions = [
-    { title: 'Найти партнёра', text: 'Каталог по городу и категории.', tab: 'catalog' },
-    { title: 'Получить привилегию', text: 'Откройте предложение и код.', tab: 'catalog' },
-    { title: 'Показать коды', text: 'Активные и прошлые коды.', tab: 'history' },
+    { title: 'Смотреть партнёров', text: 'Каталог по городу и категории.', tab: 'catalog' },
+    { title: 'Получить код у партнёра', text: 'Откройте предложение и получите код.', tab: 'catalog' },
+    { title: 'Мои коды', text: 'Активные и прошлые коды.', tab: 'history' },
     { title: 'Изменить город', text: 'Уточнить выдачу каталога.', tab: 'profile' },
   ];
 
@@ -2190,18 +2229,18 @@ const renderClientHome = () => {
     <section class="client-home" aria-labelledby="client-home-title">
       <div class="client-home-hero">
         <div>
-          <p class="section-eyebrow section-kicker">Client home</p>
-          <h2 class="section-title" id="client-home-title">Ваш клуб привилегий</h2>
-          <p class="section-description compact-copy">Каталог, коды и история — под рукой.</p>
+          <p class="section-eyebrow section-kicker">Клиентский кабинет</p>
+          <h2 class="section-title" id="client-home-title">Мой клуб привилегий</h2>
+          <p class="section-description compact-copy">${escapeHtml(subscriptionSubtitle)}</p>
           <div class="client-home-actions">
-            <button type="button" data-client-tab="catalog">Открыть каталог</button>
-            <button type="button" class="admin-inline-action" data-client-tab="history">Мои привилегии</button>
+            <button type="button" data-client-tab="${hasActiveSubscription ? 'catalog' : 'subscription'}">${hasActiveSubscription ? 'Смотреть партнёров' : 'Оформить подписку'}</button>
+            <button type="button" class="admin-inline-action" data-client-tab="${hasActiveSubscription ? 'history' : 'catalog'}">${hasActiveSubscription ? 'Мои привилегии' : 'Посмотреть партнёров'}</button>
           </div>
         </div>
         <div class="client-home-stats text-stack" aria-label="Сводка клиента">
           <div class="client-home-stat"><span>Город</span><strong>${escapeHtml(cityName)}</strong></div>
-          <div class="client-home-stat"><span>Активные привилегии</span><strong>${active.length}</strong></div>
-          <div class="client-home-stat"><span>Подтверждённые привилегии</span><strong>${confirmed.length}</strong></div>
+          <div class="client-home-stat"><span>VK</span><strong>${isVkBound ? 'VK привязан' : 'VK не привязан'}</strong></div>
+          ${active.length ? `<div class="client-home-stat"><span>Активные коды</span><strong>${active.length}</strong></div>` : ''}
         </div>
       </div>
       <div class="client-quick-actions" aria-label="Быстрые действия">
@@ -2212,6 +2251,31 @@ const renderClientHome = () => {
           </button>
         `).join('')}
       </div>
+      <section class="client-vk-link-card" aria-labelledby="client-home-vk-title">
+        <div class="client-vk-link-header">
+          <div>
+            <h4 id="client-home-vk-title">VK</h4>
+            <p class="helper-text compact-copy">${isVkBound ? 'VK уже привязан' : 'Подключите VK, чтобы получать коды через бота клуба.'}</p>
+          </div>
+          ${isVkBound
+            ? (vkUrl ? `<a class="admin-inline-action" href="${escapeHtml(vkUrl)}" target="_blank" rel="noopener noreferrer">Открыть VK</a>` : '')
+            : '<button type="button" data-client-create-vk-code>Создать код для VK</button>'}
+        </div>
+        ${isVkBound ? '' : renderClientVkLinkCode()}
+      </section>
+      <section class="summary-card client-raffle-card" aria-labelledby="client-raffle-title">
+        <h4 id="client-raffle-title">Ежемесячный розыгрыш</h4>
+        <p class="compact-copy">${hasProfileContacts ? 'Контакты заполнены. Вы участвуете в розыгрышах клуба.' : 'Заполните имя, телефон и email, чтобы мы могли связаться с вами при победе.'}</p>
+        ${hasProfileContacts ? '' : '<button type="button" class="admin-inline-action" data-client-tab="profile">Заполнить профиль</button>'}
+      </section>
+      <section class="client-activity-preview" aria-labelledby="client-activity-preview-title">
+        <div class="client-tab-header admin-section-heading text-stack">
+          <h4 class="client-tab-title section-title" id="client-activity-preview-title">Последняя активность</h4>
+          <p class="client-tab-description section-description compact-copy">2–3 последних события по вашим привилегиям.</p>
+        </div>
+        ${renderClientActivityPreview()}
+        <button type="button" class="admin-inline-action" data-client-tab="activity">Вся активность</button>
+      </section>
       ${renderClientActivePrivilege()}
     </section>
   `;

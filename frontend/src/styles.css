@@ -2113,6 +2113,21 @@ select::-ms-expand {
   grid-template-columns: 1fr auto;
 }
 
+.client-raffle-card,
+.client-activity-preview {
+  display: grid;
+  gap: 10px;
+  padding: 18px;
+  border: 1px solid rgba(201, 130, 120, 0.22);
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.client-raffle-card h4,
+.client-raffle-card p {
+  margin: 0;
+}
+
 .client-active-code {
   justify-self: stretch;
   padding: 16px 18px;
@@ -5039,6 +5054,17 @@ body.is-dashboard {
 .activity-empty--error {
   border-color: rgba(180, 80, 80, 0.34);
   color: #a74444;
+}
+
+.activity-empty.activity-empty--friendly strong {
+  display: block;
+  margin-bottom: 6px;
+}
+
+.activity-empty.activity-empty--friendly p {
+  margin: 0;
+  font-weight: 650;
+  color: var(--color-muted);
 }
 
 @media (max-width: 640px) {
