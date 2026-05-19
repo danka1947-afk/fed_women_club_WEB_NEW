@@ -153,11 +153,7 @@ def onboard_vk_client(
     vk_user_id = _normalize_required(payload.vk_user_id, "vk_user_id must not be empty")
     selected_city_id = _resolve_selected_city_id(db, payload.selected_city_slug)
 
-    profile = db.execute(
-        select(ClientProfile)
-        .options(joinedload(ClientProfile.user))
-        .where(ClientProfile.vk_user_id == vk_user_id)
-    ).scalar_one_or_none()
+    profile = _find_vk_profile(db, vk_user_id)
     if profile is not None:
         user = profile.user
         if user is None or not user.is_active:
@@ -178,6 +174,23 @@ def onboard_vk_client(
         db.refresh(profile)
         db.refresh(user)
         return _onboard_response(user, profile, is_new=False, setup_data=setup_data)
+
+    synthetic_profile = _find_synthetic_vk_profile(db, vk_user_id)
+    if synthetic_profile is not None:
+        user = synthetic_profile.user
+        if user is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Client user not found"
+            )
+        synthetic_profile.vk_user_id = vk_user_id
+        if selected_city_id is not None:
+            synthetic_profile.selected_city_id = selected_city_id
+        _sync_optional_contact(user, payload.email, payload.phone)
+        setup_data = _prepare_password_setup(db, user, vk_user_id)
+        db.commit()
+        db.refresh(user)
+        db.refresh(synthetic_profile)
+        return _onboard_response(user, synthetic_profile, is_new=False, setup_data=setup_data)
 
     normalized_email = _normalize_optional_email(payload.email)
     normalized_phone = _normalize_optional_text(payload.phone)
@@ -215,8 +228,9 @@ def onboard_vk_client(
 
 
 def _token_response(user: User) -> VkExchangeTokenResponse:
+    auth_payload = _build_vk_auth_payload(user)
     return VkExchangeTokenResponse(
-        access_token=create_access_token(f"user:{user.id}"),
+        access_token=auth_payload["access_token"],
         user=UnifiedUserRead.model_validate(user),
     )
 
@@ -230,7 +244,7 @@ def _onboard_response(
 ) -> VkOnboardClientResponse:
     login = _user_login_value(user)
     return VkOnboardClientResponse(
-        access_token=create_access_token(f"user:{user.id}"),
+        access_token=_build_vk_auth_payload(user)["access_token"],
         user=VkOnboardClientUserRead.model_validate(user),
         client=VkOnboardClientProfileRead.model_validate(profile),
         is_new=is_new,
@@ -243,6 +257,32 @@ def _onboard_response(
         temporary_password=temporary_password,
     )
 
+
+def _find_vk_profile(db: Session, vk_user_id: str) -> ClientProfile | None:
+    return db.execute(
+        select(ClientProfile)
+        .options(joinedload(ClientProfile.user))
+        .where(ClientProfile.vk_user_id == vk_user_id)
+    ).scalar_one_or_none()
+
+
+def _find_synthetic_vk_profile(db: Session, vk_user_id: str) -> ClientProfile | None:
+    synthetic_login = _synthetic_vk_email(vk_user_id)
+    return db.execute(
+        select(ClientProfile)
+        .options(joinedload(ClientProfile.user))
+        .join(User, ClientProfile.user_id == User.id)
+        .where(
+            ClientProfile.vk_user_id.is_(None),
+            User.email == synthetic_login,
+            User.role == UserRole.CLIENT.value,
+            User.is_active.is_(True),
+        )
+    ).scalar_one_or_none()
+
+
+def _build_vk_auth_payload(user: User) -> dict[str, str]:
+    return {"access_token": create_access_token(f"user:{user.id}")}
 
 def _prepare_password_setup(
     db: Session, user: User, vk_user_id: str
