@@ -88,6 +88,8 @@ const featureCards = [
   },
 ];
 
+const clubAvatarSrc = '/assets/club-avatar.png';
+
 
 const sakuraEdgePetalMarkup = Array.from({ length: 68 }, (_, index) => (
   `<span class="sakura-petal sakura-petal--${index + 1}"></span>`
@@ -193,7 +195,10 @@ const renderPublicApp = () => {
     <header class="hero" id="landing-about" aria-labelledby="hero-title">
       <nav class="topbar" aria-label="Основная навигация">
         <div class="brand" aria-label="Женский клуб">
-          <span class="brand-mark" aria-hidden="true">ЖК</span>
+          <span class="brand-mark" aria-hidden="true">
+            <img class="brand-mark__image" src="${clubAvatarSrc}" alt="" loading="lazy" onerror="this.hidden=true;this.nextElementSibling.hidden=false;" />
+            <span class="brand-mark__fallback" hidden>ЖК</span>
+          </span>
           <span>
             <span class="brand-name">Женский клуб</span>
             <span class="brand-caption">Федеральный клуб привилегий для девушек</span>
@@ -240,7 +245,7 @@ const renderPublicApp = () => {
           (card) => `
             <article class="feature-card feature-card--${escapeHtml(card.title.toLowerCase().replace(/[^a-zа-я0-9]+/gi, '-').replace(/^-+|-+$/g, ''))}">
               <span aria-hidden="true"></span>
-              <h2>${card.title === 'QR-подтверждение у партнёра' ? 'QR-подтверждение<br>у партнёра' : card.title}</h2>
+              <h2>${card.title}</h2>
               <p>${card.text}</p>
             </article>
           `,
@@ -1194,7 +1199,10 @@ const renderDashboardApp = (role) => {
       ${renderCabinetAmbientLayer()}
       <header class="dashboard-topbar">
         <div class="dashboard-brand" aria-label="Женский клуб">
-          <span class="brand-mark" aria-hidden="true">ЖК</span>
+          <span class="brand-mark" aria-hidden="true">
+            <img class="brand-mark__image" src="${clubAvatarSrc}" alt="" loading="lazy" onerror="this.hidden=true;this.nextElementSibling.hidden=false;" />
+            <span class="brand-mark__fallback" hidden>ЖК</span>
+          </span>
           <span>
             <span class="brand-name">Женский клуб</span>
             <span class="brand-caption">Федеральный клуб привилегий для девушек</span>
@@ -3922,10 +3930,10 @@ const renderQrEditForm = () => {
 
 const adminPaymentStatusOptions = [
   { value: '', label: 'Все' },
-  { value: 'pending', label: 'pending' },
-  { value: 'paid', label: 'paid' },
-  { value: 'approved', label: 'approved' },
-  { value: 'rejected', label: 'rejected' },
+  { value: 'pending', label: 'Ожидает оплаты' },
+  { value: 'paid', label: 'Оплачено / на проверке' },
+  { value: 'approved', label: 'Подтверждено' },
+  { value: 'rejected', label: 'Отклонено' },
 ];
 
 const getPaymentRequestId = (request) => request?.id ?? request?.payment_request_id ?? request?.request_id;
