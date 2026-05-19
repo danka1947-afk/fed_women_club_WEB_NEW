@@ -4197,6 +4197,22 @@ body.is-dashboard {
   font-weight: 800;
 }
 
+.partner-onboarding-progressbar {
+  position: relative;
+  overflow: hidden;
+  height: 8px;
+  margin-top: 4px;
+  border-radius: 999px;
+  background: rgba(246, 216, 210, 0.6);
+}
+
+.partner-onboarding-progressbar > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #c75c67, #be185d);
+}
+
 .partner-onboarding-steps {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
