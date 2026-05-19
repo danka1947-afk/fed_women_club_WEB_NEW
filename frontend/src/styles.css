@@ -5154,9 +5154,14 @@ body.is-dashboard {
 }
 
 .admin-offers-preview-panel .offer-marketplace-image,
-.admin-offers-preview-panel .offer-image-preview {
-  min-height: 120px;
-  max-height: 220px;
+.admin-offers-preview-panel .offer-image-preview,
+.offer-marketplace-preview > .offer-marketplace-card .offer-marketplace-image {
+  min-height: 260px;
+  max-height: 420px;
+  background-color: rgba(255, 248, 246, 0.88);
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: contain;
 }
 
 .admin-offers-preview-panel .offer-marketplace-meta {
