@@ -1866,17 +1866,14 @@ select::-ms-expand {
   min-height: 112px;
   padding: 16px;
   overflow: hidden;
-  border: 1px solid rgba(160, 83, 75, 0.2);
+  border: 1px solid rgba(120, 52, 46, 0.34);
   border-radius: 24px;
   background:
-    linear-gradient(140deg, rgba(255, 255, 255, 0.94), rgba(255, 248, 246, 0.88)),
-    radial-gradient(circle at top right, rgba(246, 216, 210, 0.46), transparent 10rem);
+    linear-gradient(140deg, rgba(164, 80, 71, 0.98), rgba(129, 58, 51, 0.98)),
+    radial-gradient(circle at top right, rgba(255, 233, 228, 0.16), transparent 10rem);
   text-align: left;
-  box-shadow: 0 12px 28px rgba(143, 81, 75, 0.1);
-  backdrop-filter: blur(16px) saturate(1.06);
-  -webkit-backdrop-filter: blur(16px) saturate(1.06);
+  box-shadow: 0 12px 28px rgba(88, 37, 32, 0.24);
   appearance: none;
-
   color: #fff;
 }
 
@@ -1896,11 +1893,11 @@ select::-ms-expand {
 .client-quick-action:focus,
 .client-quick-action:focus-visible {
   transform: translateY(-2px);
-  border-color: rgba(160, 83, 75, 0.34);
+  border-color: rgba(109, 44, 39, 0.46);
   background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(255, 241, 238, 0.94)),
-    radial-gradient(circle at top right, rgba(246, 216, 210, 0.72), transparent 10rem);
-  box-shadow: 0 20px 38px rgba(143, 81, 75, 0.14);
+    linear-gradient(135deg, rgba(175, 87, 78, 0.99), rgba(136, 62, 55, 0.99)),
+    radial-gradient(circle at top right, rgba(255, 243, 240, 0.2), transparent 10rem);
+  box-shadow: 0 20px 38px rgba(88, 37, 32, 0.34);
   color: #fff;
 }
 
@@ -5727,12 +5724,12 @@ body.is-dashboard {
 
 .client-partner-card__cover {
   display: grid;
-  min-height: 168px;
+  min-height: 196px;
   place-items: center;
-  background-color: rgba(255, 250, 248, 0.78);
-  background-position: center;
+  background-color: rgba(255, 250, 248, 0.96);
+  background-position: center top;
   background-repeat: no-repeat;
-  background-size: cover;
+  background-size: contain;
 }
 
 .client-partner-card__cover--placeholder {
