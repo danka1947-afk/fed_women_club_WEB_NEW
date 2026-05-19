@@ -3881,10 +3881,9 @@ const adminPaymentStatusOptions = [
 const getPaymentRequestId = (request) => request?.id ?? request?.payment_request_id ?? request?.request_id;
 
 const getPaymentClientLabel = (request) => {
-  const name = request?.client_full_name || request?.client_name || request?.client?.full_name || request?.client?.name;
+  const name = request?.display_name || request?.full_name || request?.client_full_name || request?.client_name || request?.client?.full_name || request?.client?.name;
   const userId = request?.client_user_id || request?.user_id || request?.client_id || request?.client?.id;
-  const vkId = request?.vk_id || request?.vk_user_id || request?.client_vk_id || request?.client?.vk_id;
-  return [name, userId ? `user ${userId}` : '', vkId ? `VK ${vkId}` : ''].filter(Boolean).join(' · ') || 'Клиент не указан';
+  return [name, userId ? `user ${userId}` : ''].filter(Boolean).join(' · ') || 'Клиент не указан';
 };
 
 const getPaymentAmountLabel = (request) => {
@@ -3894,8 +3893,8 @@ const getPaymentAmountLabel = (request) => {
   return `${amount} ${currency}`;
 };
 
-const renderAdminPaymentMetaItem = (label, value) => `
-  <div><dt>${escapeHtml(label)}</dt><dd>${formatValue(value)}</dd></div>
+const renderAdminPaymentMetaItem = (label, value, trusted = false) => `
+  <div><dt>${escapeHtml(label)}</dt><dd>${trusted ? value : formatValue(value)}</dd></div>
 `;
 
 const renderAdminPaymentReceipts = (request) => {
@@ -3953,6 +3952,12 @@ const renderAdminPaymentActions = (request) => {
 
 const renderAdminPaymentCard = (request) => {
   const requestId = getPaymentRequestId(request);
+  const displayName = request?.display_name || request?.full_name || request?.client_full_name || request?.client_name;
+  const userId = request?.user_id || request?.client_user_id || request?.client_id;
+  const login = request?.user_login || request?.user_email;
+  const contactEmail = request?.contact_email;
+  const vkUrl = request?.vk_url;
+  const vkUserId = request?.vk_user_id || request?.client_vk_user_id;
   return `
     <article class="admin-payment-card" data-admin-payment-request="${escapeHtml(requestId || '')}">
       <div class="admin-payment-card__header">
@@ -3963,7 +3968,12 @@ const renderAdminPaymentCard = (request) => {
         <div class="admin-payment-status">${renderStatusBadge(formatStatus(request?.status))}</div>
       </div>
       <dl class="admin-payment-meta">
-        ${renderAdminPaymentMetaItem('Клиент', getPaymentClientLabel(request))}
+        ${renderAdminPaymentMetaItem('Клиент', `${displayName || '—'}${userId ? `\nuser ${userId}` : ''}`)}
+        ${renderAdminPaymentMetaItem('Телефон', request?.user_phone)}
+        ${renderAdminPaymentMetaItem('Email', contactEmail || '—')}
+        ${renderAdminPaymentMetaItem('Город', request?.selected_city_name || '—')}
+        ${renderAdminPaymentMetaItem('VK', vkUrl ? `<a href="${escapeHtml(vkUrl)}" target="_blank" rel="noopener noreferrer">Открыть VK</a>${vkUserId ? `<br><small class="muted-text">id: ${escapeHtml(vkUserId)}</small>` : ''}` : '—', true)}
+        ${renderAdminPaymentMetaItem('Login', login || '—')}
         ${renderAdminPaymentMetaItem('Сумма', getPaymentAmountLabel(request))}
         ${renderAdminPaymentMetaItem('Создано', formatDate(request?.created_at))}
         ${renderAdminPaymentMetaItem('Обновлено', formatDate(request?.updated_at))}
