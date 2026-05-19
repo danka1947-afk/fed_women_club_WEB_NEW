@@ -36,6 +36,10 @@ class AdminManagedUserRead(BaseModel):
     phone: str | None
     role: str
     is_active: bool
+    full_name: str | None = None
+    contact_email: str | None = None
+    selected_city_id: int | None = None
+    selected_city_name: str | None = None
 
     model_config = {"from_attributes": True}
 

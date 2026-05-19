@@ -119,13 +119,11 @@ def test_admin_users_post_creates_partner_user_with_email_password(
 
     assert response.status_code == 200
     data = response.json()
-    assert data == {
-        "id": 4,
-        "email": "partner.new@example.com",
-        "phone": None,
-        "role": "partner",
-        "is_active": True,
-    }
+    assert data["id"] == 4
+    assert data["email"] == "partner.new@example.com"
+    assert data["phone"] is None
+    assert data["role"] == "partner"
+    assert data["is_active"] is True
     assert "password_hash" not in data
 
 
@@ -264,13 +262,12 @@ def test_admin_users_patch_updates_email_phone_role_is_active(
     )
 
     assert response.status_code == 200
-    assert response.json() == {
-        "id": 1,
-        "email": "updated@example.com",
-        "phone": "+79990001111",
-        "role": "client",
-        "is_active": False,
-    }
+    data = response.json()
+    assert data["id"] == 1
+    assert data["email"] == "updated@example.com"
+    assert data["phone"] == "+79990001111"
+    assert data["role"] == "client"
+    assert data["is_active"] is False
 
 
 def test_admin_users_patch_updates_password_and_rotates_login(
