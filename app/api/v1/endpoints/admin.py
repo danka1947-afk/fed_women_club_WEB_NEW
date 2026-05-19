@@ -25,6 +25,7 @@ from app.schemas.admin import (
     AdminManagedUserCreate,
     AdminManagedUserRead,
     AdminManagedUserUpdate,
+    AdminDeleteUserResponse,
     AdminVerificationRead,
     ContentReviewOfferRead,
     ContentReviewPhotoRead,
@@ -53,6 +54,7 @@ from app.schemas.auth import AdminUserRead
 from app.schemas.partner import PartnerAnalyticsRead
 from app.schemas.payment import AdminPaymentRequestRead, PaymentRequestApprove, PaymentRequestReject
 from app.services.activity_feed import build_admin_activity_feed
+from app.services.admin_user_delete_service import delete_user_with_relations
 from app.services.image_uploads import save_partner_image_upload, save_partner_offer_image_upload, save_partner_photo_image_upload, validate_image_kind
 from app.services.partner_analytics import build_partner_analytics
 from app.services.privilege_verifications import (
@@ -436,6 +438,15 @@ def update_admin_user(
         raise _user_duplicate_error() from None
     db.refresh(user)
     return user
+
+
+@router.delete("/users/{user_id}", response_model=AdminDeleteUserResponse)
+def delete_admin_user(
+    user_id: int,
+    admin: AdminUser = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    return delete_user_with_relations(db=db, admin=admin, user_id=user_id)
 
 
 @router.get("/cities", response_model=list[CityRead])

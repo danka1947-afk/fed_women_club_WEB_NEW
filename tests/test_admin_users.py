@@ -317,3 +317,57 @@ def test_admin_users_patch_missing_user_returns_404(admin_users_client: TestClie
 
     assert response.status_code == 404
     assert response.json()["detail"] == "User not found"
+
+
+
+def test_admin_users_delete_requires_admin_token(admin_users_client: TestClient) -> None:
+    response = admin_users_client.delete('/api/v1/admin/users/1')
+    assert response.status_code == 401
+
+
+def test_admin_users_delete_missing_user_returns_404(admin_users_client: TestClient, admin_token: str) -> None:
+    response = admin_users_client.delete('/api/v1/admin/users/9999', headers=_auth_headers(admin_token))
+    assert response.status_code == 404
+    assert response.json()['detail'] == 'User not found'
+
+
+def test_admin_users_delete_client_user_and_related_records(admin_users_client: TestClient, admin_token: str) -> None:
+    create_user = admin_users_client.post(
+        '/api/v1/admin/users', headers=_auth_headers(admin_token), json={'email': 'vk-client@example.com', 'password': 'ClientVk123', 'role': 'client'}
+    )
+    assert create_user.status_code == 200
+    user_id = create_user.json()['id']
+
+    response = admin_users_client.delete(f'/api/v1/admin/users/{user_id}', headers=_auth_headers(admin_token))
+    assert response.status_code == 200
+    data = response.json()
+    assert data['ok'] is True
+    assert data['deleted_user_id'] == user_id
+    assert 'deleted' in data
+    assert data['deleted']['user'] == 1
+
+
+def test_admin_users_delete_cannot_delete_self(admin_users_client: TestClient, admin_token: str) -> None:
+    create_user = admin_users_client.post(
+        '/api/v1/admin/users', headers=_auth_headers(admin_token), json={'email': 'admin@example.com', 'password': 'AdminRole123', 'role': 'client'}
+    )
+    assert create_user.status_code == 200
+
+    response = admin_users_client.delete(f"/api/v1/admin/users/{create_user.json()['id']}", headers=_auth_headers(admin_token))
+    assert response.status_code == 400
+    assert response.json()['detail'] == 'Нельзя удалить самого себя'
+
+
+def test_admin_users_delete_cannot_delete_last_admin_role_user(admin_users_client: TestClient, admin_token: str) -> None:
+    create_response = admin_users_client.post(
+        '/api/v1/admin/users', headers=_auth_headers(admin_token), json={'email': 'extra-admin@example.com', 'password': 'AdminRole123', 'role': 'admin'}
+    )
+    assert create_response.status_code == 200
+    extra_admin_id = create_response.json()['id']
+
+    response = admin_users_client.delete(f'/api/v1/admin/users/{extra_admin_id}', headers=_auth_headers(admin_token))
+    assert response.status_code == 200
+
+    response = admin_users_client.delete('/api/v1/admin/users/3', headers=_auth_headers(admin_token))
+    assert response.status_code == 400
+    assert response.json()['detail'] == 'Нельзя удалить последнего администратора'

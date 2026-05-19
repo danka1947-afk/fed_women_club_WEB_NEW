@@ -6026,3 +6026,14 @@ body.is-dashboard {
     flex-direction: column;
   }
 }
+
+.admin-inline-action--danger {
+  border-color: rgba(220, 38, 38, 0.35);
+  color: #b91c1c;
+}
+
+.admin-inline-action--danger:hover,
+.admin-inline-action--danger:focus-visible {
+  background: rgba(220, 38, 38, 0.08);
+  border-color: rgba(220, 38, 38, 0.55);
+}
