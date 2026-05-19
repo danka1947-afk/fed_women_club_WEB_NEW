@@ -2396,9 +2396,11 @@ const renderClientCatalogTab = () => {
 
 const getClientPartnerVisuals = (partner = {}) => {
   const photos = getActivePartnerGalleryPhotos(partner.photos);
+  const coverFromPartner = [partner.cover_url, partner.main_image_url, partner.image_url].find(isSafePublicAssetUrl) || '';
+  const previewUrl = coverFromPartner || photos[0]?.url || (isSafePublicAssetUrl(partner.logo_url) ? partner.logo_url : '');
   return {
     photos,
-    coverUrl: photos[0]?.url || (isSafePublicAssetUrl(partner.cover_url) ? partner.cover_url : ''),
+    coverUrl: previewUrl,
     logoUrl: isSafePublicAssetUrl(partner.logo_url) ? partner.logo_url : '',
   };
 };
@@ -2443,12 +2445,17 @@ const getPartnerGalleryImages = (partner = {}) => {
     .filter((photo) => photo.url)
     .sort((left, right) => Number(left.sort_order || 0) - Number(right.sort_order || 0) || Number(left.id || 0) - Number(right.id || 0));
 
-  const galleryImages = [...activePhotos];
-  if (isSafePublicAssetUrl(partner.cover_url) && !galleryImages.some((photo) => photo.url === partner.cover_url)) {
-    galleryImages.push({ url: partner.cover_url, alt_text: partner.name || 'Обложка партнёра' });
-  }
-  if (!galleryImages.length && isSafePublicAssetUrl(partner.logo_url)) {
-    galleryImages.push({ url: partner.logo_url, alt_text: partner.name || 'Логотип партнёра' });
+  const galleryImages = [];
+  const seen = new Set();
+  const pushUnique = (url, altText) => {
+    if (!isSafePublicAssetUrl(url) || seen.has(url)) return;
+    seen.add(url);
+    galleryImages.push({ url, alt_text: altText || partner.name || 'Фото партнёра' });
+  };
+  pushUnique([partner.cover_url, partner.main_image_url, partner.image_url].find(isSafePublicAssetUrl) || '', partner.name || 'Обложка партнёра');
+  activePhotos.forEach((photo) => pushUnique(photo.url, photo.alt_text));
+  if (!galleryImages.length) {
+    pushUnique(partner.logo_url, partner.name || 'Логотип партнёра');
   }
   return galleryImages;
 };
