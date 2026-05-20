@@ -404,16 +404,20 @@ def test_client_me_patch_invalid_email_returns_400(client_cabinet_client: TestCl
 
     assert response.status_code == 400
     assert response.json()["detail"] == "Invalid email format"
-def test_client_me_subscription_returns_null_when_none(client_cabinet_client: TestClient) -> None:
+def test_client_me_subscription_returns_inactive_when_none(client_cabinet_client: TestClient) -> None:
     token = _client_token(client_cabinet_client)
 
     response = client_cabinet_client.get("/api/v1/clients/me/subscription", headers=_auth_headers(token))
 
     assert response.status_code == 200
-    assert response.json() is None
+    data = response.json()
+    assert data["is_active"] is False
+    assert data["status"] == "inactive"
+    assert data["expires_at"] is None
+    assert data["end_date"] is None
 
 
-def test_client_me_subscription_returns_latest_by_ends_at_and_id(client_cabinet_client: TestClient) -> None:
+def test_client_me_subscription_returns_current_active_not_latest_invalid(client_cabinet_client: TestClient) -> None:
     token = _client_token(client_cabinet_client)
     profile_response = client_cabinet_client.get("/api/v1/clients/me", headers=_auth_headers(token))
     profile_id = profile_response.json()["id"]
@@ -437,7 +441,13 @@ def test_client_me_subscription_returns_latest_by_ends_at_and_id(client_cabinet_
                 Subscription(
                     client_id=profile_id,
                     status=SubscriptionStatus.active.value,
-                    starts_at=now,
+                    starts_at=now + timedelta(days=31),
+                    ends_at=now + timedelta(days=60),
+                ),
+                Subscription(
+                    client_id=profile_id,
+                    status=SubscriptionStatus.active.value,
+                    starts_at=now - timedelta(days=1),
                     ends_at=now + timedelta(days=30),
                 ),
             ]
@@ -927,6 +937,8 @@ def test_client_payment_request_mark_paid_does_not_create_subscription(client_ca
 
     assert response.status_code == 200
     assert subscription_response.status_code == 200
-    assert subscription_response.json() is None
+    subscription_data = subscription_response.json()
+    assert subscription_data["is_active"] is False
+    assert subscription_data["status"] == "inactive"
     with next(app.dependency_overrides[get_db]()) as session:
         assert session.query(Subscription).filter(Subscription.client_id == profile["id"]).count() == 0

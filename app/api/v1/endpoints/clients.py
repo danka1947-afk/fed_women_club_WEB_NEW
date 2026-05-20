@@ -154,21 +154,45 @@ def read_client_activity(
     return build_client_activity_feed(db, profile.id, limit=limit)
 
 
-@router.get("/me/subscription", response_model=SubscriptionRead | None)
+@router.get("/me/subscription", response_model=SubscriptionRead)
 def read_client_subscription(
     current_user: User = Depends(require_client),
     db: Session = Depends(get_db),
-) -> SubscriptionRead | None:
+) -> SubscriptionRead:
     profile = _get_or_create_client_profile(db, current_user.id)
+    now = datetime.now(timezone.utc)
     subscription = db.execute(
         select(Subscription)
-        .where(Subscription.client_id == profile.id)
+        .where(
+            Subscription.client_id == profile.id,
+            Subscription.status == SubscriptionStatus.active.value,
+            Subscription.starts_at <= now,
+            Subscription.ends_at > now,
+        )
         .order_by(Subscription.ends_at.desc(), Subscription.id.desc())
         .limit(1)
     ).scalar_one_or_none()
     if subscription is None:
-        return None
-    return SubscriptionRead.model_validate(subscription)
+        return SubscriptionRead(
+            status="inactive",
+            is_active=False,
+            expires_at=None,
+            end_date=None,
+            amount=Decimal("349.00"),
+        )
+
+    return SubscriptionRead(
+        id=subscription.id,
+        client_id=subscription.client_id,
+        status=SubscriptionStatus.active.value,
+        starts_at=subscription.starts_at,
+        ends_at=subscription.ends_at,
+        source_payment_request_id=subscription.source_payment_request_id,
+        is_active=True,
+        expires_at=subscription.ends_at,
+        end_date=subscription.ends_at,
+        amount=Decimal("349.00"),
+    )
 
 
 @router.post("/me/payment-requests", response_model=PaymentRequestRead, status_code=status.HTTP_201_CREATED)
