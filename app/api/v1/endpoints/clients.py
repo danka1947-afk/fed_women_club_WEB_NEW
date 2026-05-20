@@ -353,13 +353,14 @@ def list_client_catalog_partners(
 @router.post("/partners/{partner_id}/verify", response_model=ClientVerificationRead)
 def create_client_partner_verification(
     partner_id: int,
-    payload: ClientCreateVerificationRequest,
+    payload: ClientCreateVerificationRequest | None = None,
     current_user: User = Depends(require_client),
     db: Session = Depends(get_db),
 ) -> ClientVerificationRead:
     profile = _get_or_create_client_profile(db, current_user.id)
     partner, _city_name = _get_active_partner_row_or_404(db, partner_id)
-    offer = _get_active_partner_offer_or_404(db, partner.id, payload.offer_id) if payload.offer_id is not None else None
+    request_payload = payload or ClientCreateVerificationRequest()
+    offer = _resolve_partner_offer_for_verification(db, partner.id, request_payload.offer_id)
 
     now = datetime.now(timezone.utc)
     if not _has_active_subscription(db, profile.id, now):
@@ -386,7 +387,7 @@ def create_client_partner_verification(
         offer_id=offer.id if offer is not None else None,
         code=_generate_verification_code(),
         status=PrivilegeVerificationStatus.active.value,
-        source=_normalize_optional_text(payload.source) or "web",
+        source=_normalize_optional_text(request_payload.source) or "web",
         expires_at=now + timedelta(seconds=PRIVILEGE_VERIFICATION_TTL_SECONDS),
         created_at=now,
     )
@@ -627,6 +628,21 @@ def _get_active_partner_offer_or_404(db: Session, partner_id: int, offer_id: int
     if offer is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=OFFER_NOT_FOUND_DETAIL)
     return offer
+
+
+def _get_first_active_partner_offer(db: Session, partner_id: int) -> PartnerOffer | None:
+    return db.execute(
+        select(PartnerOffer)
+        .where(PartnerOffer.partner_id == partner_id, PartnerOffer.is_active.is_(True))
+        .order_by(PartnerOffer.sort_order.asc(), PartnerOffer.id.asc())
+        .limit(1)
+    ).scalar_one_or_none()
+
+
+def _resolve_partner_offer_for_verification(db: Session, partner_id: int, offer_id: int | None) -> PartnerOffer | None:
+    if offer_id is not None:
+        return _get_active_partner_offer_or_404(db, partner_id, offer_id)
+    return _get_first_active_partner_offer(db, partner_id)
 
 
 def _generate_verification_code(length: int = 6) -> str:

@@ -231,6 +231,50 @@ def test_client_post_verify_with_partner_token_returns_403(verification_client: 
     assert response.status_code == 403
 
 
+def test_client_post_verify_without_body_uses_first_active_offer(verification_client: TestClient) -> None:
+    response = verification_client.post(
+        "/api/v1/clients/partners/1/verify",
+        headers=_auth_headers(_client_token(verification_client)),
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["offer_id"] == 1
+    assert data["offer_title"] == "Active Discount"
+    assert data["code"]
+    assert data["status"] == "active"
+    assert data["expires_at"]
+
+    list_response = verification_client.get(
+        "/api/v1/clients/me/verifications",
+        headers=_auth_headers(_client_token(verification_client)),
+    )
+    assert list_response.status_code == 200
+    assert any(item["id"] == data["id"] for item in list_response.json())
+
+def test_client_post_verify_with_empty_body_uses_first_active_offer(verification_client: TestClient) -> None:
+    response = verification_client.post(
+        "/api/v1/clients/partners/1/verify",
+        json={},
+        headers=_auth_headers(_client_token(verification_client)),
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["offer_id"] == 1
+    assert data["offer_title"] == "Active Discount"
+    assert data["code"]
+    assert data["status"] == "active"
+    assert data["expires_at"]
+
+    list_response = verification_client.get(
+        "/api/v1/clients/me/verifications",
+        headers=_auth_headers(_client_token(verification_client)),
+    )
+    assert list_response.status_code == 200
+    assert any(item["id"] == data["id"] for item in list_response.json())
+
+
 def test_client_post_verify_creates_active_session_for_active_partner(verification_client: TestClient) -> None:
     response = verification_client.post(
         "/api/v1/clients/partners/1/verify",
@@ -243,7 +287,8 @@ def test_client_post_verify_creates_active_session_for_active_partner(verificati
     assert data["client_id"] == 1
     assert data["partner_id"] == 1
     assert data["partner_name"] == "Alpha Beauty"
-    assert data["offer_id"] is None
+    assert data["offer_id"] == 1
+    assert data["offer_title"] == "Active Discount"
     assert data["status"] == "active"
     assert data["source"] == "web"
     assert data["subscription_required"] is False
@@ -287,6 +332,16 @@ def test_client_post_verify_with_active_offer_creates_session_with_offer_info(ve
     data = response.json()
     assert data["offer_id"] == 1
     assert data["offer_title"] == "Active Discount"
+    assert data["code"]
+    assert data["status"] == "active"
+    assert data["expires_at"]
+
+    list_response = verification_client.get(
+        "/api/v1/clients/me/verifications",
+        headers=_auth_headers(_client_token(verification_client)),
+    )
+    assert list_response.status_code == 200
+    assert any(item["id"] == data["id"] for item in list_response.json())
 
 
 def test_client_post_verify_with_inactive_offer_returns_404(verification_client: TestClient) -> None:
