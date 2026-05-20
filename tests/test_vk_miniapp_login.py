@@ -9,7 +9,7 @@ from urllib.parse import urlencode
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -21,7 +21,12 @@ from app.db.session import get_db
 from app.main import app
 from app.models.client import ClientProfile
 from app.models.user import User, UserRole
-from app.services.vk_miniapp_auth import extract_vk_user_id, parse_launch_params, verify_vk_miniapp_signature
+from app.services.vk_miniapp_auth import (
+    extract_vk_user_id,
+    parse_launch_params,
+    validate_vk_ts_freshness,
+    verify_vk_miniapp_signature,
+)
 
 
 @pytest.fixture()
@@ -87,6 +92,52 @@ def test_service_invalid_sign_rejected() -> None:
         verify_vk_miniapp_signature(params)
 
 
+def test_service_tampered_vk_user_id_rejected() -> None:
+    good = _build_launch_params(vk_user_id="123456789")
+    tampered = good.replace("vk_user_id=123456789", "vk_user_id=987654321")
+    params = parse_launch_params(tampered)
+    with pytest.raises(Exception):
+        verify_vk_miniapp_signature(params)
+
+
+def test_service_missing_sign_rejected() -> None:
+    params = parse_launch_params(_build_launch_params().rsplit("&sign=", 1)[0])
+    with pytest.raises(Exception):
+        verify_vk_miniapp_signature(params)
+
+
+def test_service_missing_vk_user_id_rejected() -> None:
+    params = parse_launch_params(_build_launch_params().replace("&vk_user_id=123456789", ""))
+    with pytest.raises(Exception):
+        verify_vk_miniapp_signature(params)
+
+
+def test_service_stale_vk_ts_rejected() -> None:
+    stale_ts = int(datetime.now(timezone.utc).timestamp()) - (settings.VK_MINIAPP_AUTH_MAX_AGE_SECONDS + 5)
+    params = parse_launch_params(_build_launch_params(vk_ts=stale_ts))
+    verify_vk_miniapp_signature(params)
+    with pytest.raises(Exception):
+        validate_vk_ts_freshness(params)
+
+
+def test_service_wrong_vk_app_id_rejected() -> None:
+    params = parse_launch_params(_build_launch_params(vk_app_id="00000000"))
+    with pytest.raises(Exception):
+        verify_vk_miniapp_signature(params)
+
+
+def test_service_non_numeric_vk_user_id_rejected() -> None:
+    params = parse_launch_params(_build_launch_params(vk_user_id="not_numeric"))
+    verify_vk_miniapp_signature(params)
+    with pytest.raises(Exception):
+        extract_vk_user_id(params)
+
+
+def test_service_empty_launch_params_rejected() -> None:
+    with pytest.raises(Exception):
+        parse_launch_params("")
+
+
 def test_vk_miniapp_login_success(vk_miniapp_client: TestClient) -> None:
     response = vk_miniapp_client.post("/api/v1/auth/vk-miniapp-login", json={"launch_params": _build_launch_params()})
     assert response.status_code == 200
@@ -102,3 +153,83 @@ def test_vk_miniapp_login_unknown_vk_user_returns_join_status(vk_miniapp_client:
     )
     assert response.status_code == 404
     assert response.json()["status"] == "join_via_bot_required"
+
+
+def test_vk_miniapp_login_stale_vk_ts_returns_401(vk_miniapp_client: TestClient) -> None:
+    stale_ts = int(datetime.now(timezone.utc).timestamp()) - (settings.VK_MINIAPP_AUTH_MAX_AGE_SECONDS + 10)
+    response = vk_miniapp_client.post(
+        "/api/v1/auth/vk-miniapp-login",
+        json={"launch_params": _build_launch_params(vk_ts=stale_ts)},
+    )
+    assert response.status_code == 401
+
+
+def test_vk_miniapp_login_wrong_vk_app_id_returns_401(vk_miniapp_client: TestClient) -> None:
+    response = vk_miniapp_client.post(
+        "/api/v1/auth/vk-miniapp-login",
+        json={"launch_params": _build_launch_params(vk_app_id="00000000")},
+    )
+    assert response.status_code == 401
+
+
+def test_vk_miniapp_login_missing_sign_returns_401(vk_miniapp_client: TestClient) -> None:
+    response = vk_miniapp_client.post(
+        "/api/v1/auth/vk-miniapp-login",
+        json={"launch_params": _build_launch_params().rsplit("&sign=", 1)[0]},
+    )
+    assert response.status_code == 401
+
+
+def test_vk_miniapp_login_tampered_vk_user_id_returns_401(vk_miniapp_client: TestClient) -> None:
+    launch_params = _build_launch_params(vk_user_id="123456789")
+    tampered = launch_params.replace("vk_user_id=123456789", "vk_user_id=123456780")
+    response = vk_miniapp_client.post("/api/v1/auth/vk-miniapp-login", json={"launch_params": tampered})
+    assert response.status_code == 401
+
+
+def test_vk_miniapp_login_inactive_linked_user_rejected(vk_miniapp_client: TestClient) -> None:
+    session_gen = app.dependency_overrides[get_db]()
+    session = next(session_gen)
+    try:
+        user = session.execute(select(User).where(User.email == "client@example.com")).scalar_one()
+        user.is_active = False
+        session.commit()
+    finally:
+        session_gen.close()
+    response = vk_miniapp_client.post("/api/v1/auth/vk-miniapp-login", json={"launch_params": _build_launch_params()})
+    assert response.status_code in (401, 403)
+
+
+def test_vk_miniapp_login_wrong_role_linked_user_rejected(vk_miniapp_client: TestClient) -> None:
+    session_gen = app.dependency_overrides[get_db]()
+    session = next(session_gen)
+    try:
+        user = session.execute(select(User).where(User.email == "client@example.com")).scalar_one()
+        user.role = UserRole.PARTNER.value
+        session.commit()
+    finally:
+        session_gen.close()
+    response = vk_miniapp_client.post("/api/v1/auth/vk-miniapp-login", json={"launch_params": _build_launch_params()})
+    assert response.status_code in (401, 403)
+
+
+def test_vk_miniapp_login_missing_vk_app_secret_returns_500(vk_miniapp_client: TestClient) -> None:
+    object.__setattr__(settings, "VK_APP_SECRET", "")
+    response = vk_miniapp_client.post("/api/v1/auth/vk-miniapp-login", json={"launch_params": _build_launch_params()})
+    assert response.status_code == 500
+    assert "VK_APP_SECRET" in response.json()["detail"]
+    assert "access_token" not in response.json()
+
+
+def test_vk_miniapp_login_without_launch_params_and_params_returns_validation_error(
+    vk_miniapp_client: TestClient,
+) -> None:
+    response = vk_miniapp_client.post("/api/v1/auth/vk-miniapp-login", json={})
+    assert response.status_code == 422
+
+
+def test_vk_miniapp_login_params_object_path_works(vk_miniapp_client: TestClient) -> None:
+    params = parse_launch_params(_build_launch_params())
+    response = vk_miniapp_client.post("/api/v1/auth/vk-miniapp-login", json={"params": params})
+    assert response.status_code == 200
+    assert response.json()["client"]["vk_user_id"] == "123456789"
