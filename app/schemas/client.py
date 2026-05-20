@@ -39,12 +39,16 @@ class ClientProfileUpdate(BaseModel):
 
 
 class SubscriptionRead(BaseModel):
-    id: int
-    client_id: int
+    id: int | None = None
+    client_id: int | None = None
     status: str
-    starts_at: datetime
-    ends_at: datetime
-    source_payment_request_id: int | None
+    starts_at: datetime | None = None
+    ends_at: datetime | None = None
+    source_payment_request_id: int | None = None
+    is_active: bool
+    expires_at: datetime | None = None
+    end_date: datetime | None = None
+    amount: Decimal = Decimal("349.00")
 
     model_config = {"from_attributes": True}
 
