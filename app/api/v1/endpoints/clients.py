@@ -221,7 +221,7 @@ def read_client_payment_request(
 @router.post("/me/payment-requests/{payment_request_id}/mark-paid", response_model=PaymentRequestRead)
 def mark_client_payment_request_paid(
     payment_request_id: int,
-    payload: PaymentRequestMarkPaid,
+    payload: PaymentRequestMarkPaid | None = None,
     current_user: User = Depends(require_client),
     db: Session = Depends(get_db),
 ) -> PaymentRequestRead:
@@ -244,7 +244,7 @@ def mark_client_payment_request_paid(
             detail="Unsupported payment request status",
         )
 
-    _append_payment_request_comment(payment_request, payload.comment)
+    _append_payment_request_comment(payment_request, payload.comment if payload is not None else None)
     db.commit()
     payment_request = _get_owned_payment_request_or_404(db, profile.id, payment_request.id)
     return PaymentRequestRead.model_validate(payment_request)

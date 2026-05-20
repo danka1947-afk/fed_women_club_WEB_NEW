@@ -768,22 +768,49 @@ def test_client_mark_paid_pending_to_paid_and_paid_idempotent(client_cabinet_cli
     paid_response = client_cabinet_client.post(
         f"/api/v1/clients/me/payment-requests/{created['id']}/mark-paid",
         headers=_auth_headers(token),
-        json={"comment": "Paid in bank app"},
     )
     idempotent_response = client_cabinet_client.post(
         f"/api/v1/clients/me/payment-requests/{created['id']}/mark-paid",
         headers=_auth_headers(token),
         json={},
     )
+    comment_response = client_cabinet_client.post(
+        f"/api/v1/clients/me/payment-requests/{created['id']}/mark-paid",
+        headers=_auth_headers(token),
+        json={"comment": "Paid in bank app"},
+    )
 
     assert paid_response.status_code == 200
     paid_data = paid_response.json()
     assert paid_data["status"] == PaymentRequestStatus.paid.value
     assert paid_data["updated_at"] is not None
-    assert "Initial" in paid_data["comment"]
-    assert "Paid in bank app" in paid_data["comment"]
+    assert paid_data["comment"] == "Initial"
+
     assert idempotent_response.status_code == 200
     assert idempotent_response.json()["status"] == PaymentRequestStatus.paid.value
+
+    assert comment_response.status_code == 200
+    comment_data = comment_response.json()
+    assert comment_data["status"] == PaymentRequestStatus.paid.value
+    assert "Initial" in comment_data["comment"]
+    assert "Paid in bank app" in comment_data["comment"]
+
+
+def test_client_cannot_mark_paid_another_client_payment_request(client_cabinet_client: TestClient) -> None:
+    token = _client_token(client_cabinet_client)
+    other_token = _profile_client_token(client_cabinet_client)
+    other = client_cabinet_client.post(
+        "/api/v1/clients/me/payment-requests",
+        headers=_auth_headers(other_token),
+        json={"amount": "20.00"},
+    ).json()
+
+    response = client_cabinet_client.post(
+        f"/api/v1/clients/me/payment-requests/{other['id']}/mark-paid",
+        headers=_auth_headers(token),
+    )
+
+    assert response.status_code == 404
 
 
 def test_client_mark_paid_approved_or_rejected_returns_400(client_cabinet_client: TestClient) -> None:
