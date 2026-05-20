@@ -1,0 +1,104 @@
+from __future__ import annotations
+
+import base64
+import hmac
+from collections.abc import Generator
+from datetime import datetime, timezone
+from hashlib import sha256
+from urllib.parse import urlencode
+
+import pytest
+from fastapi.testclient import TestClient
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.pool import StaticPool
+
+import app.models  # noqa: F401
+from app.core.config import settings
+from app.core.security import hash_password
+from app.db.base import Base
+from app.db.session import get_db
+from app.main import app
+from app.models.client import ClientProfile
+from app.models.user import User, UserRole
+from app.services.vk_miniapp_auth import extract_vk_user_id, parse_launch_params, verify_vk_miniapp_signature
+
+
+@pytest.fixture()
+def vk_miniapp_client() -> Generator[TestClient, None, None]:
+    original_app_id = settings.VK_APP_ID
+    original_secret = settings.VK_APP_SECRET
+    original_max_age = settings.VK_MINIAPP_AUTH_MAX_AGE_SECONDS
+    object.__setattr__(settings, "VK_APP_ID", "54600832")
+    object.__setattr__(settings, "VK_APP_SECRET", "test-miniapp-secret")
+    object.__setattr__(settings, "VK_MINIAPP_AUTH_MAX_AGE_SECONDS", 86400)
+    engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False}, poolclass=StaticPool)
+    session_factory = sessionmaker(bind=engine, autoflush=False, autocommit=False, expire_on_commit=False)
+    Base.metadata.create_all(bind=engine)
+    with session_factory() as session:
+        user = User(
+            email="client@example.com",
+            phone="+79990001234",
+            password_hash=hash_password("ClientPass123"),
+            role=UserRole.CLIENT.value,
+            is_active=True,
+        )
+        session.add(user)
+        session.flush()
+        session.add(ClientProfile(user_id=user.id, vk_user_id="123456789", is_active=True, source="vk"))
+        session.commit()
+
+    def override_get_db() -> Generator[Session, None, None]:
+        with session_factory() as session:
+            yield session
+
+    app.dependency_overrides[get_db] = override_get_db
+    try:
+        with TestClient(app) as client:
+            yield client
+    finally:
+        app.dependency_overrides.clear()
+        object.__setattr__(settings, "VK_APP_ID", original_app_id)
+        object.__setattr__(settings, "VK_APP_SECRET", original_secret)
+        object.__setattr__(settings, "VK_MINIAPP_AUTH_MAX_AGE_SECONDS", original_max_age)
+        engine.dispose()
+
+
+def _build_launch_params(vk_user_id: str = "123456789", vk_ts: int | None = None, vk_app_id: str = "54600832") -> str:
+    ts = vk_ts or int(datetime.now(timezone.utc).timestamp())
+    params = {"vk_app_id": vk_app_id, "vk_platform": "desktop_web", "vk_ts": str(ts), "vk_user_id": vk_user_id}
+    canonical = urlencode(sorted(params.items()))
+    digest = hmac.new(settings.VK_APP_SECRET.encode("utf-8"), canonical.encode("utf-8"), sha256).digest()
+    sign = base64.urlsafe_b64encode(digest).decode("utf-8").rstrip("=")
+    return f"{canonical}&sign={sign}"
+
+
+def test_service_valid_signed_launch_params_ok() -> None:
+    object.__setattr__(settings, "VK_APP_ID", "54600832")
+    object.__setattr__(settings, "VK_APP_SECRET", "test-miniapp-secret")
+    params = parse_launch_params(_build_launch_params())
+    verify_vk_miniapp_signature(params)
+    assert extract_vk_user_id(params) == "123456789"
+
+
+def test_service_invalid_sign_rejected() -> None:
+    params = parse_launch_params(_build_launch_params() + "bad")
+    with pytest.raises(Exception):
+        verify_vk_miniapp_signature(params)
+
+
+def test_vk_miniapp_login_success(vk_miniapp_client: TestClient) -> None:
+    response = vk_miniapp_client.post("/api/v1/auth/vk-miniapp-login", json={"launch_params": _build_launch_params()})
+    assert response.status_code == 200
+    body = response.json()
+    assert body["token_type"] == "bearer"
+    assert body["client"]["vk_user_id"] == "123456789"
+
+
+def test_vk_miniapp_login_unknown_vk_user_returns_join_status(vk_miniapp_client: TestClient) -> None:
+    response = vk_miniapp_client.post(
+        "/api/v1/auth/vk-miniapp-login",
+        json={"launch_params": _build_launch_params(vk_user_id="999000")},
+    )
+    assert response.status_code == 404
+    assert response.json()["status"] == "join_via_bot_required"

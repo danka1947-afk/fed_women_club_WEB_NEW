@@ -19,6 +19,9 @@ class Settings:
     ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "1440"))
     BOT_API_TOKEN: str = os.getenv("BOT_API_TOKEN", "")
     BOT_SERVICE_TOKEN: str = os.getenv("BOT_SERVICE_TOKEN", "change-me-test-token")
+    VK_APP_ID: str = os.getenv("VK_APP_ID", "")
+    VK_APP_SECRET: str = os.getenv("VK_APP_SECRET", "")
+    VK_MINIAPP_AUTH_MAX_AGE_SECONDS: int = int(os.getenv("VK_MINIAPP_AUTH_MAX_AGE_SECONDS", "86400"))
     LEAD_HASH_SALT: str = os.getenv("LEAD_HASH_SALT", "change-me-test-salt")
     BACKEND_CORS_ORIGINS: str = os.getenv(
         "BACKEND_CORS_ORIGINS",
