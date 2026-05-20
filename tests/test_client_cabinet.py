@@ -366,6 +366,33 @@ def test_client_me_patch_updates_contact_fields_without_overwriting_synthetic_lo
     assert data["selected_city_name"] == "Москва"
 
 
+
+
+def test_client_me_patch_city_text_roundtrip(client_cabinet_client: TestClient) -> None:
+    token = _client_token(client_cabinet_client)
+
+    patch_response = client_cabinet_client.patch(
+        "/api/v1/clients/me",
+        headers=_auth_headers(token),
+        json={
+            "full_name": "Данил",
+            "phone": "89005443434",
+            "contact_email": "test@example.com",
+            "city": "Новосибирск",
+        },
+    )
+
+    assert patch_response.status_code == 200
+
+    profile_response = client_cabinet_client.get("/api/v1/clients/me", headers=_auth_headers(token))
+    assert profile_response.status_code == 200
+    data = profile_response.json()
+    assert data["full_name"] == "Данил"
+    assert data["phone"] == "+79005443434"
+    assert data["contact_email"] == "test@example.com"
+    assert data["city"] == "Новосибирск"
+
+
 def test_client_me_patch_invalid_email_returns_400(client_cabinet_client: TestClient) -> None:
     token = _client_token(client_cabinet_client)
 
@@ -632,7 +659,7 @@ def test_client_can_create_payment_request(client_cabinet_client: TestClient) ->
     assert data["receipts"] == []
 
 
-def test_client_payment_request_default_amount_is_zero(client_cabinet_client: TestClient) -> None:
+def test_client_payment_request_default_amount_is_standard_subscription(client_cabinet_client: TestClient) -> None:
     token = _client_token(client_cabinet_client)
 
     response = client_cabinet_client.post(
@@ -643,9 +670,27 @@ def test_client_payment_request_default_amount_is_zero(client_cabinet_client: Te
 
     assert response.status_code == 201
     data = response.json()
-    assert data["amount"] == "0.00"
+    assert data["amount"] == "349.00"
     assert data["status"] == PaymentRequestStatus.pending.value
     assert data["source"] == "web"
+
+
+
+
+def test_client_payment_request_accepts_empty_body(client_cabinet_client: TestClient) -> None:
+    token = _client_token(client_cabinet_client)
+
+    response = client_cabinet_client.post(
+        "/api/v1/clients/me/payment-requests",
+        headers={**_auth_headers(token), "Content-Type": "application/json"},
+        content="",
+    )
+
+    assert response.status_code == 201
+    data = response.json()
+    assert data["id"] is not None
+    assert data["amount"] == "349.00"
+    assert data["status"] == PaymentRequestStatus.pending.value
 
 
 def test_client_can_list_only_own_payment_requests(client_cabinet_client: TestClient) -> None:

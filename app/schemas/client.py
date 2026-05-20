@@ -15,6 +15,9 @@ class ClientProfileRead(BaseModel):
     full_name: str | None
     selected_city_id: int | None
     selected_city_name: str | None
+    city: str | None = None
+    custom_city: str | None = None
+    city_name: str | None = None
     vk_user_id: str | None
     source: str | None
     is_active: bool
@@ -31,6 +34,8 @@ class ClientProfileUpdate(BaseModel):
     city_id: int | None = None
     city_slug: str | None = None
     selected_city_id: int | None = None
+    city: str | None = None
+    custom_city: str | None = None
 
 
 class SubscriptionRead(BaseModel):
