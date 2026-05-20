@@ -40,3 +40,10 @@ If client profile is not linked by `vk_user_id`, endpoint returns:
 ## Frontend integration contract
 
 Frontend VK Mini App should send launch params string as received from VK (`window.location.search` without trusted local transformations).
+
+
+## CORS для VK Mini App
+
+- Добавьте домен фронтенда Mini App в `BACKEND_CORS_ORIGINS` backend-сервера.
+- Текущий домен фронтенда Timeweb: `https://kosmos327-fed-women-club-mini-app-3f15.twc1.net`.
+- Пример: `BACKEND_CORS_ORIGINS=https://bloomclub.ru,https://www.bloomclub.ru,https://kosmos327-fed-women-club-mini-app-3f15.twc1.net`.

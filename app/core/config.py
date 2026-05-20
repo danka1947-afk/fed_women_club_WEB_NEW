@@ -25,7 +25,7 @@ class Settings:
     LEAD_HASH_SALT: str = os.getenv("LEAD_HASH_SALT", "change-me-test-salt")
     BACKEND_CORS_ORIGINS: str = os.getenv(
         "BACKEND_CORS_ORIGINS",
-        "http://localhost:5173,http://127.0.0.1:5173",
+        "https://bloomclub.ru,https://www.bloomclub.ru,https://kosmos327-fed-women-club-mini-app-3f15.twc1.net,http://localhost:5173,http://127.0.0.1:5173",
     )
     WEB_PUBLIC_URL: str = os.getenv("WEB_PUBLIC_URL", "https://women-club.example")
     UPLOAD_DIR: str = os.getenv("UPLOAD_DIR", "uploads")

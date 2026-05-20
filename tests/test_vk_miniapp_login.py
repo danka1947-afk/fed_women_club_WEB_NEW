@@ -233,3 +233,22 @@ def test_vk_miniapp_login_params_object_path_works(vk_miniapp_client: TestClient
     response = vk_miniapp_client.post("/api/v1/auth/vk-miniapp-login", json={"params": params})
     assert response.status_code == 200
     assert response.json()["client"]["vk_user_id"] == "123456789"
+
+
+def test_vk_miniapp_login_preflight_returns_cors_headers(vk_miniapp_client: TestClient) -> None:
+    origin = "https://kosmos327-fed-women-club-mini-app-3f15.twc1.net"
+    response = vk_miniapp_client.options(
+        "/api/v1/auth/vk-miniapp-login",
+        headers={
+            "Origin": origin,
+            "Access-Control-Request-Method": "POST",
+            "Access-Control-Request-Headers": "Authorization, Content-Type, Accept",
+        },
+    )
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == origin
+    assert "POST" in response.headers["access-control-allow-methods"]
+    allow_headers = response.headers["access-control-allow-headers"].lower()
+    assert "authorization" in allow_headers
+    assert "content-type" in allow_headers
+    assert "accept" in allow_headers
