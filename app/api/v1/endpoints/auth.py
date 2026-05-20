@@ -3,8 +3,9 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import JSONResponse
 from sqlalchemy import func, or_, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.api.deps import get_current_user
 from app.core.security import (
@@ -15,6 +16,7 @@ from app.core.security import (
 )
 from app.db.session import get_db
 from app.models.client import ClientPasswordSetupToken
+from app.models.client import ClientProfile
 from app.models.user import AdminUser, User, UserRole
 from app.schemas.auth import (
     LoginRequest,
@@ -24,6 +26,14 @@ from app.schemas.auth import (
     UnifiedTokenResponse,
     UnifiedUserRead,
     UserLoginRequest,
+    VkMiniAppLoginRequest,
+    VkMiniAppLoginResponse,
+)
+from app.services.vk_miniapp_auth import (
+    extract_vk_user_id,
+    parse_launch_params,
+    validate_vk_ts_freshness,
+    verify_vk_miniapp_signature,
 )
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -78,6 +88,41 @@ def user_login(payload: UserLoginRequest, db: Session = Depends(get_db)) -> Unif
 
     token = create_access_token(f"user:{user.id}")
     return UnifiedTokenResponse(access_token=token, user=user)
+
+
+@router.post("/vk-miniapp-login", response_model=VkMiniAppLoginResponse)
+def vk_miniapp_login(
+    payload: VkMiniAppLoginRequest,
+    db: Session = Depends(get_db),
+) -> VkMiniAppLoginResponse:
+    params = payload.params if payload.params is not None else parse_launch_params(payload.launch_params or "")
+    verify_vk_miniapp_signature(params)
+    validate_vk_ts_freshness(params)
+    vk_user_id = extract_vk_user_id(params)
+
+    profile = db.execute(
+        select(ClientProfile)
+        .options(joinedload(ClientProfile.user))
+        .where(ClientProfile.vk_user_id == vk_user_id)
+    ).scalar_one_or_none()
+    if profile is None:
+        return JSONResponse(
+            status_code=status.HTTP_404_NOT_FOUND,
+            content={
+                "status": "join_via_bot_required",
+                "message": "Сначала присоединитесь к клубу через VK-бота.",
+            },
+        )
+
+    user = profile.user
+    if user is None or not user.is_active or user.role != UserRole.CLIENT.value:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Client user is inactive or invalid")
+
+    return VkMiniAppLoginResponse(
+        access_token=create_access_token(f"user:{user.id}"),
+        user=UnifiedUserRead.model_validate(user),
+        client=profile,
+    )
 
 
 @router.post("/password-setup/complete", response_model=PasswordSetupCompleteResponse)
