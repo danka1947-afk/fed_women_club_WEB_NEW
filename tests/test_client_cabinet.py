@@ -271,6 +271,47 @@ def test_client_me_with_partner_unified_token_returns_403(client_cabinet_client:
     assert response.status_code == 403
 
 
+def test_client_cities_returns_active_cities_with_expected_fields_and_order(
+    client_cabinet_client: TestClient,
+) -> None:
+    token = _client_token(client_cabinet_client)
+
+    response = client_cabinet_client.get("/api/v1/clients/cities", headers=_auth_headers(token))
+
+    assert response.status_code == 200
+    assert response.json() == [
+        {"id": 1, "name": "Москва", "slug": "moscow"},
+        {"id": 2, "name": "Санкт-Петербург", "slug": "spb"},
+    ]
+
+
+def test_client_cities_does_not_require_admin_role(client_cabinet_client: TestClient) -> None:
+    token = _partner_token(client_cabinet_client)
+
+    response = client_cabinet_client.get("/api/v1/clients/cities", headers=_auth_headers(token))
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "User role required"
+
+
+def test_client_cities_sorting_is_stable_by_sort_order_then_name(
+    client_cabinet_client: TestClient,
+    admin_token: str,
+) -> None:
+    create_response = client_cabinet_client.post(
+        "/api/v1/admin/cities",
+        headers=_auth_headers(admin_token),
+        json={"name": "Абакан", "slug": "abakan", "is_active": True, "sort_order": 10},
+    )
+    assert create_response.status_code == 200
+
+    token = _client_token(client_cabinet_client)
+    response = client_cabinet_client.get("/api/v1/clients/cities", headers=_auth_headers(token))
+
+    assert response.status_code == 200
+    assert [city["name"] for city in response.json()] == ["Абакан", "Москва", "Санкт-Петербург"]
+
+
 def test_client_me_with_client_token_auto_creates_profile(client_cabinet_client: TestClient) -> None:
     token = _client_token(client_cabinet_client)
 

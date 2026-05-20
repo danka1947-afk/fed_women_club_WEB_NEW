@@ -38,6 +38,14 @@ class ClientProfileUpdate(BaseModel):
     custom_city: str | None = None
 
 
+class ClientCityResponse(BaseModel):
+    id: int
+    name: str
+    slug: str
+
+    model_config = {"from_attributes": True}
+
+
 class SubscriptionRead(BaseModel):
     id: int | None = None
     client_id: int | None = None

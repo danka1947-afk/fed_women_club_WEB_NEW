@@ -19,6 +19,7 @@ from app.models.verification import PrivilegeVerificationSession, PrivilegeVerif
 from app.models.user import User
 from app.schemas.activity import ActivityFeedRead
 from app.schemas.client import (
+    ClientCityResponse,
     ClientCreateVerificationRequest,
     ClientPartnerCatalogItem,
     ClientPartnerOfferRead,
@@ -64,6 +65,20 @@ def read_client_me(
 ) -> ClientProfileRead:
     profile = _get_or_create_client_profile(db, current_user.id)
     return _client_profile_to_read(db, profile, current_user)
+
+
+@router.get("/cities", response_model=list[ClientCityResponse])
+def list_client_cities(
+    current_user: User = Depends(require_client),
+    db: Session = Depends(get_db),
+) -> list[City]:
+    _ = current_user
+    result = db.execute(
+        select(City)
+        .where(City.is_active.is_(True))
+        .order_by(City.sort_order.asc(), City.name.asc(), City.id.asc())
+    )
+    return list(result.scalars().all())
 
 
 @router.patch("/me", response_model=ClientProfileRead)
