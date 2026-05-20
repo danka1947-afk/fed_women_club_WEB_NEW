@@ -24,6 +24,7 @@ class ClientProfile(Base):
     selected_city_id: Mapped[int | None] = mapped_column(ForeignKey("cities.id"), nullable=True)
     full_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     contact_email: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
+    custom_city: Mapped[str | None] = mapped_column(String(255), nullable=True)
     vk_user_id: Mapped[str | None] = mapped_column(String(255), nullable=True, unique=True, index=True)
     source: Mapped[str | None] = mapped_column(String(64), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)

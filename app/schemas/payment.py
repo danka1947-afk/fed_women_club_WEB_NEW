@@ -27,7 +27,7 @@ class PaymentReceiptRead(BaseModel):
 
 
 class PaymentRequestCreate(BaseModel):
-    amount: Decimal | None = None
+    amount: Decimal | None = Decimal("349.00")
     source: str = "web"
     comment: str | None = None
 

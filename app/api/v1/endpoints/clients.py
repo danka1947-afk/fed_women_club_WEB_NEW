@@ -81,6 +81,10 @@ def update_client_me(
     if "full_name" in update_data:
         profile.full_name = _normalize_required_name(update_data["full_name"])
 
+    city_text = _normalize_optional_text(update_data.get("custom_city"))
+    if city_text is None:
+        city_text = _normalize_optional_text(update_data.get("city"))
+
     resolved_city_id = _resolve_city_for_profile_update(
         db,
         update_data.get("selected_city_id" if "selected_city_id" in update_data else "city_id"),
@@ -89,6 +93,14 @@ def update_client_me(
     )
     if any(field in update_data for field in ("selected_city_id", "city_id", "city_slug")):
         profile.selected_city_id = resolved_city_id
+
+    if city_text is not None:
+        resolved_text_city_id = _resolve_city_id_by_name(db, city_text)
+        profile.custom_city = city_text
+        if resolved_text_city_id is not None:
+            profile.selected_city_id = resolved_text_city_id
+    elif any(field in update_data for field in ("city", "custom_city")):
+        profile.custom_city = None
 
     if "phone" in update_data:
         current_user.phone = _normalize_phone(update_data["phone"])
@@ -161,14 +173,15 @@ def read_client_subscription(
 
 @router.post("/me/payment-requests", response_model=PaymentRequestRead, status_code=status.HTTP_201_CREATED)
 def create_client_payment_request(
-    payload: PaymentRequestCreate,
+    payload: PaymentRequestCreate | None = None,
     current_user: User = Depends(require_client),
     db: Session = Depends(get_db),
 ) -> PaymentRequestRead:
     profile = _get_current_client_profile_or_404(db, current_user)
+    payload = payload or PaymentRequestCreate()
     payment_request = PaymentRequest(
         client_id=profile.id,
-        amount=payload.amount if payload.amount is not None else Decimal("0.00"),
+        amount=payload.amount if payload.amount is not None else Decimal("349.00"),
         status=PaymentRequestStatus.pending.value,
         source=_normalize_optional_text(payload.source) or "web",
         comment=_normalize_optional_text(payload.comment),
@@ -442,6 +455,7 @@ def _client_profile_to_read(db: Session, profile: ClientProfile, user: User) -> 
     selected_city_name = None
     if profile.selected_city_id is not None:
         selected_city_name = db.execute(select(City.name).where(City.id == profile.selected_city_id)).scalar_one_or_none()
+    city_name = profile.custom_city or selected_city_name
     return ClientProfileRead.model_validate(
         {
             "id": profile.id,
@@ -452,6 +466,9 @@ def _client_profile_to_read(db: Session, profile: ClientProfile, user: User) -> 
             "full_name": profile.full_name,
             "selected_city_id": profile.selected_city_id,
             "selected_city_name": selected_city_name,
+            "city": city_name,
+            "custom_city": profile.custom_city,
+            "city_name": city_name,
             "vk_user_id": profile.vk_user_id,
             "source": profile.source,
             "is_active": profile.is_active,
@@ -669,6 +686,15 @@ def _partner_offer_to_read(offer: PartnerOffer) -> ClientPartnerOfferRead:
     )
 
 
+
+
+def _resolve_city_id_by_name(db: Session, city_name: str) -> int | None:
+    normalized_city_name = _normalize_optional_text(city_name)
+    if normalized_city_name is None:
+        return None
+    return db.execute(
+        select(City.id).where(City.name.ilike(normalized_city_name), City.is_active.is_(True)).limit(1)
+    ).scalar_one_or_none()
 
 def _resolve_city_for_profile_update(
     db: Session,
