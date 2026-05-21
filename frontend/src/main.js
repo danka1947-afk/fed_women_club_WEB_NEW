@@ -2110,6 +2110,11 @@ const resetClientPartnerModalState = () => {
   clientState.partnerModalOfferGalleryIndex = 0;
   clientState.partnerModalLoading = false;
   clientState.partnerModalError = '';
+  document.body.classList.remove('client-partner-modal-open');
+};
+
+const syncClientPartnerModalScrollLock = () => {
+  document.body.classList.toggle('client-partner-modal-open', Boolean(clientState.selectedPartnerModalId));
 };
 
 const openClientPartnerModal = async (partnerId) => {
@@ -2160,6 +2165,7 @@ const renderClientLayout = () => {
     <section class="admin-tab-panel">${renderClientTabContent()}</section>
     ${renderClientPartnerModal()}
   `;
+  syncClientPartnerModalScrollLock();
 };
 
 const getClientVerificationStats = () => {
