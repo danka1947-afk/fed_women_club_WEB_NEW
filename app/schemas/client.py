@@ -75,7 +75,10 @@ class ClientPartnerCatalogItem(BaseModel):
     id: int
     city_id: int
     city_name: str | None
+    category_id: int | None = None
+    category_name: str | None = None
     category_slug: str | None
+    category: "ClientPartnerCategoryRead | None" = None
     name: str
     description: str | None
     address: str | None
@@ -90,6 +93,12 @@ class ClientPartnerCatalogItem(BaseModel):
     photos: list[ClientPartnerPhotoRead] = Field(default_factory=list)
 
     model_config = {"from_attributes": True}
+
+
+class ClientPartnerCategoryRead(BaseModel):
+    id: int
+    name: str
+    slug: str
 
 
 class ClientCreateVerificationRequest(BaseModel):
