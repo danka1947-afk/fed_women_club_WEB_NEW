@@ -53,7 +53,7 @@ def test_migration_files_have_single_head_revision() -> None:
     referenced_revisions = {down_revision for down_revision in revisions.values() if down_revision}
     heads = sorted(set(revisions) - referenced_revisions)
 
-    assert heads == ["20260520_0010"]
+    assert heads == ["20260521_0011"]
 
 
 def test_base_metadata_includes_domain_foundation_tables() -> None:

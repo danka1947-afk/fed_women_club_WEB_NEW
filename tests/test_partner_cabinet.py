@@ -14,7 +14,7 @@ from app.db.base import Base
 from app.db.session import get_db
 from app.main import app
 from app.models.city import City
-from app.models.partner import Partner, PartnerOffer, PartnerPhoto
+from app.models.partner import OfferPhoto, Partner, PartnerOffer, PartnerPhoto
 from app.models.user import AdminUser, User, UserRole
 
 
@@ -762,3 +762,53 @@ def test_partner_gallery_photo_upload_rejects_invalid_file_type(partner_client: 
     )
 
     assert response.status_code == 400
+
+
+def test_partner_can_manage_offer_gallery_photos(partner_client: TestClient) -> None:
+    token = _partner_token(partner_client)
+    upload = partner_client.post(
+        "/api/v1/partners/me/offers/1/photos",
+        headers=_auth_headers(token),
+        data={"alt_text": "Работа 1", "sort_order": "4"},
+        files={"file": ("work.png", TINY_PROFILE_PNG_BYTES, "image/png")},
+    )
+    assert upload.status_code == 200
+    data = upload.json()
+    assert data["url"].startswith("/uploads/partners/1/offers/1/photos/offer-photo-")
+    photo_id = data["id"]
+
+    patch = partner_client.patch(
+        f"/api/v1/partners/me/offers/1/photos/{photo_id}",
+        headers=_auth_headers(token),
+        json={"is_active": True, "sort_order": 1},
+    )
+    assert patch.status_code == 200
+    assert patch.json()["is_active"] is True
+
+    listed = partner_client.get("/api/v1/partners/me/offers/1/photos", headers=_auth_headers(token))
+    assert listed.status_code == 200
+    assert any(item["id"] == photo_id for item in listed.json())
+
+    deleted = partner_client.delete(f"/api/v1/partners/me/offers/1/photos/{photo_id}", headers=_auth_headers(token))
+    assert deleted.status_code == 200
+    assert deleted.json()["ok"] is True
+
+
+def test_client_offer_response_contains_active_offer_photos(partner_client: TestClient) -> None:
+    with next(app.dependency_overrides[get_db]()) as session:
+        session.add_all(
+            [
+                OfferPhoto(offer_id=1, url="/uploads/1a.webp", sort_order=10, is_active=True),
+                OfferPhoto(offer_id=1, url="/uploads/1b.webp", sort_order=1, is_active=True),
+                OfferPhoto(offer_id=1, url="/uploads/1c.webp", sort_order=1, is_active=False),
+            ]
+        )
+        session.commit()
+    response = partner_client.get(
+        "/api/v1/clients/partners/1/offers",
+        headers=_auth_headers(_client_token(partner_client)),
+    )
+    assert response.status_code == 200
+    offer = next(item for item in response.json() if item["id"] == 1)
+    assert [p["url"] for p in offer["photos"]] == ["/uploads/1b.webp", "/uploads/1a.webp"]
+    assert offer["photo_url"] == "/uploads/1b.webp"
