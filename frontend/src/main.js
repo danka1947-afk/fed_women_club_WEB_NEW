@@ -1281,6 +1281,9 @@ const buildErrorMessage = async (response) => {
     if (typeof data.detail === 'string') {
       return data.detail;
     }
+    if (Array.isArray(data.detail)) {
+      return 'Проверьте заполнение полей и повторите попытку.';
+    }
   } catch (error) {
     // response body is not JSON
   }
@@ -1466,39 +1469,40 @@ const renderPartnerGallery = (partner, photos = [], scope = 'partner') => {
   return `
     <section class="partner-gallery">
       <div class="admin-section-heading text-stack">
-        <h4 class="section-title">Галерея партнёра</h4>
-        <p class="section-description compact-copy">${isAdmin ? 'Фото для клиентской витрины.' : 'Публикация после проверки.'}</p>
+        <h4 class="section-title">Фото карточки партнёра</h4>
+        <span class="sr-only">Галерея партнёра</span>
+        <p class="section-description compact-copy">Эти фотографии клиент видит в карточке партнёра и в общей галерее. Фото для клиентской витрины. Публикация после проверки.</p>
       </div>
-      <div class="partner-gallery-upload">
+      <div class="partner-gallery-upload partner-gallery-upload-card">
+        <h5>Добавить фото</h5>
         ${partnerId ? (isAdmin
           ? `<label class="admin-inline-action">Загрузить фото в галерею<input type="file" accept="image/jpeg,image/png,image/webp" ${uploadAttr} /></label>`
-          : renderPartnerUploadButton({ label: photos.length ? 'Загрузить ещё фото' : 'Загрузить фото в галерею', trigger: 'gallery-photo', inputAttr: uploadAttr, inputSelector: '[data-partner-gallery-upload]', statusKey: 'partnerGallery', kind: 'gallery' })) : '<p class="form-message">Сначала сохраните партнёра, затем загрузите фото.</p>'}
+          : renderPartnerUploadButton({ label: 'Загрузить фото в галерею', trigger: 'gallery-photo', inputAttr: uploadAttr, inputSelector: '[data-partner-gallery-upload]', statusKey: 'partnerGallery', kind: 'gallery' })) : '<p class="form-message">Сначала сохраните партнёра, затем загрузите фото.</p>'}
+        <p class="helper-text compact-copy">Поддерживаются JPG, PNG, WebP. Лучше использовать вертикальные или квадратные фото хорошего качества.</p>
       </div>
-      <p class="helper-text compact-copy">Рекомендуемый формат: горизонтальное фото 16:9 или 4:3. Важные элементы размещайте ближе к центру.</p>
       ${!isAdmin ? renderPartnerUploadStatus('partnerGallery') : ''}
       ${visiblePhotos.length ? `
         <div class="partner-gallery-grid">
           ${visiblePhotos.map((photo) => {
             const safeUrl = isSafePublicAssetUrl(photo.url) ? photo.url : '';
             return `
-              <article class="partner-gallery-item ${photo.is_active ? '' : 'is-muted'}">
-                ${!photo.is_active ? '<div class="partner-gallery-status">' + renderStatusBadge('На проверке') + '<small class="helper-text">Ожидает активации.</small></div>' : ''}
-                ${safeUrl ? `<div class="partner-gallery-image" style="background-image: url('${escapeHtml(safeUrl)}')" role="img" aria-label="${escapeHtml(photo.alt_text || 'Фото партнёра')}"></div>` : '<div class="partner-gallery-image partner-gallery-empty">Фото скрыто</div>'}
+              <article class="partner-gallery-item partner-gallery-card ${photo.is_active ? '' : 'is-muted'}">
+                ${safeUrl ? `<div class="partner-gallery-media" role="img" aria-label="${escapeHtml(photo.alt_text || 'Фото партнёра')}"><div class="partner-gallery-media__bg" style="background-image: url('${escapeHtml(safeUrl)}')"></div><img class="partner-gallery-media__img" src="${escapeHtml(safeUrl)}" alt="${escapeHtml(photo.alt_text || 'Фото партнёра')}" loading="lazy"></div>` : '<div class="partner-gallery-media partner-gallery-empty">Фото скрыто</div>'}
                 <form class="partner-gallery-actions" data-${isAdmin ? 'admin' : 'partner'}-gallery-form="photo" data-photo-id="${escapeHtml(photo.id)}">
-                  <label>Alt<input name="alt_text" value="${escapeHtml(photo.alt_text || '')}" /></label>
-                  <label>Сортировка<input name="sort_order" type="number" value="${escapeHtml(photo.sort_order || 0)}" /></label>
-                  <label class="checkbox-row"><input name="is_active" type="checkbox" ${photo.is_active ? 'checked' : ''} ${!isAdmin && !photo.is_active ? 'disabled' : ''} /> Показывать</label>
+                  <div class="partner-gallery-row"><span class="status-badge ${photo.is_active ? 'status-badge--success' : 'status-badge--warning'}">${photo.is_active ? 'Показывается' : 'Скрыто'}</span></div>
+                  <label class="partner-gallery-order">Порядок<input name="sort_order" type="number" value="${escapeHtml(photo.sort_order || 0)}" /></label>
+                  <input name="is_active" type="hidden" value="${photo.is_active ? 'true' : 'false'}" />
                   <div class="admin-form-actions">
-                    <button type="submit">Сохранить</button>
-                    <button class="admin-inline-action" type="button" data-${isAdmin ? 'admin' : 'partner'}-photo-hide="${escapeHtml(photo.id)}">Скрыть фото</button>
-                    ${!isAdmin ? `<button class="admin-inline-action admin-inline-action--danger" type="button" data-partner-photo-delete="${escapeHtml(photo.id)}">Удалить фото</button>` : ''}
+                    <button class="admin-inline-action admin-inline-action--primary" type="submit">Сохранить</button>
+                    <button class="admin-inline-action admin-inline-action--secondary" type="button" data-${isAdmin ? 'admin' : 'partner'}-photo-hide="${escapeHtml(photo.id)}">${photo.is_active ? 'Скрыть фото' : 'Показать фото'}</button>
+                    ${!isAdmin ? `<button class="admin-inline-action admin-inline-action--danger" type="button" data-partner-photo-delete="${escapeHtml(photo.id)}">Удалить</button>` : ''}
                   </div>
                 </form>
               </article>
             `;
           }).join('')}
         </div>
-      ` : '<div class="partner-gallery-empty partner-empty-state compact-copy">Добавьте 3–5 фото для доверия.</div>'}
+      ` : '<div class="partner-gallery-empty partner-empty-state compact-copy"><strong>Фото пока не добавлены.</strong><span>Загрузите первое фото, чтобы клиенты увидели ваши работы.</span><small>Добавьте 3–5 фото для доверия.</small></div>'}
       <p class="helper-text form-message" data-${isAdmin ? 'form-message' : 'partner-form-message'}="${messageKey}">${escapeHtml(message)}</p>
     </section>
   `;
@@ -3112,23 +3116,25 @@ const renderPartnerGalleryTab = () => {
   const offerPhotos = selectedOfferId ? (partnerState.offerPhotosByOfferId[selectedOfferId] || []) : [];
   return `
     <div class="stack">
-      <div class="admin-section-heading text-stack"><p class="section-eyebrow section-kicker">Галерея</p><h4 class="section-title">Создать галерею</h4><p class="section-description compact-copy">Управляйте фото карточки и фото работ по каждой услуге.</p></div>
+      <div class="admin-section-heading text-stack"><p class="section-eyebrow section-kicker">Галерея</p><h4 class="section-title">Управление галереей</h4><p class="section-description compact-copy">Разделите фото карточки партнёра и фото работ по услугам.</p></div>
       <section class="panel-card">${renderPartnerGallery(partnerState.profile || {}, partnerState.photos, 'partner')}</section>
       <section class="panel-card">
-        <h4 class="section-title">Фото услуги</h4>
+        <h4 class="section-title">Фото работ по услугам</h4>
+        <p class="section-description compact-copy">Выберите услугу и добавьте фотографии работ. Клиент увидит их по кнопке «Фото работ».</p>
         ${!offers.length ? '<p class="helper-text">Сначала создайте услугу, затем добавьте к ней фотографии работ.</p>' : `
           <label class="field"><span>Выберите услугу</span><select data-partner-offer-gallery-select>${offers.map((offer) => `<option value="${escapeHtml(offer.id)}" ${String(offer.id) === selectedOfferId ? 'selected' : ''}>${escapeHtml(offer.title || `Услуга #${offer.id}`)}</option>`).join('')}</select></label>
-          <label class="field"><span>Добавить фото работы</span><input type="file" accept="image/*" data-partner-offer-photo-upload data-offer-id="${escapeHtml(selectedOfferId)}"></label>
+          <p class="helper-text compact-copy">Выберите услугу, к которой хотите добавить фотографии работ.</p>
+          <label class="field"><span>Добавить фото</span><input type="file" accept="image/*" data-partner-offer-photo-upload data-offer-id="${escapeHtml(selectedOfferId)}" ${selectedOfferId ? '' : 'disabled'}></label>
           <p class="form-message" data-partner-form-message="offerPhoto">${escapeHtml(partnerState.formMessages.offerPhoto || '')}</p>
-          ${offerPhotos.length ? `<div class="partner-gallery-grid">${offerPhotos.map((photo) => `<article class="partner-gallery-item ${photo.is_active ? '' : 'is-muted'}">
-            ${photo.url ? `<div class="partner-gallery-image" style="background-image: url('${escapeHtml(photo.url)}')" role="img" aria-label="${escapeHtml(photo.alt_text || 'Фото услуги')}"></div>` : '<div class="partner-gallery-image partner-gallery-empty">Фото скрыто</div>'}
+          ${offerPhotos.length ? `<div class="partner-gallery-grid">${offerPhotos.map((photo) => `<article class="partner-gallery-item partner-gallery-card ${photo.is_active ? '' : 'is-muted'}">
+            ${photo.url ? `<div class="partner-gallery-media" role="img" aria-label="${escapeHtml(photo.alt_text || 'Фото услуги')}"><div class="partner-gallery-media__bg" style="background-image: url('${escapeHtml(photo.url)}')"></div><img class="partner-gallery-media__img" src="${escapeHtml(photo.url)}" alt="${escapeHtml(photo.alt_text || 'Фото услуги')}" loading="lazy"></div>` : '<div class="partner-gallery-media partner-gallery-empty">Фото скрыто</div>'}
             <form class="partner-gallery-actions" data-partner-offer-photo-form data-offer-id="${escapeHtml(selectedOfferId)}" data-photo-id="${escapeHtml(photo.id)}">
-              <label class="admin-inline-field"><span>Alt</span><input type="text" name="alt_text" value="${escapeHtml(photo.alt_text || '')}"></label>
-              <label class="admin-inline-field"><span>Порядок</span><input type="number" name="sort_order" value="${escapeHtml(photo.sort_order ?? 0)}"></label>
-              <label class="admin-inline-checkbox"><input type="checkbox" name="is_active" ${photo.is_active ? 'checked' : ''}> Показать</label>
-              <div class="admin-inline-actions"><button class="admin-inline-action" type="submit">Сохранить</button><button class="admin-inline-action admin-inline-action--danger" type="button" data-partner-offer-photo-delete="${escapeHtml(photo.id)}" data-offer-id="${escapeHtml(selectedOfferId)}">Удалить</button></div>
+              <div class="partner-gallery-row"><span class="status-badge ${photo.is_active ? 'status-badge--success' : 'status-badge--warning'}">${photo.is_active ? 'Показывается' : 'Скрыто'}</span></div>
+              <label class="partner-gallery-order"><span>Порядок</span><input type="number" name="sort_order" value="${escapeHtml(photo.sort_order ?? 0)}"></label>
+              <label class="partner-gallery-toggle"><input type="checkbox" name="is_active" ${photo.is_active ? 'checked' : ''}> Показывать</label>
+              <div class="admin-inline-actions"><button class="admin-inline-action admin-inline-action--primary" type="submit">Сохранить</button><button class="admin-inline-action admin-inline-action--secondary" type="button" data-partner-offer-photo-visibility="${escapeHtml(photo.id)}" data-offer-id="${escapeHtml(selectedOfferId)}" data-next-active="${photo.is_active ? 'false' : 'true'}">${photo.is_active ? 'Скрыть' : 'Показать'}</button><button class="admin-inline-action admin-inline-action--danger" type="button" data-partner-offer-photo-delete="${escapeHtml(photo.id)}" data-offer-id="${escapeHtml(selectedOfferId)}">Удалить</button></div>
             </form>
-          </article>`).join('')}</div>` : '<p class="helper-text">У этой услуги пока нет фото работ.</p>'}
+          </article>`).join('')}</div>` : '<div class="partner-gallery-empty partner-empty-state compact-copy"><strong>Фото пока не добавлены.</strong><span>Загрузите первое фото, чтобы клиенты увидели ваши работы.</span></div>'}
         `}
       </section>
     </div>
@@ -5703,6 +5709,24 @@ root.addEventListener('click', async (event) => {
     } catch (error) {
       setPartnerFormMessage('offerPhoto', error.message || 'Не удалось удалить фото услуги.');
       setPartnerPanelMessage(error.message || 'Не удалось удалить фото услуги.', 'error');
+    }
+    renderPartnerLayout();
+    return;
+  }
+  const partnerOfferPhotoVisibility = event.target.closest('[data-partner-offer-photo-visibility]');
+  if (partnerOfferPhotoVisibility) {
+    setPartnerFormMessage('offerPhoto');
+    try {
+      await updatePartnerOfferPhoto(
+        partnerOfferPhotoVisibility.dataset.offerId,
+        partnerOfferPhotoVisibility.dataset.partnerOfferPhotoVisibility,
+        { is_active: partnerOfferPhotoVisibility.dataset.nextActive === 'true' },
+      );
+      setPartnerFormMessage('offerPhoto', 'Статус фото обновлён.');
+      setPartnerPanelMessage('Статус фото услуги обновлён.', 'success');
+    } catch (error) {
+      setPartnerFormMessage('offerPhoto', error.message || 'Не удалось обновить статус фото услуги.');
+      setPartnerPanelMessage(error.message || 'Не удалось обновить статус фото услуги.', 'error');
     }
     renderPartnerLayout();
     return;
