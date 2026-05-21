@@ -4075,6 +4075,63 @@ body.is-dashboard {
   font-weight: 850;
 }
 
+
+.partner-profile-preview-card {
+  width: 100%;
+}
+
+.partner-profile-preview__media {
+  position: relative;
+  overflow: hidden;
+  min-height: 190px;
+}
+
+.partner-profile-preview__media-bg {
+  filter: blur(18px) saturate(1.05);
+  transform: scale(1.08);
+}
+
+.partner-profile-preview__media-img {
+  object-fit: contain;
+}
+
+.partner-profile-preview__body {
+  gap: 12px;
+  padding: 14px 16px 16px;
+}
+
+.partner-profile-preview__identity {
+  margin-top: 0;
+  align-items: center;
+}
+
+.partner-profile-preview__identity .partner-marketplace-logo {
+  width: 64px;
+  height: 64px;
+  border-radius: 18px;
+}
+
+.partner-profile-preview__info-grid {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+}
+
+.partner-profile-preview__info-grid dd,
+.partner-profile-preview__info-grid a,
+.partner-profile-preview__body {
+  overflow-wrap: anywhere;
+}
+
+.partner-profile-preview__info-grid a {
+  color: var(--color-rose-dark);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.partner-profile-preview__info-grid a:hover {
+  text-decoration: underline;
+}
+
 .partner-marketplace-cta button {
   min-height: 40px;
   padding: 10px 16px;
