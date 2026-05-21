@@ -680,7 +680,7 @@ def _active_photos_by_partner(db: Session, partner_ids: list[int]) -> dict[int, 
     photos = db.execute(
         select(PartnerPhoto)
         .where(PartnerPhoto.partner_id.in_(partner_ids), PartnerPhoto.is_active.is_(True))
-        .order_by(PartnerPhoto.partner_id.asc(), PartnerPhoto.sort_order.asc(), PartnerPhoto.created_at.asc())
+        .order_by(PartnerPhoto.partner_id.asc(), PartnerPhoto.sort_order.asc(), PartnerPhoto.id.asc())
     ).scalars().all()
     result: dict[int, list[ClientPartnerPhotoRead]] = {}
     for photo in photos:
@@ -703,6 +703,7 @@ def _partner_to_catalog_item(
     city_name: str | None,
     photos: list[ClientPartnerPhotoRead] | None = None,
 ) -> ClientPartnerCatalogItem:
+    photo_url = photos[0].url if photos else None
     return ClientPartnerCatalogItem.model_validate(
         {
             "id": partner.id,
@@ -718,6 +719,7 @@ def _partner_to_catalog_item(
             "working_hours": partner.working_hours,
             "logo_url": partner.logo_url,
             "cover_url": partner.cover_url,
+            "photo_url": photo_url,
             "is_verified": partner.is_verified,
             "photos": photos or [],
         }
