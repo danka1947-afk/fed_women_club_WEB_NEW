@@ -6048,26 +6048,28 @@ body.is-dashboard {
 .client-partner-modal {
   position: fixed;
   inset: 0;
-  z-index: 1000;
+  z-index: 9000;
   display: grid;
   place-items: start center;
   padding: clamp(18px, 4vh, 42px) 16px;
-  overflow-y: auto;
+  overflow: hidden;
 }
 
 .client-partner-modal__overlay {
   position: absolute;
   inset: 0;
+  z-index: 0;
   background: rgba(35, 19, 24, 0.58);
   backdrop-filter: blur(10px);
 }
 
 .client-partner-modal__panel {
   position: relative;
-  z-index: 1;
-  display: grid;
+  z-index: 9001;
+  display: flex;
+  flex-direction: column;
   width: min(1120px, 100%);
-  max-height: calc(100vh - max(24px, env(safe-area-inset-top)) - max(24px, env(safe-area-inset-bottom)));
+  max-height: calc(100dvh - 32px);
   margin-top: max(8px, env(safe-area-inset-top));
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.58);
@@ -6119,10 +6121,12 @@ body.is-dashboard {
 
 .client-partner-modal__body {
   display: grid;
+  flex: 1 1 auto;
+  min-height: 0;
   gap: 22px;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: 22px 24px 34px;
+  padding: 22px 24px calc(32px + env(safe-area-inset-bottom));
 }
 
 .client-partner-modal__hero {
@@ -6282,7 +6286,7 @@ body.is-dashboard {
 
 @media (max-width: 900px) {
   .client-partner-modal__panel {
-    max-height: calc(100vh - 36px);
+    max-height: calc(100dvh - 36px);
     border-radius: 26px;
   }
 
@@ -6324,6 +6328,10 @@ body.is-dashboard {
   .client-partner-card__actions {
     flex-direction: column;
   }
+}
+
+body.client-partner-modal-open {
+  overflow: hidden;
 }
 
 .feature-card h3,
