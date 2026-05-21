@@ -119,9 +119,10 @@ def verification_client() -> Generator[TestClient, None, None]:
         session.flush()
 
         offer = PartnerOffer(partner_id=partner.id, title="Active Discount", is_active=True, sort_order=10)
+        second_offer = PartnerOffer(partner_id=partner.id, title="Second Active Discount", is_active=True, sort_order=15)
         inactive_offer = PartnerOffer(partner_id=partner.id, title="Inactive Discount", is_active=False, sort_order=20)
         other_offer = PartnerOffer(partner_id=other_partner.id, title="Other Discount", is_active=True, sort_order=10)
-        session.add_all([offer, inactive_offer, other_offer])
+        session.add_all([offer, second_offer, inactive_offer, other_offer])
         session.flush()
 
         now = datetime.now(timezone.utc)
@@ -318,7 +319,65 @@ def test_client_post_verify_with_inactive_or_missing_partner_returns_404(verific
     assert inactive_response.status_code == 404
     assert inactive_response.json()["detail"] == "Partner not found"
     assert missing_response.status_code == 404
-    assert missing_response.json()["detail"] == "Partner not found"
+
+
+def test_monthly_partner_privilege_rule_blocks_second_offer_same_month(verification_client: TestClient) -> None:
+    token = _client_token(verification_client)
+    first = verification_client.post(
+        "/api/v1/clients/partners/1/verify",
+        json={"offer_id": 1},
+        headers=_auth_headers(token),
+    )
+    assert first.status_code == 200
+    second = verification_client.post(
+        "/api/v1/clients/partners/1/verify",
+        json={"offer_id": 2},
+        headers=_auth_headers(token),
+    )
+    assert second.status_code == 400
+    assert second.json()["detail"] == "Privilege for this partner is already used this month"
+
+
+def test_monthly_partner_privilege_rule_allows_other_partner_same_month(verification_client: TestClient) -> None:
+    token = _client_token(verification_client)
+    first = verification_client.post(
+        "/api/v1/clients/partners/1/verify",
+        json={"offer_id": 1},
+        headers=_auth_headers(token),
+    )
+    assert first.status_code == 200
+    second = verification_client.post(
+        "/api/v1/clients/partners/2/verify",
+        json={"offer_id": 4},
+        headers=_auth_headers(token),
+    )
+    assert second.status_code == 200
+
+
+def test_monthly_partner_privilege_rule_allows_next_month(verification_client: TestClient) -> None:
+    token = _client_token(verification_client)
+    with _session(verification_client) as session:
+        now = datetime.now(timezone.utc)
+        last_month = (now.replace(day=1) - timedelta(days=1)).replace(day=15)
+        session.add(
+            PrivilegeVerificationSession(
+                client_id=1,
+                partner_id=1,
+                offer_id=1,
+                code="654321",
+                status=PrivilegeVerificationStatus.expired.value,
+                source="test",
+                expires_at=last_month + timedelta(minutes=15),
+                created_at=last_month,
+            )
+        )
+        session.commit()
+    response = verification_client.post(
+        "/api/v1/clients/partners/1/verify",
+        json={"offer_id": 1},
+        headers=_auth_headers(token),
+    )
+    assert response.status_code == 200
 
 
 def test_client_post_verify_with_active_offer_creates_session_with_offer_info(verification_client: TestClient) -> None:
@@ -347,7 +406,7 @@ def test_client_post_verify_with_active_offer_creates_session_with_offer_info(ve
 def test_client_post_verify_with_inactive_offer_returns_404(verification_client: TestClient) -> None:
     response = verification_client.post(
         "/api/v1/clients/partners/1/verify",
-        json={"offer_id": 2},
+        json={"offer_id": 3},
         headers=_auth_headers(_client_token(verification_client)),
     )
 
@@ -358,7 +417,7 @@ def test_client_post_verify_with_inactive_offer_returns_404(verification_client:
 def test_client_post_verify_with_offer_from_another_partner_returns_404(verification_client: TestClient) -> None:
     response = verification_client.post(
         "/api/v1/clients/partners/1/verify",
-        json={"offer_id": 3},
+        json={"offer_id": 4},
         headers=_auth_headers(_client_token(verification_client)),
     )
 

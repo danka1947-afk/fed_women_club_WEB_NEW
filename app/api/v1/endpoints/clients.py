@@ -14,7 +14,7 @@ from app.db.session import get_db
 from app.models.city import City
 from app.models.category import Category
 from app.models.client import ClientProfile, VkLinkCode, VkLinkCodeStatus
-from app.models.partner import Partner, PartnerOffer, PartnerPhoto
+from app.models.partner import OfferPhoto, Partner, PartnerOffer, PartnerPhoto
 from app.models.payment import PaymentReceipt, PaymentRequest, PaymentRequestStatus, Subscription, SubscriptionStatus
 from app.models.verification import PrivilegeVerificationSession, PrivilegeVerificationStatus
 from app.models.user import User
@@ -54,6 +54,7 @@ CITY_NOT_FOUND_DETAIL = "City not found"
 PARTNER_NOT_FOUND_DETAIL = "Partner not found"
 OFFER_NOT_FOUND_DETAIL = "Offer not found"
 ACTIVE_SUBSCRIPTION_REQUIRED_DETAIL = "Active subscription required"
+PARTNER_MONTHLY_PRIVILEGE_ALREADY_USED_DETAIL = "Privilege for this partner is already used this month"
 VERIFICATION_CODE_ALPHABET = string.digits
 VK_LINK_CODE_TTL_SECONDS = 10 * 60
 VK_LINK_CODE_LENGTH = 8
@@ -399,6 +400,11 @@ def create_client_partner_verification(
     )
     if existing_session is not None:
         return _client_verification_to_read(existing_session, partner.name, offer.title if offer is not None else None)
+    if _has_partner_monthly_verification(db, profile.id, partner.id, now):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=PARTNER_MONTHLY_PRIVILEGE_ALREADY_USED_DETAIL,
+        )
 
     session = PrivilegeVerificationSession(
         client_id=profile.id,
@@ -471,7 +477,8 @@ def list_client_partner_offers(
         .where(PartnerOffer.partner_id == partner_id, PartnerOffer.is_active.is_(True))
         .order_by(PartnerOffer.sort_order.asc(), PartnerOffer.id.asc())
     ).scalars().all()
-    return [_partner_offer_to_read(offer) for offer in offers]
+    photos_by_offer = _active_photos_by_offer(db, [offer.id for offer in offers])
+    return [_partner_offer_to_read(offer, photos_by_offer.get(offer.id, [])) for offer in offers]
 
 
 def _get_current_client_profile_or_404(db: Session, current_user: User) -> ClientProfile:
@@ -602,6 +609,26 @@ def _get_existing_active_verification(
     else:
         statement = statement.where(PrivilegeVerificationSession.offer_id == offer_id)
     return db.execute(statement).scalar_one_or_none()
+
+
+def _has_partner_monthly_verification(db: Session, client_id: int, partner_id: int, now: datetime) -> bool:
+    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    if month_start.month == 12:
+        next_month_start = month_start.replace(year=month_start.year + 1, month=1)
+    else:
+        next_month_start = month_start.replace(month=month_start.month + 1)
+    session_id = db.execute(
+        select(PrivilegeVerificationSession.id)
+        .where(
+            PrivilegeVerificationSession.client_id == client_id,
+            PrivilegeVerificationSession.partner_id == partner_id,
+            PrivilegeVerificationSession.status != PrivilegeVerificationStatus.cancelled.value,
+            PrivilegeVerificationSession.created_at >= month_start,
+            PrivilegeVerificationSession.created_at < next_month_start,
+        )
+        .limit(1)
+    ).scalar_one_or_none()
+    return session_id is not None
 
 def _get_active_city_or_404(db: Session, city_id: int) -> City:
     city = db.execute(select(City).where(City.id == city_id, City.is_active.is_(True))).scalar_one_or_none()
@@ -775,7 +802,25 @@ def _partner_to_catalog_item(
     )
 
 
-def _partner_offer_to_read(offer: PartnerOffer) -> ClientPartnerOfferRead:
+def _active_photos_by_offer(db: Session, offer_ids: list[int]) -> dict[int, list[dict[str, object]]]:
+    if not offer_ids:
+        return {}
+    photos = db.execute(
+        select(OfferPhoto)
+        .where(OfferPhoto.offer_id.in_(offer_ids), OfferPhoto.is_active.is_(True))
+        .order_by(OfferPhoto.offer_id.asc(), OfferPhoto.sort_order.asc(), OfferPhoto.id.asc())
+    ).scalars().all()
+    result: dict[int, list[dict[str, object]]] = {}
+    for photo in photos:
+        result.setdefault(photo.offer_id, []).append(
+            {"id": photo.id, "url": photo.url, "alt_text": photo.alt_text, "sort_order": photo.sort_order}
+        )
+    return result
+
+
+def _partner_offer_to_read(offer: PartnerOffer, photos: list[dict[str, object]] | None = None) -> ClientPartnerOfferRead:
+    photos_payload = photos or []
+    photo_url = str(photos_payload[0]["url"]) if photos_payload else None
     return ClientPartnerOfferRead.model_validate(
         {
             "id": offer.id,
@@ -787,6 +832,8 @@ def _partner_offer_to_read(offer: PartnerOffer) -> ClientPartnerOfferRead:
             "base_price": offer.base_price,
             "discount_percent": offer.discount_percent,
             "image_url": offer.image_url,
+            "photo_url": photo_url,
+            "photos": photos_payload,
             "sort_order": offer.sort_order,
         }
     )

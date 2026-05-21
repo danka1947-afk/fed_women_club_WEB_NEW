@@ -100,6 +100,25 @@ class PartnerPhotoUploadResponse(PartnerPhotoRead):
     pass
 
 
+class OfferPhotoRead(BaseModel):
+    id: int
+    offer_id: int
+    url: str
+    alt_text: str | None
+    sort_order: int
+    is_active: bool
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class OfferPhotoUpdate(BaseModel):
+    alt_text: str | None = None
+    sort_order: int | None = None
+    is_active: bool | None = None
+
+
 class PartnerAnalyticsRead(BaseModel):
     partner_id: int
     partner_name: str | None = None

@@ -12,16 +12,24 @@ from app.db.session import get_db
 from app.models.city import City
 from app.models.client import ClientProfile
 from app.models.lead import LeadClick
-from app.models.partner import Partner, PartnerOffer, PartnerPhoto, PartnerQrLink
+from app.models.partner import OfferPhoto, Partner, PartnerOffer, PartnerPhoto, PartnerQrLink
 from app.models.verification import PrivilegeVerificationSession, PrivilegeVerificationStatus
 from app.models.user import User
 from app.schemas.activity import ActivityFeedRead
 from app.services.activity_feed import build_partner_activity_feed
-from app.services.image_uploads import save_partner_image_upload, save_partner_offer_image_upload, save_partner_photo_image_upload, validate_image_kind
+from app.services.image_uploads import (
+    save_offer_photo_image_upload,
+    save_partner_image_upload,
+    save_partner_offer_image_upload,
+    save_partner_photo_image_upload,
+    validate_image_kind,
+)
 from app.schemas.partner import (
     ConfirmVerificationResponse,
     PartnerAnalyticsRead,
     PartnerOfferCreate,
+    OfferPhotoRead,
+    OfferPhotoUpdate,
     PartnerOfferRead,
     LeadStatsRead,
     PartnerOfferUpdate,
@@ -433,6 +441,97 @@ def clear_partner_offer_image(
     db.commit()
     db.refresh(offer)
     return _partner_offer_to_read(offer)
+
+
+@router.post("/me/offers/{offer_id}/photos", response_model=OfferPhotoRead)
+async def upload_offer_photo(
+    offer_id: int,
+    file: UploadFile = File(...),
+    alt_text: str | None = Form(default=None),
+    sort_order: int = Form(default=0),
+    current_user: User = Depends(require_partner),
+    db: Session = Depends(get_db),
+) -> OfferPhoto:
+    partner = _get_current_partner_or_404(db, current_user.id)
+    offer = _get_owned_offer_or_404(db, partner.id, offer_id)
+    photo_url = await save_offer_photo_image_upload(partner.id, offer.id, file)
+    photo = OfferPhoto(
+        offer_id=offer.id,
+        url=photo_url,
+        alt_text=_normalize_optional_text(alt_text),
+        sort_order=sort_order,
+        is_active=False,
+    )
+    db.add(photo)
+    db.commit()
+    db.refresh(photo)
+    return photo
+
+
+@router.get("/me/offers/{offer_id}/photos", response_model=list[OfferPhotoRead])
+def list_offer_photos(
+    offer_id: int,
+    current_user: User = Depends(require_partner),
+    db: Session = Depends(get_db),
+) -> list[OfferPhoto]:
+    partner = _get_current_partner_or_404(db, current_user.id)
+    offer = _get_owned_offer_or_404(db, partner.id, offer_id)
+    return list(
+        db.execute(
+            select(OfferPhoto)
+            .where(OfferPhoto.offer_id == offer.id)
+            .order_by(OfferPhoto.sort_order.asc(), OfferPhoto.id.asc())
+        ).scalars().all()
+    )
+
+
+@router.patch("/me/offers/{offer_id}/photos/{photo_id}", response_model=OfferPhotoRead)
+def update_offer_photo(
+    offer_id: int,
+    photo_id: int,
+    payload: OfferPhotoUpdate,
+    current_user: User = Depends(require_partner),
+    db: Session = Depends(get_db),
+) -> OfferPhoto:
+    partner = _get_current_partner_or_404(db, current_user.id)
+    offer = _get_owned_offer_or_404(db, partner.id, offer_id)
+    photo = db.execute(
+        select(OfferPhoto).where(
+            OfferPhoto.id == photo_id,
+            OfferPhoto.offer_id == offer.id,
+        )
+    ).scalar_one_or_none()
+    if photo is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Offer photo not found")
+    update_data = payload.model_dump(exclude_unset=True)
+    if "alt_text" in update_data:
+        photo.alt_text = _normalize_optional_text(update_data["alt_text"])
+    if "sort_order" in update_data:
+        photo.sort_order = update_data["sort_order"]
+    if "is_active" in update_data:
+        photo.is_active = bool(update_data["is_active"])
+    db.commit()
+    db.refresh(photo)
+    return photo
+
+
+@router.delete("/me/offers/{offer_id}/photos/{photo_id}")
+def delete_offer_photo(
+    offer_id: int,
+    photo_id: int,
+    current_user: User = Depends(require_partner),
+    db: Session = Depends(get_db),
+) -> dict[str, bool]:
+    partner = _get_current_partner_or_404(db, current_user.id)
+    offer = _get_owned_offer_or_404(db, partner.id, offer_id)
+    photo = db.execute(
+        select(OfferPhoto).where(OfferPhoto.id == photo_id, OfferPhoto.offer_id == offer.id)
+    ).scalar_one_or_none()
+    if photo is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Offer photo not found")
+    db.delete(photo)
+    db.commit()
+    return {"ok": True}
 
 
 def _partner_verification_to_read(

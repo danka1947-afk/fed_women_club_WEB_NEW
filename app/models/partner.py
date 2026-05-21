@@ -85,10 +85,35 @@ class PartnerOffer(Base):
     )
 
     partner: Mapped["Partner"] = relationship("Partner", back_populates="offers")
+    photos: Mapped[list["OfferPhoto"]] = relationship("OfferPhoto", back_populates="offer")
     verification_sessions: Mapped[list["PrivilegeVerificationSession"]] = relationship(
         "PrivilegeVerificationSession",
         back_populates="offer",
     )
+
+
+class OfferPhoto(Base):
+    __tablename__ = "offer_photos"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    offer_id: Mapped[int] = mapped_column(ForeignKey("partner_offers.id"), nullable=False, index=True)
+    url: Mapped[str] = mapped_column(String(512), nullable=False)
+    alt_text: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+    offer: Mapped["PartnerOffer"] = relationship("PartnerOffer", back_populates="photos")
 
 
 class PartnerQrLink(Base):

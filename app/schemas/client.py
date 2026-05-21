@@ -133,6 +133,15 @@ class ClientPartnerOfferRead(BaseModel):
     base_price: Decimal | None
     discount_percent: Decimal | None
     image_url: str | None
+    photo_url: str | None = None
+    photos: list["ClientOfferPhotoRead"] = Field(default_factory=list)
     sort_order: int
 
     model_config = {"from_attributes": True}
+
+
+class ClientOfferPhotoRead(BaseModel):
+    id: int
+    url: str
+    alt_text: str | None
+    sort_order: int
