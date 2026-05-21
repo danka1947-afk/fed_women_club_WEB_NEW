@@ -5731,6 +5731,46 @@ body.is-dashboard {
   border-radius: 12px;
 }
 
+.partner-cabinet-offers .partner-offer-card {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.partner-cabinet-offers .partner-offer-card__media {
+  width: 100%;
+  height: clamp(220px, 30vw, 280px);
+  position: relative;
+  overflow: hidden;
+  border-radius: 22px;
+}
+
+.partner-cabinet-offers .partner-offer-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.partner-cabinet-offers .partner-offer-card__details {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+}
+
+.partner-cabinet-offers .partner-offer-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-start;
+}
+
+.partner-cabinet-offers .offer-marketplace-preview__actions {
+  position: static;
+  width: auto;
+  display: flex;
+  flex-wrap: wrap;
+}
+
 @media (max-width: 720px) {
   .partner-profile-offers .offer-card-grid {
     grid-template-columns: 1fr;

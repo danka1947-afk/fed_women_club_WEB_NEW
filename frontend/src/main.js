@@ -877,7 +877,7 @@ const renderOfferMarketplaceCard = (offer = {}, options = {}) => {
   const isPartnerCabinetCard = options.layout === 'partner-cabinet';
 
   return `
-    <article class="offer-marketplace-card ${options.compact ? 'offer-marketplace-card--compact' : ''} ${isPartnerCabinetCard ? 'partner-offer-card' : ''}">
+    <article class="offer-marketplace-card ${options.compact ? 'offer-marketplace-card--compact' : ''} ${isPartnerCabinetCard ? 'partner-offer-card partner-offer-card--partner-cabinet' : ''}" ${isPartnerCabinetCard ? 'data-layout="partner-cabinet"' : ''}>
       ${imageUrl
         ? `<div class="offer-marketplace-image partner-media ${isPartnerCabinetCard ? 'partner-offer-card__media' : ''}" role="img" aria-label="${escapeHtml(title)}"><div class="partner-media__bg" style="background-image: url('${escapeHtml(imageUrl)}')"></div><img class="partner-media__img" src="${escapeHtml(imageUrl)}" alt="${escapeHtml(title)}" loading="lazy"></div>`
         : `<div class="offer-marketplace-image offer-card-placeholder partner-media partner-media--placeholder ${isPartnerCabinetCard ? 'partner-offer-card__media' : ''}" aria-label="Фото услуги"><span>Фото услуги</span></div>`}
@@ -893,7 +893,7 @@ const renderOfferMarketplaceCard = (offer = {}, options = {}) => {
           <div><dt>Базовая цена</dt><dd>${escapeHtml(basePrice)}</dd></div>
           <div><dt>Скидка</dt><dd>${escapeHtml(formatDiscountPercent(offer.discount_percent) || 'Индивидуально')}</dd></div>
         </dl>
-        <div class="offer-marketplace-preview offer-marketplace-preview__actions ${isPartnerCabinetCard ? 'partner-offer-card__actions' : ''}">
+        <div class="${isPartnerCabinetCard ? 'partner-offer-card__actions' : 'offer-marketplace-preview offer-marketplace-preview__actions'}">
           <span class="helper-text ${isPartnerCabinetCard ? 'partner-offer-card__note' : ''}">${escapeHtml(note)}</span>
           ${actionHtml}
         </div>
@@ -3085,8 +3085,9 @@ const renderPartnerOfferForm = () => {
 };
 
 const renderPartnerOffersTab = () => `
-  <div class="admin-section-heading text-stack"><p class="section-eyebrow section-kicker">Предложения</p><h4 class="section-title">Предложения и привилегии</h4><p class="section-description compact-copy">Короткая выгода и условия для клиенток.</p></div>
-  ${partnerState.offers.length ? `
+  <div class="partner-cabinet-offers">
+    <div class="admin-section-heading text-stack"><p class="section-eyebrow section-kicker">Предложения</p><h4 class="section-title">Предложения и привилегии</h4><p class="section-description compact-copy">Короткая выгода и условия для клиенток.</p></div>
+    ${partnerState.offers.length ? `
     <div class="offer-card-grid">
       ${partnerState.offers.map((offer) => renderOfferMarketplaceCard(offer, {
         layout: 'partner-cabinet',
@@ -3110,7 +3111,8 @@ const renderPartnerOffersTab = () => `
       true,
     )}
   ` : renderPartnerEmptyState('Пока нет предложений.', 'Добавьте первое предложение, чтобы клиент мог получить привилегию.')}
-  ${renderPartnerOfferForm()}
+    ${renderPartnerOfferForm()}
+  </div>
 `;
 
 const renderPartnerGalleryTab = () => {
