@@ -894,7 +894,7 @@ const renderOfferMarketplaceCard = (offer = {}, options = {}) => {
           <div><dt>Скидка</dt><dd>${escapeHtml(formatDiscountPercent(offer.discount_percent) || 'Индивидуально')}</dd></div>
         </dl>
         <div class="${isPartnerCabinetCard ? 'partner-offer-card__actions' : 'offer-marketplace-preview offer-marketplace-preview__actions'}">
-          <span class="helper-text ${isPartnerCabinetCard ? 'partner-offer-card__note' : ''}">${escapeHtml(note)}</span>
+          ${isPartnerCabinetCard ? '' : `<span class="helper-text">${escapeHtml(note)}</span>`}
           ${actionHtml}
         </div>
       </div>
@@ -2910,7 +2910,7 @@ const getPartnerSaveStatusLabel = () => {
   if (partnerState.profileSaveStatus === 'saving') return 'Сохранение…';
   if (partnerState.isProfileDirty) return 'Есть несохранённые изменения';
   if (partnerState.profileSaveStatus === 'saved') return 'Сохранено';
-  return partnerState.formMessages.profile || 'Есть несохранённые изменения';
+  return '';
 };
 
 const renderPartnerSectionHeader = (title, description) => `
@@ -2944,7 +2944,7 @@ const renderPartnerProfileTab = () => {
       <p class="section-description compact-copy">Главные данные для витрины.</p>
     </div>
     ${renderPartnerOnboardingChecklist(profile, { offers: partnerState.offers, photos: partnerState.photos })}
-    <div class="partner-profile-layout">
+    <div class="partner-profile-layout partner-profile-top-grid">
       <form class="admin-form partner-profile-form" id="partner-profile-form" data-partner-form="profile">
         <main class="partner-profile-main partner-profile-settings">
           <section class="partner-section partner-section--compact">
@@ -2985,31 +2985,27 @@ const renderPartnerProfileTab = () => {
               ${renderPartnerMarketplaceCard(profile, { offers: partnerState.offers, note: 'Preview для клиента', photos: partnerState.photos })}
             </section>
 
-            <section class="partner-section partner-progress-card partner-section--compact">
-              ${renderPartnerSectionHeader('Готовность профиля', 'Заполнено и осталось.')}
-              ${renderPartnerProfileHints(profile, { offers: partnerState.offers })}
-              <div class="partner-side-tips">
-                <strong>Быстрые подсказки</strong>
-                <span>Фото, график и первое предложение повышают доверие.</span>
-              </div>
-            </section>
-
-            <section class="partner-section partner-combined-section partner-section--compact">
-              ${renderPartnerSectionHeader('Фотографии профиля', 'Добавьте качественные фото для доверия.')}
-              ${renderPartnerImageUploader(profile, 'partner')}
-              <details class="partner-profile-advanced">
-                <summary>URL изображений</summary>
-                <p class="helper-text form-message compact-copy">URL сохраняется для проверки.</p>
-                <label>Логотип URL<input name="logo_url" value="${escapeHtml(profile.logo_url || '')}" readonly placeholder="/uploads/logo.webp" /></label>
-                <label>Обложка URL<input name="cover_url" value="${escapeHtml(profile.cover_url || '')}" readonly placeholder="/uploads/cover.webp" /></label>
-              </details>
-              <div class="partner-gallery-compact">
-                ${renderPartnerSectionHeader('Галерея', 'Фото атмосферы и работ.')}
-                ${renderPartnerGallery(profile, partnerState.photos, 'partner')}
-              </div>
-            </section>
           </div>
         </aside>
+        <div class="partner-profile-fullwidth-sections">
+          <section class="partner-section partner-progress-card partner-section--compact">
+            ${renderPartnerSectionHeader('Готовность профиля', 'Заполнено и осталось.')}
+            ${renderPartnerProfileHints(profile, { offers: partnerState.offers })}
+            <div class="partner-side-tips">
+              <strong>Ключевые элементы</strong>
+              <span>Проверьте обязательные поля и добавьте хотя бы одно предложение с фото.</span>
+            </div>
+          </section>
+
+          <section class="partner-section partner-combined-section partner-section--compact">
+            ${renderPartnerSectionHeader('Фотографии профиля', 'Добавьте качественные фото для доверия.')}
+            ${renderPartnerImageUploader(profile, 'partner')}
+            <div class="partner-gallery-compact">
+              ${renderPartnerSectionHeader('Галерея', 'Фото атмосферы и работ.')}
+              ${renderPartnerGallery(profile, partnerState.photos, 'partner')}
+            </div>
+          </section>
+        </div>
 
         <section class="partner-section partner-section--compact partner-profile-offers">
           ${renderPartnerSectionHeader('Предложения', 'Конкретная выгода для визита.')}
@@ -3018,7 +3014,7 @@ const renderPartnerProfileTab = () => {
 
         <section class="partner-section partner-section--compact partner-profile-save-section">
           ${renderPartnerSectionHeader('Сохранить изменения', 'Проверьте и сохраните.')}
-          <div class="partner-save-status" role="status">${escapeHtml(getPartnerSaveStatusLabel())}</div>
+          ${getPartnerSaveStatusLabel() ? `<div class="partner-save-status" role="status">${escapeHtml(getPartnerSaveStatusLabel())}</div>` : ''}
           <button type="submit">Сохранить изменения</button>
           <p class="form-message" data-partner-form-message="profile">${escapeHtml(partnerState.formMessages.profile || '')}</p>
         </section>
@@ -3059,8 +3055,10 @@ const renderPartnerOfferForm = () => {
       <label>Краткая выгода<input name="benefit_text" value="${escapeHtml(offer?.benefit_text || '')}" /></label>
       <label>Описание<textarea name="description" rows="3">${escapeHtml(offer?.description || '')}</textarea></label>
       <label>Условия<textarea name="conditions" rows="3">${escapeHtml(offer?.conditions || '')}</textarea></label>
-      <label>Базовая цена<input name="base_price" inputmode="decimal" value="${escapeHtml(offer?.base_price || '')}" /></label>
-      <label>Скидка, %<input name="discount_percent" inputmode="decimal" value="${escapeHtml(offer?.discount_percent || '')}" /></label>
+      <div class="partner-offer-form-numeric-row">
+        <label>Базовая цена<input class="partner-input-compact" name="base_price" type="number" step="0.01" inputmode="decimal" value="${escapeHtml(offer?.base_price || '')}" /></label>
+        <label>Скидка, %<input class="partner-input-compact" name="discount_percent" type="number" step="0.01" inputmode="decimal" value="${escapeHtml(offer?.discount_percent || '')}" /></label>
+      </div>
       ${renderOfferImageUploader(offer, 'partner')}
       <details class="partner-profile-advanced">
         <summary>URL изображения предложения</summary>
@@ -3068,7 +3066,7 @@ const renderPartnerOfferForm = () => {
         <label>URL изображения<input name="image_url" value="${escapeHtml(offer?.image_url || '')}" readonly placeholder="/uploads/offer.webp или /assets/offer.webp" /></label>
       </details>
       ${isEdit ? `<label class="checkbox-row"><input name="is_active" type="checkbox" ${offer?.is_active === false ? '' : 'checked'} ${offer?.is_active === false ? 'disabled' : ''} /> Активно</label>` : ''}
-      <label>Порядок сортировки<input name="sort_order" type="number" value="${escapeHtml(offer?.sort_order || 0)}" /></label>
+      <label>Порядок сортировки<input class="partner-input-compact" name="sort_order" type="number" value="${escapeHtml(offer?.sort_order || 0)}" /></label>
       <div class="admin-form-actions">
         <button type="submit">${isEdit ? 'Сохранить изменения' : 'Создать предложение'}</button>
         ${isEdit ? '<button class="admin-inline-action" type="button" data-partner-offer-edit-cancel>Отмена</button>' : ''}
