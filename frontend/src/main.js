@@ -864,7 +864,8 @@ const getOfferPhotos = (offer = {}) => {
 const formatPrivilegeStatus = (status) => getStatusBadgeMeta(status)?.label || 'Активно';
 
 const renderOfferMarketplaceCard = (offer = {}, options = {}) => {
-  const imageUrl = isSafePublicAssetUrl(offer.image_url) ? offer.image_url : '';
+  const offerPhotos = getOfferPhotos(offer);
+  const imageUrl = offerPhotos[0]?.url || (isSafePublicAssetUrl(offer.image_url) ? offer.image_url : '');
   const title = String(offer.title || '').trim() || 'Название предложения';
   const description = String(offer.description || '').trim() || 'Короткое описание услуги.';
   const conditions = String(offer.conditions || offer.terms || '').trim() || 'Условия появятся здесь.';
@@ -877,8 +878,8 @@ const renderOfferMarketplaceCard = (offer = {}, options = {}) => {
   return `
     <article class="offer-marketplace-card ${options.compact ? 'offer-marketplace-card--compact' : ''}">
       ${imageUrl
-        ? `<div class="offer-marketplace-image" style="background-image: url('${escapeHtml(imageUrl)}')" role="img" aria-label="${escapeHtml(title)}"></div>`
-        : '<div class="offer-marketplace-image offer-card-placeholder" aria-hidden="true"><span>Фото услуги</span></div>'}
+        ? `<div class="offer-marketplace-image partner-media" role="img" aria-label="${escapeHtml(title)}"><div class="partner-media__bg" style="background-image: url('${escapeHtml(imageUrl)}')"></div><img class="partner-media__img" src="${escapeHtml(imageUrl)}" alt="${escapeHtml(title)}" loading="lazy"></div>`
+        : '<div class="offer-marketplace-image offer-card-placeholder partner-media partner-media--placeholder" aria-label="Фото услуги"><span>Фото услуги</span></div>'}
       <div class="offer-marketplace-body">
         <div class="offer-marketplace-heading">
           <span class="offer-marketplace-benefit">${escapeHtml(benefit)}</span>
@@ -891,7 +892,7 @@ const renderOfferMarketplaceCard = (offer = {}, options = {}) => {
           <div><dt>Базовая цена</dt><dd>${escapeHtml(basePrice)}</dd></div>
           <div><dt>Скидка</dt><dd>${escapeHtml(formatDiscountPercent(offer.discount_percent) || 'Индивидуально')}</dd></div>
         </dl>
-        <div class="offer-marketplace-preview">
+        <div class="offer-marketplace-preview offer-marketplace-preview__actions">
           <span class="helper-text">${escapeHtml(note)}</span>
           ${actionHtml}
         </div>
@@ -1660,8 +1661,8 @@ const renderPartnerMarketplaceCard = (partner = {}, options = {}) => {
 
   return `
     <article class="partner-marketplace-card">
-      <div class="partner-marketplace-cover ${coverUrl ? '' : 'partner-marketplace-cover--placeholder'}" ${coverUrl ? `style="background-image: url('${escapeHtml(coverUrl)}')"` : ''} aria-hidden="true">
-        ${coverUrl ? '' : '<span>Обложка витрины</span>'}
+      <div class="partner-marketplace-cover partner-media ${coverUrl ? '' : 'partner-marketplace-cover--placeholder partner-media--placeholder'}" ${coverUrl ? `role="img" aria-label="${escapeHtml(partner.name || 'Фото партнёра')}"` : 'aria-label="Фото партнёра"'} >
+        ${coverUrl ? `<div class="partner-media__bg" style="background-image: url('${escapeHtml(coverUrl)}')"></div><img class="partner-media__img" src="${escapeHtml(coverUrl)}" alt="${escapeHtml(partner.name || 'Фото партнёра')}" loading="lazy">` : '<span>Фото партнёра</span>'}
       </div>
       <div class="partner-marketplace-body">
         <div class="partner-marketplace-heading">
@@ -3038,10 +3039,10 @@ const renderPartnerProfileTab = () => {
 };
 
 const renderPartnerOfferAction = (offer) => `
-  <button class="admin-inline-action" type="button" data-partner-offer-edit="${escapeHtml(offer.id)}">Редактировать</button>
+  <button class="admin-inline-action admin-inline-action--primary" type="button" data-partner-offer-edit="${escapeHtml(offer.id)}">Редактировать</button>
   ${offer.is_active
-    ? `<button class="admin-inline-action" type="button" data-partner-offer-toggle="${escapeHtml(offer.id)}">Скрыть</button>`
-    : '<button class="admin-inline-action" type="button" disabled>На проверке</button>'}
+    ? `<button class="admin-inline-action admin-inline-action--secondary" type="button" data-partner-offer-toggle="${escapeHtml(offer.id)}">Скрыть</button>`
+    : '<button class="admin-inline-action admin-inline-action--secondary" type="button" disabled>На проверке</button>'}
   ${offer.image_url ? `<button class="admin-inline-action admin-inline-action--danger" type="button" data-partner-offer-image-clear="${escapeHtml(offer.id)}">Удалить фото</button>` : ''}
 `;
 
@@ -3130,9 +3131,13 @@ const renderPartnerGalleryTab = () => {
             ${photo.url ? `<div class="partner-gallery-media" role="img" aria-label="${escapeHtml(photo.alt_text || 'Фото услуги')}"><div class="partner-gallery-media__bg" style="background-image: url('${escapeHtml(photo.url)}')"></div><img class="partner-gallery-media__img" src="${escapeHtml(photo.url)}" alt="${escapeHtml(photo.alt_text || 'Фото услуги')}" loading="lazy"></div>` : '<div class="partner-gallery-media partner-gallery-empty">Фото скрыто</div>'}
             <form class="partner-gallery-actions" data-partner-offer-photo-form data-offer-id="${escapeHtml(selectedOfferId)}" data-photo-id="${escapeHtml(photo.id)}">
               <div class="partner-gallery-row"><span class="status-badge ${photo.is_active ? 'status-badge--success' : 'status-badge--warning'}">${photo.is_active ? 'Показывается' : 'Скрыто'}</span></div>
-              <label class="partner-gallery-order"><span>Порядок</span><input type="number" name="sort_order" value="${escapeHtml(photo.sort_order ?? 0)}"></label>
-              <label class="partner-gallery-toggle"><input type="checkbox" name="is_active" ${photo.is_active ? 'checked' : ''}> Показывать</label>
-              <div class="admin-inline-actions"><button class="admin-inline-action admin-inline-action--primary" type="submit">Сохранить</button><button class="admin-inline-action admin-inline-action--secondary" type="button" data-partner-offer-photo-visibility="${escapeHtml(photo.id)}" data-offer-id="${escapeHtml(selectedOfferId)}" data-next-active="${photo.is_active ? 'false' : 'true'}">${photo.is_active ? 'Скрыть' : 'Показать'}</button><button class="admin-inline-action admin-inline-action--danger" type="button" data-partner-offer-photo-delete="${escapeHtml(photo.id)}" data-offer-id="${escapeHtml(selectedOfferId)}">Удалить</button></div>
+              <input type="hidden" name="is_active" value="${photo.is_active ? 'true' : 'false'}">
+              <div class="partner-gallery-controls-row">
+                <label class="partner-gallery-order"><span>Порядок</span><input type="number" name="sort_order" value="${escapeHtml(photo.sort_order ?? 0)}"></label>
+                <button class="admin-inline-action admin-inline-action--primary" type="submit">Сохранить</button>
+                <button class="admin-inline-action admin-inline-action--secondary" type="button" data-partner-offer-photo-visibility="${escapeHtml(photo.id)}" data-offer-id="${escapeHtml(selectedOfferId)}" data-next-active="${photo.is_active ? 'false' : 'true'}">${photo.is_active ? 'Скрыть' : 'Показать'}</button>
+                <button class="admin-inline-action admin-inline-action--danger" type="button" data-partner-offer-photo-delete="${escapeHtml(photo.id)}" data-offer-id="${escapeHtml(selectedOfferId)}">Удалить</button>
+              </div>
             </form>
           </article>`).join('')}</div>` : '<div class="partner-gallery-empty partner-empty-state compact-copy"><strong>Фото пока не добавлены.</strong><span>Загрузите первое фото, чтобы клиенты увидели ваши работы.</span></div>'}
         `}
