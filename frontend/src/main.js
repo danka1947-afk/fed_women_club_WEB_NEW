@@ -439,6 +439,7 @@ const searchableBool = (value) => `${formatBool(value)} ${value ? 'active акт
 const partnerTabs = [
   { id: 'profile', label: 'Профиль', icon: '♡' },
   { id: 'offers', label: 'Предложения', icon: '%' },
+  { id: 'gallery', label: 'Галерея', icon: '🖼' },
   { id: 'qr', label: 'QR / лиды', icon: 'QR' },
   { id: 'verifications', label: 'Подтверждения', icon: '✓' },
   { id: 'analytics', label: 'Аналитика', icon: '↗' },
@@ -463,6 +464,8 @@ const partnerState = {
   panelMessage: '',
   formMessages: {},
   selectedOfferIdForEdit: '',
+  selectedOfferIdForGallery: '',
+  offerPhotosByOfferId: {},
   isProfileDirty: false,
   profileSaveStatus: 'saved',
   uploadStatuses: {},
@@ -2005,6 +2008,18 @@ const loadPartnerOffers = async () => {
   if (partnerState.selectedOfferIdForEdit && !partnerState.offers.some((offer) => String(offer.id) === String(partnerState.selectedOfferIdForEdit))) {
     partnerState.selectedOfferIdForEdit = '';
   }
+  if (partnerState.selectedOfferIdForGallery && !partnerState.offers.some((offer) => String(offer.id) === String(partnerState.selectedOfferIdForGallery))) {
+    partnerState.selectedOfferIdForGallery = '';
+  }
+  if (!partnerState.selectedOfferIdForGallery && partnerState.offers.length) {
+    partnerState.selectedOfferIdForGallery = String(partnerState.offers[0].id);
+  }
+};
+const loadPartnerOfferPhotos = async (offerId) => {
+  if (!offerId) return [];
+  const photos = await partnerApiFetch(`/api/v1/partners/me/offers/${offerId}/photos`);
+  partnerState.offerPhotosByOfferId[String(offerId)] = Array.isArray(photos) ? photos : [];
+  return partnerState.offerPhotosByOfferId[String(offerId)];
 };
 const loadPartnerQrLinks = async () => { partnerState.qrLinks = await partnerApiFetch('/api/v1/partners/me/qr-links'); };
 const loadPartnerLeads = async () => { partnerState.leads = await partnerApiFetch('/api/v1/partners/me/leads'); };
@@ -2865,6 +2880,9 @@ const renderPartnerTabContent = () => {
   if (partnerState.activeTab === 'offers') {
     return renderPartnerOffersTab();
   }
+  if (partnerState.activeTab === 'gallery') {
+    return renderPartnerGalleryTab();
+  }
   if (partnerState.activeTab === 'qr') {
     return renderPartnerQrTab();
   }
@@ -3081,6 +3099,35 @@ const renderPartnerOffersTab = () => `
   ` : renderPartnerEmptyState('Пока нет предложений.', 'Добавьте первое предложение, чтобы клиент мог получить привилегию.')}
   ${renderPartnerOfferForm()}
 `;
+
+const renderPartnerGalleryTab = () => {
+  const offers = Array.isArray(partnerState.offers) ? partnerState.offers : [];
+  const selectedOfferId = String(partnerState.selectedOfferIdForGallery || '');
+  const offerPhotos = selectedOfferId ? (partnerState.offerPhotosByOfferId[selectedOfferId] || []) : [];
+  return `
+    <div class="stack">
+      <div class="admin-section-heading text-stack"><p class="section-eyebrow section-kicker">Галерея</p><h4 class="section-title">Создать галерею</h4><p class="section-description compact-copy">Управляйте фото карточки и фото работ по каждой услуге.</p></div>
+      <section class="panel-card">${renderPartnerGallery(partnerState.profile || {}, partnerState.photos, 'partner')}</section>
+      <section class="panel-card">
+        <h4 class="section-title">Фото услуги</h4>
+        ${!offers.length ? '<p class="helper-text">Сначала создайте услугу, затем добавьте к ней фотографии работ.</p>' : `
+          <label class="field"><span>Выберите услугу</span><select data-partner-offer-gallery-select>${offers.map((offer) => `<option value="${escapeHtml(offer.id)}" ${String(offer.id) === selectedOfferId ? 'selected' : ''}>${escapeHtml(offer.title || `Услуга #${offer.id}`)}</option>`).join('')}</select></label>
+          <label class="field"><span>Добавить фото работы</span><input type="file" accept="image/*" data-partner-offer-photo-upload data-offer-id="${escapeHtml(selectedOfferId)}"></label>
+          <p class="form-message" data-partner-form-message="offerPhoto">${escapeHtml(partnerState.formMessages.offerPhoto || '')}</p>
+          ${offerPhotos.length ? `<div class="partner-gallery-grid">${offerPhotos.map((photo) => `<article class="partner-gallery-item ${photo.is_active ? '' : 'is-muted'}">
+            ${photo.url ? `<div class="partner-gallery-image" style="background-image: url('${escapeHtml(photo.url)}')" role="img" aria-label="${escapeHtml(photo.alt_text || 'Фото услуги')}"></div>` : '<div class="partner-gallery-image partner-gallery-empty">Фото скрыто</div>'}
+            <form class="partner-gallery-actions" data-partner-offer-photo-form data-offer-id="${escapeHtml(selectedOfferId)}" data-photo-id="${escapeHtml(photo.id)}">
+              <label class="admin-inline-field"><span>Alt</span><input type="text" name="alt_text" value="${escapeHtml(photo.alt_text || '')}"></label>
+              <label class="admin-inline-field"><span>Порядок</span><input type="number" name="sort_order" value="${escapeHtml(photo.sort_order ?? 0)}"></label>
+              <label class="admin-inline-checkbox"><input type="checkbox" name="is_active" ${photo.is_active ? 'checked' : ''}> Показать</label>
+              <div class="admin-inline-actions"><button class="admin-inline-action" type="submit">Сохранить</button><button class="admin-inline-action admin-inline-action--danger" type="button" data-partner-offer-photo-delete="${escapeHtml(photo.id)}" data-offer-id="${escapeHtml(selectedOfferId)}">Удалить</button></div>
+            </form>
+          </article>`).join('')}</div>` : '<p class="helper-text">У этой услуги пока нет фото работ.</p>'}
+        `}
+      </section>
+    </div>
+  `;
+};
 
 const renderPartnerQrTab = () => `
   <div class="admin-section-heading"><h4>QR / лиды</h4><p>QR-ссылки создаёт администратор. Партнёр видит ссылки и статистику переходов.</p></div>
@@ -4390,6 +4437,11 @@ const loadActivePartnerTabData = async () => {
       await Promise.all([loadPartnerProfile(), loadPartnerOffers(), loadPartnerPhotos()]);
     } else if (partnerState.activeTab === 'offers') {
       await loadPartnerOffers();
+    } else if (partnerState.activeTab === 'gallery') {
+      await Promise.all([loadPartnerProfile(), loadPartnerOffers(), loadPartnerPhotos()]);
+      if (partnerState.selectedOfferIdForGallery) {
+        await loadPartnerOfferPhotos(partnerState.selectedOfferIdForGallery);
+      }
     } else if (partnerState.activeTab === 'qr') {
       await Promise.all([loadPartnerQrLinks(), loadPartnerLeads()]);
     } else if (partnerState.activeTab === 'verifications') {
@@ -4913,6 +4965,24 @@ const clearPartnerProfileImage = async (kind) => {
 const deletePartnerPhoto = async (photoId) => {
   await partnerApiFetch(`/api/v1/partners/me/photos/${photoId}`, { method: 'DELETE' });
   await loadPartnerPhotos();
+};
+const uploadPartnerOfferPhoto = async (offerId, file) => {
+  const body = new FormData();
+  body.append('file', file);
+  const response = await partnerApiFetch(`/api/v1/partners/me/offers/${offerId}/photos`, { method: 'POST', body });
+  await loadPartnerOfferPhotos(offerId);
+  await loadPartnerOffers();
+  return response;
+};
+const updatePartnerOfferPhoto = async (offerId, photoId, payload) => {
+  await partnerPatchJson(`/api/v1/partners/me/offers/${offerId}/photos/${photoId}`, payload);
+  await loadPartnerOfferPhotos(offerId);
+  await loadPartnerOffers();
+};
+const deletePartnerOfferPhoto = async (offerId, photoId) => {
+  await partnerApiFetch(`/api/v1/partners/me/offers/${offerId}/photos/${photoId}`, { method: 'DELETE' });
+  await loadPartnerOfferPhotos(offerId);
+  await loadPartnerOffers();
 };
 
 const clearPartnerOfferImage = async (offerId) => {
@@ -5616,6 +5686,21 @@ root.addEventListener('click', async (event) => {
     renderPartnerLayout();
     return;
   }
+  const partnerOfferPhotoDelete = event.target.closest('[data-partner-offer-photo-delete]');
+  if (partnerOfferPhotoDelete) {
+    if (!window.confirm('Удалить это фото? Действие нельзя отменить.')) return;
+    setPartnerFormMessage('offerPhoto');
+    try {
+      await deletePartnerOfferPhoto(partnerOfferPhotoDelete.dataset.offerId, partnerOfferPhotoDelete.dataset.partnerOfferPhotoDelete);
+      setPartnerFormMessage('offerPhoto', 'Фото услуги удалено.');
+      setPartnerPanelMessage('Фото услуги удалено.', 'success');
+    } catch (error) {
+      setPartnerFormMessage('offerPhoto', error.message || 'Не удалось удалить фото услуги.');
+      setPartnerPanelMessage(error.message || 'Не удалось удалить фото услуги.', 'error');
+    }
+    renderPartnerLayout();
+    return;
+  }
 
   const partnerOfferImageClear = event.target.closest('[data-partner-offer-image-clear]');
   if (partnerOfferImageClear) {
@@ -6029,6 +6114,44 @@ const handlePartnerOfferImageInput = async (input) => {
   }
 };
 
+const handlePartnerOfferPhotoInput = async (input) => {
+  const file = input.files?.[0];
+  const offerId = input.dataset.offerId;
+  if (!file || !offerId) return;
+  setPartnerFormMessage('offerPhoto');
+  try {
+    await uploadPartnerOfferPhoto(offerId, file);
+    setPartnerFormMessage('offerPhoto', 'Фото услуги загружено.');
+    setPartnerPanelMessage('Фото услуги добавлено в галерею.', 'success');
+  } catch (error) {
+    setPartnerFormMessage('offerPhoto', error.message || 'Не удалось загрузить фото услуги.');
+    setPartnerPanelMessage(error.message || 'Не удалось загрузить фото услуги.', 'error');
+  } finally {
+    input.value = '';
+    renderPartnerLayout();
+  }
+};
+
+const handlePartnerOfferPhotoFormSubmit = async (form) => {
+  const formData = new FormData(form);
+  const offerId = form.dataset.offerId;
+  const photoId = form.dataset.photoId;
+  setPartnerFormMessage('offerPhoto');
+  try {
+    await updatePartnerOfferPhoto(offerId, photoId, {
+      alt_text: getOptionalText(formData, 'alt_text'),
+      sort_order: Number(formData.get('sort_order') || 0),
+      is_active: formData.has('is_active'),
+    });
+    setPartnerFormMessage('offerPhoto', 'Фото услуги обновлено.');
+    setPartnerPanelMessage('Изменения сохранены.', 'success');
+  } catch (error) {
+    setPartnerFormMessage('offerPhoto', error.message || 'Не удалось обновить фото услуги.');
+    setPartnerPanelMessage(error.message || 'Не удалось обновить фото услуги.', 'error');
+  }
+  renderPartnerLayout();
+};
+
 root.addEventListener('change', (event) => {
   const adminPhotoInput = event.target.closest('[data-admin-partner-photo-upload]');
   if (adminPhotoInput) {
@@ -6063,6 +6186,17 @@ root.addEventListener('change', (event) => {
   const partnerOfferImageInput = event.target.closest('[data-partner-offer-image-upload]');
   if (partnerOfferImageInput) {
     handlePartnerOfferImageInput(partnerOfferImageInput);
+    return;
+  }
+  const partnerOfferPhotoInput = event.target.closest('[data-partner-offer-photo-upload]');
+  if (partnerOfferPhotoInput) {
+    handlePartnerOfferPhotoInput(partnerOfferPhotoInput);
+    return;
+  }
+  const partnerOfferGallerySelect = event.target.closest('[data-partner-offer-gallery-select]');
+  if (partnerOfferGallerySelect) {
+    partnerState.selectedOfferIdForGallery = partnerOfferGallerySelect.value;
+    loadPartnerOfferPhotos(partnerState.selectedOfferIdForGallery).then(renderPartnerLayout);
     return;
   }
 
@@ -6230,6 +6364,12 @@ root.addEventListener('submit', (event) => {
   if (partnerGalleryForm) {
     event.preventDefault();
     handlePartnerGalleryFormSubmit(partnerGalleryForm);
+    return;
+  }
+  const partnerOfferPhotoForm = event.target.closest('[data-partner-offer-photo-form]');
+  if (partnerOfferPhotoForm) {
+    event.preventDefault();
+    handlePartnerOfferPhotoFormSubmit(partnerOfferPhotoForm);
     return;
   }
 
