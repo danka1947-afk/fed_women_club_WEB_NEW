@@ -1653,48 +1653,42 @@ const renderPartnerMarketplaceCard = (partner = {}, options = {}) => {
   const coverUrl = galleryPhotos[0]?.url || (isSafePublicAssetUrl(partner.cover_url) ? partner.cover_url : '');
   const logoUrl = isSafePublicAssetUrl(partner.logo_url) ? partner.logo_url : '';
   const primaryOffer = getPartnerPrimaryOffer(partner, options);
+  const cityAddress = [partner.city_name || partner.city, partner.address].filter(Boolean).join(' · ');
+  const socialValue = String(partner.social_url || '').trim();
+  const siteValue = String(partner.website_url || '').trim();
+  const socialLabel = socialValue ? (socialValue.includes('t.me') || socialValue.includes('telegram') ? 'Telegram' : 'Открыть соцсеть') : '';
   const contactItems = [
     ['Телефон', partner.phone],
-    ['Сайт', partner.website_url],
-    ['Соцсеть', partner.social_url],
+    ['Соцсеть', socialValue ? `<a href="${escapeHtml(socialValue)}" target="_blank" rel="noopener noreferrer">${escapeHtml(socialLabel || socialValue)}</a>` : ''],
+    ['Сайт', siteValue ? `<a href="${escapeHtml(siteValue)}" target="_blank" rel="noopener noreferrer">Открыть сайт</a>` : ''],
   ].filter(([, value]) => String(value || '').trim());
-  const cityAddress = [partner.city_name || partner.city, partner.address].filter(Boolean).join(' · ');
 
   return `
-    <article class="partner-marketplace-card">
-      <div class="partner-marketplace-cover partner-media ${coverUrl ? '' : 'partner-marketplace-cover--placeholder partner-media--placeholder'}" ${coverUrl ? `role="img" aria-label="${escapeHtml(partner.name || 'Фото партнёра')}"` : 'aria-label="Фото партнёра"'} >
-        ${coverUrl ? `<div class="partner-media__bg" style="background-image: url('${escapeHtml(coverUrl)}')"></div><img class="partner-media__img" src="${escapeHtml(coverUrl)}" alt="${escapeHtml(partner.name || 'Фото партнёра')}" loading="lazy">` : '<span>Фото партнёра</span>'}
+    <article class="partner-marketplace-card partner-profile-preview-card">
+      <div class="partner-marketplace-cover partner-profile-preview__media partner-media ${coverUrl ? '' : 'partner-marketplace-cover--placeholder partner-media--placeholder'}" ${coverUrl ? `role="img" aria-label="${escapeHtml(partner.name || 'Фото партнёра')}"` : 'aria-label="Фото партнёра"'}>
+        ${coverUrl ? `<div class="partner-media__bg partner-profile-preview__media-bg" style="background-image: url('${escapeHtml(coverUrl)}')"></div><img class="partner-media__img partner-profile-preview__media-img" src="${escapeHtml(coverUrl)}" alt="${escapeHtml(partner.name || 'Фото партнёра')}" loading="lazy" onerror="this.closest('.partner-profile-preview__media')?.classList.add('partner-media--placeholder');this.remove();">` : '<span>Фото партнёра</span>'}
       </div>
-      <div class="partner-marketplace-body">
-        <div class="partner-marketplace-heading">
+      <div class="partner-marketplace-body partner-profile-preview__body">
+        <div class="partner-marketplace-heading partner-profile-preview__identity">
           <div class="partner-marketplace-logo ${logoUrl ? '' : 'partner-marketplace-logo--placeholder'}" ${logoUrl ? `style="background-image: url('${escapeHtml(logoUrl)}')"` : ''} aria-hidden="true">${logoUrl ? '' : '♡'}</div>
           <div>
-            <div class="partner-marketplace-badges">
-              ${partner.is_active === undefined ? '' : renderActiveStatusBadge(partner.is_active)}
-              ${partner.is_verified === undefined ? '' : renderVerifiedStatusBadge(partner.is_verified)}
-            </div>
             <h3>${escapeHtml(partner.name || 'Название партнёра')}</h3>
             <p class="partner-marketplace-category">${escapeHtml(formatPartnerCategory(partner))}</p>
+            <div class="partner-marketplace-badges">
+              ${partner.is_verified === undefined ? '' : renderVerifiedStatusBadge(partner.is_verified)}
+            </div>
           </div>
         </div>
-        <dl class="partner-marketplace-meta">
+        <p class="partner-marketplace-description">${escapeHtml(partner.description || 'Коротко расскажите, чем вы полезны участницам клуба и какую атмосферу получит клиент.')}</p>
+        <dl class="partner-marketplace-meta partner-profile-preview__info-grid">
           <div><dt>Город и адрес</dt><dd>${cityAddress ? escapeHtml(cityAddress) : 'Адрес появится в карточке'}</dd></div>
           <div><dt>График работы</dt><dd>${escapeHtml(partner.working_hours || 'График работы появится после заполнения')}</dd></div>
+          ${contactItems.map(([label, value]) => `<div><dt>${escapeHtml(label)}</dt><dd>${value}</dd></div>`).join('')}
         </dl>
-        <p class="partner-marketplace-description">${escapeHtml(partner.description || 'Коротко расскажите, чем вы полезны участницам клуба и какую атмосферу получит клиент.')}</p>
-        ${contactItems.length ? `
-          <div class="partner-marketplace-contacts">
-            ${contactItems.map(([label, value]) => `<span><strong>${escapeHtml(label)}:</strong> ${escapeHtml(value)}</span>`).join('')}
-          </div>
-        ` : '<div class="partner-marketplace-contacts"><span>Добавьте телефон, сайт или соцсеть для связи</span></div>'}
         <div class="partner-marketplace-offer">
           <span>Главная выгода</span>
           <strong>${escapeHtml(primaryOffer ? formatPartnerBenefit(primaryOffer) : 'Добавьте предложение')}</strong>
           <small class="card-description">${escapeHtml(primaryOffer?.title || primaryOffer?.description || 'Коротко о привилегии.')}</small>
-        </div>
-        <div class="partner-marketplace-cta">
-          <span class="helper-text">${escapeHtml(options.note || 'Preview для клиента')}</span>
-          <button type="button" disabled>${escapeHtml(options.cta || 'Получить привилегию')}</button>
         </div>
       </div>
     </article>
