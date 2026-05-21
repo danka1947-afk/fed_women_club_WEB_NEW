@@ -490,6 +490,8 @@ const clientState = {
   selectedPartnerModalPartner: null,
   selectedPartnerModalOffers: [],
   partnerModalGalleryIndex: 0,
+  partnerModalOfferGalleryId: '',
+  partnerModalOfferGalleryIndex: 0,
   partnerModalLoading: false,
   partnerModalError: '',
   latestVerification: null,
@@ -838,7 +840,23 @@ const formatPrivilegeErrorMessage = (message) => ({
   'Verification session is not active': 'Эта привилегия уже не активна.',
   'Verification session expired': 'Срок действия кода истёк.',
   'Verification session not found': 'Код не найден для вашего кабинета.',
+  'Privilege limit per partner reached for current month': 'Вы уже получили привилегию у этого партнёра в этом месяце. Новую можно будет получить в следующем месяце.',
 }[String(message || '').trim()] || message || 'Не удалось выполнить действие. Попробуйте позже.');
+
+const getOfferPhotos = (offer = {}) => {
+  const photos = Array.isArray(offer.photos) ? offer.photos : [];
+  const list = photos
+    .filter((photo) => photo?.is_active !== false)
+    .map((photo) => ({
+      url: [photo?.url, photo?.photo_url, photo?.image_url].find(isSafePublicAssetUrl) || '',
+      alt_text: photo?.alt_text || offer.title || 'Фото услуги',
+    }))
+    .filter((photo) => photo.url);
+  if (!list.length && isSafePublicAssetUrl(offer.photo_url)) {
+    list.push({ url: offer.photo_url, alt_text: offer.title || 'Фото услуги' });
+  }
+  return list;
+};
 
 const formatPrivilegeStatus = (status) => getStatusBadgeMeta(status)?.label || 'Активно';
 
@@ -2073,6 +2091,8 @@ const resetClientPartnerModalState = () => {
   clientState.selectedPartnerModalPartner = null;
   clientState.selectedPartnerModalOffers = [];
   clientState.partnerModalGalleryIndex = 0;
+  clientState.partnerModalOfferGalleryId = '';
+  clientState.partnerModalOfferGalleryIndex = 0;
   clientState.partnerModalLoading = false;
   clientState.partnerModalError = '';
 };
@@ -2086,6 +2106,8 @@ const openClientPartnerModal = async (partnerId) => {
   clientState.selectedPartnerModalPartner = catalogPartner;
   clientState.selectedPartnerModalOffers = clientState.offersByPartner[normalizedPartnerId] || [];
   clientState.partnerModalGalleryIndex = 0;
+  clientState.partnerModalOfferGalleryId = '';
+  clientState.partnerModalOfferGalleryIndex = 0;
   clientState.partnerModalLoading = true;
   clientState.partnerModalError = '';
   renderClientLayout();
@@ -2695,6 +2717,7 @@ const renderClientPartnerDetail = (partner = {}) => {
 const renderClientPartnerModalOffer = (partnerId, offer) => `
   <div class="client-partner-modal__offer">
     ${renderClientOffer(partnerId, offer)}
+    ${getOfferPhotos(offer).length ? `<button type="button" class="admin-inline-action" data-client-offer-gallery-open="${escapeHtml(offer.id)}">Посмотреть работы</button>` : ''}
   </div>
 `;
 
@@ -2706,6 +2729,10 @@ const renderClientPartnerModal = () => {
     || clientState.partners.find((item) => String(item.id) === String(partnerId))
     || {};
   const offers = Array.isArray(clientState.selectedPartnerModalOffers) ? clientState.selectedPartnerModalOffers : [];
+  const activeOfferGalleryId = String(clientState.partnerModalOfferGalleryId || '');
+  const activeOffer = offers.find((offer) => String(offer.id) === activeOfferGalleryId);
+  const offerPhotos = activeOffer ? getOfferPhotos(activeOffer) : [];
+  const offerPhotoIndex = Math.min(Math.max(Number(clientState.partnerModalOfferGalleryIndex || 0), 0), Math.max(offerPhotos.length - 1, 0));
   const cityAddress = [partner.city_name || partner.city, partner.address].filter(Boolean).join(' · ');
   const category = partner.category_title || partner.category_name || formatClientCategory(partner.category_slug);
   const contacts = [
@@ -2753,6 +2780,15 @@ const renderClientPartnerModal = () => {
             <div class="admin-section-heading"><h4>Предложения</h4><p>Выберите услугу и получите клубную привилегию.</p></div>
             ${offers.length ? offers.map((offer) => renderClientPartnerModalOffer(partnerId, offer)).join('') : '<div class="client-partner-modal__empty">Пока нет активных предложений</div>'}
           </section>
+          ${activeOffer && offerPhotos.length ? `
+            <section class="client-partner-modal__offers client-partner-modal__offer-gallery" aria-label="Галерея работ услуги">
+              <div class="admin-section-heading"><h4>Работы: ${escapeHtml(activeOffer.title || 'Услуга')}</h4></div>
+              <div class="client-partner-modal__main-image">
+                <img class="client-partner-modal__image" src="${escapeHtml(offerPhotos[offerPhotoIndex].url)}" alt="${escapeHtml(offerPhotos[offerPhotoIndex].alt_text)}" loading="lazy" />
+                <span class="client-partner-modal__counter">${offerPhotoIndex + 1} / ${offerPhotos.length}</span>
+                ${offerPhotos.length > 1 ? `<button class="client-partner-modal__nav client-partner-modal__nav--prev" type="button" data-offer-gallery-action="prev" aria-label="Предыдущее фото">‹</button><button class="client-partner-modal__nav client-partner-modal__nav--next" type="button" data-offer-gallery-action="next" aria-label="Следующее фото">›</button>` : ''}
+              </div>
+            </section>` : ''}
         </div>
       </section>
     </div>
@@ -4526,6 +4562,7 @@ const createClientVerification = async (partnerId, offerId = null) => {
       source: 'web',
     });
     setClientPanelMessage('Привилегия активирована. Покажите код партнёру.', 'success');
+    resetClientPartnerModalState();
   } catch (error) {
     setClientPanelMessage(formatPrivilegeErrorMessage(error.message), 'error');
   }
@@ -5222,6 +5259,30 @@ root.addEventListener('click', async (event) => {
         }
         renderClientLayout();
       }
+      return;
+    }
+
+    const offerGalleryButton = event.target.closest('[data-client-offer-gallery-open]');
+    if (offerGalleryButton) {
+      event.preventDefault();
+      event.stopPropagation();
+      clientState.partnerModalOfferGalleryId = offerGalleryButton.dataset.clientOfferGalleryOpen;
+      clientState.partnerModalOfferGalleryIndex = 0;
+      renderClientLayout();
+      return;
+    }
+    const offerGalleryNavButton = event.target.closest('[data-offer-gallery-action]');
+    if (offerGalleryNavButton) {
+      event.preventDefault();
+      event.stopPropagation();
+      const offers = Array.isArray(clientState.selectedPartnerModalOffers) ? clientState.selectedPartnerModalOffers : [];
+      const activeOffer = offers.find((offer) => String(offer.id) === String(clientState.partnerModalOfferGalleryId || ''));
+      const photos = getOfferPhotos(activeOffer || {});
+      if (photos.length > 1) {
+        if (offerGalleryNavButton.dataset.offerGalleryAction === 'prev') clientState.partnerModalOfferGalleryIndex = (clientState.partnerModalOfferGalleryIndex - 1 + photos.length) % photos.length;
+        if (offerGalleryNavButton.dataset.offerGalleryAction === 'next') clientState.partnerModalOfferGalleryIndex = (clientState.partnerModalOfferGalleryIndex + 1) % photos.length;
+      }
+      renderClientLayout();
       return;
     }
   }
