@@ -874,26 +874,27 @@ const renderOfferMarketplaceCard = (offer = {}, options = {}) => {
   const ctaText = options.cta || 'Получить привилегию';
   const note = options.note || 'Preview для клиента';
   const actionHtml = options.actionHtml || `<button type="button" disabled>${escapeHtml(ctaText)}</button>`;
+  const isPartnerCabinetCard = options.layout === 'partner-cabinet';
 
   return `
-    <article class="offer-marketplace-card ${options.compact ? 'offer-marketplace-card--compact' : ''}">
+    <article class="offer-marketplace-card ${options.compact ? 'offer-marketplace-card--compact' : ''} ${isPartnerCabinetCard ? 'partner-offer-card' : ''}">
       ${imageUrl
-        ? `<div class="offer-marketplace-image partner-media" role="img" aria-label="${escapeHtml(title)}"><div class="partner-media__bg" style="background-image: url('${escapeHtml(imageUrl)}')"></div><img class="partner-media__img" src="${escapeHtml(imageUrl)}" alt="${escapeHtml(title)}" loading="lazy"></div>`
-        : '<div class="offer-marketplace-image offer-card-placeholder partner-media partner-media--placeholder" aria-label="Фото услуги"><span>Фото услуги</span></div>'}
-      <div class="offer-marketplace-body">
-        <div class="offer-marketplace-heading">
+        ? `<div class="offer-marketplace-image partner-media ${isPartnerCabinetCard ? 'partner-offer-card__media' : ''}" role="img" aria-label="${escapeHtml(title)}"><div class="partner-media__bg" style="background-image: url('${escapeHtml(imageUrl)}')"></div><img class="partner-media__img" src="${escapeHtml(imageUrl)}" alt="${escapeHtml(title)}" loading="lazy"></div>`
+        : `<div class="offer-marketplace-image offer-card-placeholder partner-media partner-media--placeholder ${isPartnerCabinetCard ? 'partner-offer-card__media' : ''}" aria-label="Фото услуги"><span>Фото услуги</span></div>`}
+      <div class="offer-marketplace-body ${isPartnerCabinetCard ? 'partner-offer-card__body' : ''}">
+        <div class="offer-marketplace-heading ${isPartnerCabinetCard ? 'partner-offer-card__header' : ''}">
           <span class="offer-marketplace-benefit">${escapeHtml(benefit)}</span>
           ${offer.is_active === undefined ? '' : renderActiveStatusBadge(offer.is_active)}
         </div>
         <h4 class="card-title">${escapeHtml(title)}</h4>
-        <p class="card-description compact-copy">${escapeHtml(description)}</p>
-        <dl class="offer-marketplace-meta">
+        <p class="card-description compact-copy ${isPartnerCabinetCard ? 'partner-offer-card__description' : ''}">${escapeHtml(description)}</p>
+        <dl class="offer-marketplace-meta ${isPartnerCabinetCard ? 'partner-offer-card__details' : ''}">
           <div><dt>Условия</dt><dd>${escapeHtml(conditions)}</dd></div>
           <div><dt>Базовая цена</dt><dd>${escapeHtml(basePrice)}</dd></div>
           <div><dt>Скидка</dt><dd>${escapeHtml(formatDiscountPercent(offer.discount_percent) || 'Индивидуально')}</dd></div>
         </dl>
-        <div class="offer-marketplace-preview offer-marketplace-preview__actions">
-          <span class="helper-text">${escapeHtml(note)}</span>
+        <div class="offer-marketplace-preview offer-marketplace-preview__actions ${isPartnerCabinetCard ? 'partner-offer-card__actions' : ''}">
+          <span class="helper-text ${isPartnerCabinetCard ? 'partner-offer-card__note' : ''}">${escapeHtml(note)}</span>
           ${actionHtml}
         </div>
       </div>
@@ -3088,6 +3089,7 @@ const renderPartnerOffersTab = () => `
   ${partnerState.offers.length ? `
     <div class="offer-card-grid">
       ${partnerState.offers.map((offer) => renderOfferMarketplaceCard(offer, {
+        layout: 'partner-cabinet',
         note: offer.is_active ? 'Preview для клиента' : 'Ожидает активации.',
         actionHtml: `${renderPartnerOfferAction(offer)}<button type="button" disabled>Получить привилегию</button>`,
       })).join('')}
