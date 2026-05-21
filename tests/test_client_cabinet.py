@@ -14,6 +14,7 @@ from app.core.security import hash_password
 from app.db.base import Base
 from app.db.session import get_db
 from app.main import app
+from app.models.category import Category
 from app.models.city import City
 from app.models.client import ClientProfile
 from app.models.partner import Partner, PartnerOffer, PartnerPhoto
@@ -76,6 +77,12 @@ def client_cabinet_client() -> Generator[TestClient, None, None]:
         inactive_city = City(name="Казань", slug="kazan", is_active=False, sort_order=30)
         session.add_all([moscow, spb, inactive_city])
         session.flush()
+        session.add_all(
+            [
+                Category(name="Beauty Active", slug="beauty", is_active=True, sort_order=10),
+                Category(name="Fitness Inactive", slug="fitness", is_active=False, sort_order=20),
+            ]
+        )
 
         session.add(
             ClientProfile(
@@ -606,6 +613,30 @@ def test_client_catalog_partners_filters_by_category_slug(client_cabinet_client:
     assert [partner["name"] for partner in response.json()] == ["Alpha Beauty"]
 
 
+def test_client_catalog_partners_returns_category_fields_for_active_and_inactive_categories(
+    client_cabinet_client: TestClient,
+) -> None:
+    token = _client_token(client_cabinet_client)
+
+    response = client_cabinet_client.get("/api/v1/clients/catalog/partners", headers=_auth_headers(token))
+
+    assert response.status_code == 200
+    data = {partner["name"]: partner for partner in response.json()}
+    assert data["Alpha Beauty"]["category_id"] is not None
+    assert data["Alpha Beauty"]["category_name"] == "Beauty Active"
+    assert data["Alpha Beauty"]["category_slug"] == "beauty"
+    assert data["Alpha Beauty"]["category"] == {
+        "id": data["Alpha Beauty"]["category_id"],
+        "name": "Beauty Active",
+        "slug": "beauty",
+    }
+    assert data["Beta Yoga"]["category_id"] is None
+    assert data["Beta Yoga"]["category_name"] is None
+    assert data["Beta Yoga"]["category_slug"] == "fitness"
+    assert data["Beta Yoga"]["category"] is None
+    assert data["Alpha Beauty"]["photo_url"] == "/uploads/partners/1/photos/photo-first.webp"
+
+
 def test_client_catalog_partners_q_search_works(client_cabinet_client: TestClient) -> None:
     token = _client_token(client_cabinet_client)
 
@@ -628,6 +659,13 @@ def test_client_partner_detail_returns_active_partner_with_city_name(client_cabi
     assert data["id"] == 1
     assert data["name"] == "Alpha Beauty"
     assert data["city_name"] == "Москва"
+    assert data["category_name"] == "Beauty Active"
+    assert data["category_slug"] == "beauty"
+    assert data["category"] == {
+        "id": data["category_id"],
+        "name": "Beauty Active",
+        "slug": "beauty",
+    }
     assert data["is_verified"] is True
     assert data["photo_url"] == "/uploads/partners/1/photos/photo-first.webp"
     assert [photo["url"] for photo in data["photos"]] == [

@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session, selectinload
 from app.api.deps import require_client
 from app.db.session import get_db
 from app.models.city import City
+from app.models.category import Category
 from app.models.client import ClientProfile, VkLinkCode, VkLinkCodeStatus
 from app.models.partner import Partner, PartnerOffer, PartnerPhoto
 from app.models.payment import PaymentReceipt, PaymentRequest, PaymentRequestStatus, Subscription, SubscriptionStatus
@@ -22,6 +23,7 @@ from app.schemas.client import (
     ClientCityResponse,
     ClientCreateVerificationRequest,
     ClientPartnerCatalogItem,
+    ClientPartnerCategoryRead,
     ClientPartnerOfferRead,
     ClientPartnerPhotoRead,
     ClientProfileRead,
@@ -328,8 +330,18 @@ def list_client_catalog_partners(
     normalized_query = _normalize_optional_text(q)
 
     statement = (
-        select(Partner, City.name.label("city_name"))
+        select(
+            Partner,
+            City.name.label("city_name"),
+            Category.id.label("category_id"),
+            Category.name.label("category_name"),
+            Category.slug.label("category_slug"),
+        )
         .join(City, Partner.city_id == City.id)
+        .outerjoin(
+            Category,
+            (Category.slug == Partner.category_slug) & Category.is_active.is_(True),
+        )
         .where(Partner.is_active.is_(True))
         .order_by(Partner.sort_order.asc(), Partner.id.asc())
     )
@@ -342,11 +354,18 @@ def list_client_catalog_partners(
         statement = statement.where(Partner.name.ilike(search))
 
     rows = db.execute(statement).all()
-    partner_ids = [partner.id for partner, _city_name in rows]
+    partner_ids = [partner.id for partner, _city_name, _category_id, _category_name, _category_slug in rows]
     photos_by_partner = _active_photos_by_partner(db, partner_ids)
     return [
-        _partner_to_catalog_item(partner, city_name, photos_by_partner.get(partner.id, []))
-        for partner, city_name in rows
+        _partner_to_catalog_item(
+            partner,
+            city_name,
+            category_id,
+            category_name,
+            category_slug,
+            photos_by_partner.get(partner.id, []),
+        )
+        for partner, city_name, category_id, category_name, category_slug in rows
     ]
 
 
@@ -358,7 +377,7 @@ def create_client_partner_verification(
     db: Session = Depends(get_db),
 ) -> ClientVerificationRead:
     profile = _get_or_create_client_profile(db, current_user.id)
-    partner, _city_name = _get_active_partner_row_or_404(db, partner_id)
+    partner, _city_name, _category_id, _category_name, _category_slug = _get_active_partner_row_or_404(db, partner_id)
     request_payload = payload or ClientCreateVerificationRequest()
     offer = _resolve_partner_offer_for_verification(db, partner.id, request_payload.offer_id)
 
@@ -428,8 +447,15 @@ def read_client_partner(
     db: Session = Depends(get_db),
 ) -> ClientPartnerCatalogItem:
     del current_user
-    partner, city_name = _get_active_partner_row_or_404(db, partner_id)
-    return _partner_to_catalog_item(partner, city_name, _active_photos_by_partner(db, [partner.id]).get(partner.id, []))
+    partner, city_name, category_id, category_name, category_slug = _get_active_partner_row_or_404(db, partner_id)
+    return _partner_to_catalog_item(
+        partner,
+        city_name,
+        category_id,
+        category_name,
+        category_slug,
+        _active_photos_by_partner(db, [partner.id]).get(partner.id, []),
+    )
 
 
 @router.get("/partners/{partner_id}/offers", response_model=list[ClientPartnerOfferRead])
@@ -605,16 +631,29 @@ def _resolve_catalog_city_id(
     return profile.selected_city_id
 
 
-def _get_active_partner_row_or_404(db: Session, partner_id: int) -> tuple[Partner, str | None]:
+def _get_active_partner_row_or_404(
+    db: Session,
+    partner_id: int,
+) -> tuple[Partner, str | None, int | None, str | None, str | None]:
     row = db.execute(
-        select(Partner, City.name.label("city_name"))
+        select(
+            Partner,
+            City.name.label("city_name"),
+            Category.id.label("category_id"),
+            Category.name.label("category_name"),
+            Category.slug.label("category_slug"),
+        )
         .join(City, Partner.city_id == City.id)
+        .outerjoin(
+            Category,
+            (Category.slug == Partner.category_slug) & Category.is_active.is_(True),
+        )
         .where(Partner.id == partner_id, Partner.is_active.is_(True))
     ).one_or_none()
     if row is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=PARTNER_NOT_FOUND_DETAIL)
-    partner, city_name = row
-    return partner, city_name
+    partner, city_name, category_id, category_name, category_slug = row
+    return partner, city_name, category_id, category_name, category_slug
 
 
 def _get_active_partner_offer_or_404(db: Session, partner_id: int, offer_id: int) -> PartnerOffer:
@@ -701,6 +740,9 @@ def _active_photos_by_partner(db: Session, partner_ids: list[int]) -> dict[int, 
 def _partner_to_catalog_item(
     partner: Partner,
     city_name: str | None,
+    category_id: int | None,
+    category_name: str | None,
+    category_slug: str | None,
     photos: list[ClientPartnerPhotoRead] | None = None,
 ) -> ClientPartnerCatalogItem:
     photo_url = photos[0].url if photos else None
@@ -709,7 +751,14 @@ def _partner_to_catalog_item(
             "id": partner.id,
             "city_id": partner.city_id,
             "city_name": city_name,
+            "category_id": category_id,
+            "category_name": category_name,
             "category_slug": partner.category_slug,
+            "category": (
+                ClientPartnerCategoryRead(id=category_id, name=category_name, slug=category_slug)
+                if category_id is not None and category_name is not None and category_slug is not None
+                else None
+            ),
             "name": partner.name,
             "description": partner.description,
             "address": partner.address,
