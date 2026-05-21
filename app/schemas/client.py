@@ -85,6 +85,7 @@ class ClientPartnerCatalogItem(BaseModel):
     working_hours: str | None
     logo_url: str | None
     cover_url: str | None
+    photo_url: str | None = None
     is_verified: bool
     photos: list[ClientPartnerPhotoRead] = Field(default_factory=list)
 

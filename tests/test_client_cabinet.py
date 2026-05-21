@@ -529,11 +529,12 @@ def test_client_catalog_partners_returns_active_photos_only_sorted_without_admin
     assert len(data) == 1
     partner = data[0]
     assert [photo["url"] for photo in partner["photos"]] == [
-        "/uploads/partners/1/photos/photo-first-created.webp",
         "/uploads/partners/1/photos/photo-first.webp",
+        "/uploads/partners/1/photos/photo-first-created.webp",
         "/uploads/partners/1/photos/photo-second.webp",
     ]
     assert "/uploads/partners/1/photos/photo-hidden.webp" not in [photo["url"] for photo in partner["photos"]]
+    assert partner["photo_url"] == "/uploads/partners/1/photos/photo-first.webp"
     assert all("is_active" not in photo for photo in partner["photos"])
     assert all("partner_id" not in photo for photo in partner["photos"])
     assert "owner_user_id" not in partner
@@ -628,9 +629,10 @@ def test_client_partner_detail_returns_active_partner_with_city_name(client_cabi
     assert data["name"] == "Alpha Beauty"
     assert data["city_name"] == "Москва"
     assert data["is_verified"] is True
+    assert data["photo_url"] == "/uploads/partners/1/photos/photo-first.webp"
     assert [photo["url"] for photo in data["photos"]] == [
-        "/uploads/partners/1/photos/photo-first-created.webp",
         "/uploads/partners/1/photos/photo-first.webp",
+        "/uploads/partners/1/photos/photo-first-created.webp",
         "/uploads/partners/1/photos/photo-second.webp",
     ]
     assert all("is_active" not in photo for photo in data["photos"])
@@ -639,6 +641,29 @@ def test_client_partner_detail_returns_active_partner_with_city_name(client_cabi
     assert "owner_user_id" not in data
 
 
+
+
+def test_client_partner_detail_without_photos_returns_null_photo_url(
+    client_cabinet_client: TestClient,
+    admin_token: str,
+) -> None:
+    token = _client_token(client_cabinet_client)
+
+    create_response = client_cabinet_client.post(
+        "/api/v1/admin/partners",
+        headers=_auth_headers(admin_token),
+        json={"city_id": 1, "name": "No Photo Partner", "is_active": True},
+    )
+    assert create_response.status_code == 200
+    partner_id = create_response.json()["id"]
+
+    response = client_cabinet_client.get(f"/api/v1/clients/partners/{partner_id}", headers=_auth_headers(token))
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["name"] == "No Photo Partner"
+    assert data["photo_url"] is None
+    assert data["photos"] == []
 def test_client_partner_detail_missing_or_inactive_partner_returns_404(client_cabinet_client: TestClient) -> None:
     token = _client_token(client_cabinet_client)
 
