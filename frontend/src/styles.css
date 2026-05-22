@@ -6736,3 +6736,21 @@ body.client-partner-modal-open {
     grid-template-columns: 1fr;
   }
 }
+.partner-multicategory {
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  padding: 10px;
+}
+.partner-category-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+}
+.category-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: rgba(246, 216, 210, 0.6);
+  font-size: 12px;
+}

@@ -1032,10 +1032,18 @@ const getClientCityOptions = () => {
 };
 
 const getClientCategoryOptions = () => {
-  const stateCategories = Array.isArray(adminState.categories) && adminState.categories.length
-    ? adminState.categories.filter((category) => category.is_active !== false)
-    : [];
-  return stateCategories.length ? stateCategories : fallbackClientCategories;
+  const fromPartners = new Map();
+  (Array.isArray(clientState.partners) ? clientState.partners : []).forEach((partner) => {
+    getPartnerCategories(partner).forEach((category) => {
+      const key = category.slug || category.name.toLowerCase();
+      if (!key) return;
+      if (!fromPartners.has(key)) fromPartners.set(key, { slug: category.slug || '', title: category.name, name: category.name, sort_order: Number.MAX_SAFE_INTEGER });
+    });
+  });
+  const stateCategories = Array.isArray(adminState.categories) && adminState.categories.length ? adminState.categories.filter((category) => category.is_active !== false) : [];
+  const base = stateCategories.length ? stateCategories : fallbackClientCategories;
+  base.forEach((category) => fromPartners.set(category.slug || category.name.toLowerCase(), { ...category, title: category.title || category.name }));
+  return Array.from(fromPartners.values()).sort((a, b) => Number(a.sort_order ?? Number.MAX_SAFE_INTEGER) - Number(b.sort_order ?? Number.MAX_SAFE_INTEGER) || String(a.name || a.title || '').localeCompare(String(b.name || b.title || ''), 'ru') || String(a.slug || '').localeCompare(String(b.slug || '')));
 };
 
 const formatClientCategory = (slug) => {
@@ -1043,7 +1051,42 @@ const formatClientCategory = (slug) => {
   return category?.title || slug || '—';
 };
 
-const formatPartnerCategory = (partner) => partner.category_title || partner.category_name || partner.category || partner.category_slug || '—';
+const normalizeCategoryName = (value) => String(value || '').trim();
+
+const getPartnerCategories = (partner = {}) => {
+  const result = [];
+  const seen = new Set();
+  const addCategory = (item = {}) => {
+    const name = normalizeCategoryName(item.name || item.title || item.slug);
+    const slug = normalizeCategoryName(item.slug);
+    const id = Number.isFinite(Number(item.id)) ? Number(item.id) : undefined;
+    if (!name) return;
+    if (name === '[object Object]' || slug === '[object Object]') return;
+    const key = `${slug.toLowerCase()}::${name.toLowerCase()}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    result.push({ ...(id ? { id } : {}), name, ...(slug ? { slug } : {}) });
+  };
+  const categories = Array.isArray(partner.categories) ? partner.categories : [];
+  categories.forEach((category) => {
+    if (!category) return;
+    if (typeof category === 'string') {
+      addCategory({ name: category });
+      return;
+    }
+    if (typeof category === 'object') addCategory(category);
+  });
+  if (!result.length && Array.isArray(partner.category_slugs)) {
+    partner.category_slugs.forEach((slug) => addCategory({ slug, name: formatClientCategory(slug) }));
+  }
+  if (!result.length) {
+    [partner.category, partner.category_name, partner.category_slug, partner.type, partner.service_category]
+      .forEach((fallback) => addCategory(typeof fallback === 'string' ? { name: fallback, slug: fallback } : {}));
+  }
+  return result;
+};
+
+const formatPartnerCategory = (partner) => getPartnerCategories(partner).map((item) => item.name).join(', ') || '—';
 
 const renderEmptyState = (title, text, icon = '♡') => `
   <article class="client-empty-state ui-empty-state">
@@ -1687,7 +1730,7 @@ const renderPartnerMarketplaceCard = (partner = {}, options = {}) => {
           <div class="partner-marketplace-logo ${logoUrl ? '' : 'partner-marketplace-logo--placeholder'}" ${logoUrl ? `style="background-image: url('${escapeHtml(logoUrl)}')"` : ''} aria-hidden="true">${logoUrl ? '' : '♡'}</div>
           <div>
             <h3>${escapeHtml(partner.name || 'Название партнёра')}</h3>
-            <p class="partner-marketplace-category">${escapeHtml(formatPartnerCategory(partner))}</p>
+            <div class="partner-marketplace-category">${categories.length ? categories.map((category) => `<span class="category-chip">${escapeHtml(category.name)}</span>`).join('') : '<span class="category-chip">—</span>'}</div>
             <div class="partner-marketplace-badges">
               ${partner.is_verified === undefined ? '' : renderVerifiedStatusBadge(partner.is_verified)}
             </div>
@@ -2762,7 +2805,7 @@ const renderClientPartnerCard = (partner) => {
   const partnerId = partner.id;
   const cityAddress = [partner.city_name || partner.city, partner.address].filter(Boolean).join(' · ');
   const { coverUrl, logoUrl } = getClientPartnerVisuals(partner);
-  const category = partner.category_title || partner.category_name || formatClientCategory(partner.category_slug);
+  const categories = getPartnerCategories(partner);
   return `
     <article class="client-partner-card" data-partner-id="${escapeHtml(partnerId)}">
       <div class="client-partner-card__cover ${coverUrl ? '' : 'client-partner-card__cover--placeholder'}" ${coverUrl ? `style="background-image: url('${escapeHtml(coverUrl)}')" role="img" aria-label="${escapeHtml(partner.name || 'Партнёр')}"` : 'aria-hidden="true"'}>${coverUrl ? '' : '<span>Фото партнёра</span>'}</div>
@@ -2771,7 +2814,7 @@ const renderClientPartnerCard = (partner) => {
         <div class="client-card-topline">
           <div class="client-partner-card__avatar ${logoUrl ? '' : 'client-partner-card__avatar--placeholder'}" ${logoUrl ? `style="background-image: url('${escapeHtml(logoUrl)}')"` : ''} aria-hidden="true">${logoUrl ? '' : '♡'}</div>
           <div>
-            <span>${formatValue(category)}</span>
+            <span>${formatValue(categories.map((item) => item.name).join(' · '))}</span>
             ${partner.is_verified ? '<span class="status-badge status-badge--success">Проверенный партнёр</span>' : ''}
           </div>
         </div>
@@ -2803,7 +2846,7 @@ const renderClientPartnerDetail = (partner = {}) => {
           <div class="client-card-topline">
             ${renderClientPartnerLogo(partner)}
             <div>
-              <span>${formatValue(formatClientCategory(partner.category_slug))}</span>
+              <span>${formatValue(categories.map((item) => item.name).join(' · '))}</span>
               ${partner.is_verified ? '<span class="status-badge status-badge--success">Проверенный партнёр</span>' : ''}
             </div>
           </div>
@@ -2845,7 +2888,7 @@ const renderClientPartnerModal = () => {
   const offerPhotos = activeOffer ? getOfferPhotos(activeOffer) : [];
   const offerPhotoIndex = Math.min(Math.max(Number(clientState.partnerModalOfferGalleryIndex || 0), 0), Math.max(offerPhotos.length - 1, 0));
   const cityAddress = [partner.city_name || partner.city, partner.address].filter(Boolean).join(' · ');
-  const category = partner.category_title || partner.category_name || formatClientCategory(partner.category_slug);
+  const categories = getPartnerCategories(partner);
   const contacts = [
     ['Город и адрес', cityAddress],
     ['График работы', partner.working_hours],
@@ -2876,7 +2919,7 @@ const renderClientPartnerModal = () => {
               <div class="client-card-topline">
                 <div class="client-partner-card__avatar ${logoUrl ? '' : 'client-partner-card__avatar--placeholder'}" ${logoUrl ? `style="background-image: url('${escapeHtml(logoUrl)}')"` : ''} aria-hidden="true">${logoUrl ? '' : '♡'}</div>
                 <div>
-                  <span>${formatValue(category)}</span>
+                  <span>${formatValue(categories.map((item) => item.name).join(' · '))}</span>
                   ${partner.is_verified ? '<span class="status-badge status-badge--success">Проверенный партнёр</span>' : ''}
                 </div>
               </div>
@@ -3839,6 +3882,16 @@ const renderPartnerEditForm = () => {
     return '';
   }
 
+  const activeCategories = adminState.categories.filter((category) => category.is_active !== false);
+  const selectedCategoryIds = new Set(
+    getPartnerCategories(partner)
+      .map((item) => {
+        if (item.id) return String(item.id);
+        const match = activeCategories.find((category) => category.slug === item.slug);
+        return match ? String(match.id) : '';
+      })
+      .filter(Boolean),
+  );
   return `
     <section class="admin-partner-detail">
       <div class="admin-partner-detail-header">
@@ -3859,7 +3912,7 @@ const renderPartnerEditForm = () => {
             <form class="admin-form partner-profile-settings" data-admin-form="partnerEdit" data-partner-id="${escapeHtml(partner.id)}">
               <div class="admin-section-heading text-stack"><h4 class="section-title">Основные данные</h4><p class="section-description compact-copy">Профиль, контакты и статусы для каталога.</p></div>
               <label>Город${renderSelect('city_id', adminState.cities.map((city) => [city.id, city.name]), true, partner.city_id, null, { label: 'Город', data: { adminPartnerField: 'city' } })}</label>
-              <label>Категория${renderSelect('category_slug', adminState.categories.map((category) => [category.slug, category.title]), false, partner.category_slug, null, { label: 'Категория', data: { adminPartnerField: 'category' } })}</label>
+              <fieldset class="partner-multicategory"><legend>Категории</legend><div class="partner-category-chips">${activeCategories.map((category) => `<label class="checkbox-row"><input type="checkbox" name="category_ids" value="${escapeHtml(category.id)}" ${selectedCategoryIds.has(String(category.id)) ? 'checked' : ''}/> ${escapeHtml(category.title)}</label>`).join('')}</div></fieldset>
               <label>Владелец${renderSelect('owner_user_id', adminState.users.filter((item) => item.role === 'partner').map((item) => [item.id, item.email || item.phone || `Партнёр #${item.id}`]), false, partner.owner_user_id || '', 'Без владельца', { label: 'Владелец', data: { adminPartnerField: 'owner' } })}</label>
               <label>Название<input name="name" required value="${escapeHtml(partner.name || '')}" /></label>
               <label>Описание<textarea name="description" rows="3">${escapeHtml(partner.description || '')}</textarea></label>
@@ -3918,7 +3971,7 @@ const renderPartnerCreateForm = () => `
     <h4>Новый партнёр</h4>
     <label>Город${renderSelect('city_id', adminState.cities.map((city) => [city.id, city.name]), true, '', null, { label: 'Город', data: { adminPartnerField: 'city' } })}</label>
     <label>Владелец / аккаунт партнёра${renderSelect('owner_user_id', adminState.users.filter((item) => item.role === 'partner').map((item) => [item.id, item.email || item.phone || `Партнёр #${item.id}`]), false, '', 'Без владельца', { label: 'Владелец', data: { adminPartnerField: 'owner' } })}</label>
-    <label>Категория${renderSelect('category_slug', adminState.categories.map((category) => [category.slug, category.title]), false, '', null, { label: 'Категория', data: { adminPartnerField: 'category' } })}</label>
+    <fieldset class="partner-multicategory"><legend>Категории</legend><div class="partner-category-chips">${adminState.categories.filter((category) => category.is_active !== false).map((category) => `<label class="checkbox-row"><input type="checkbox" name="category_ids" value="${escapeHtml(category.id)}"/> ${escapeHtml(category.title)}</label>`).join('')}</div></fieldset>
     <label>Название партнёра<input name="name" required /></label>
     <label>Описание<textarea name="description" rows="3"></textarea></label>
     <label>Адрес<input name="address" /></label>
@@ -3940,7 +3993,7 @@ const renderPartnersList = (partners) => `
       partners.map((partner) => [
         formatValue(partner.name),
         formatValue(partner.city_name),
-        formatValue(partner.category_slug),
+        formatValue(formatPartnerCategory(partner)),
         formatValue(partner.owner_email),
         renderBoolStatusBadge(partner.is_active),
         renderVerifiedStatusBadge(partner.is_verified),
@@ -4932,6 +4985,7 @@ const buildPartnerPayload = (formData) => ({
   is_active: formData.has('is_active'),
   is_verified: formData.has('is_verified'),
   sort_order: Number(formData.get('sort_order') || 0),
+  category_ids: formData.getAll('category_ids').map((id) => Number(id)).filter((id) => Number.isFinite(id)),
 });
 
 const submitPartner = async (form) => {
@@ -4952,6 +5006,7 @@ const submitPartner = async (form) => {
     is_active: formData.has('is_active'),
     is_verified: formData.has('is_verified'),
     sort_order: Number(formData.get('sort_order') || 0),
+    category_ids: formData.getAll('category_ids').map((id) => Number(id)).filter((id) => Number.isFinite(id)),
   });
   form.reset();
   await loadPartners();
@@ -6632,3 +6687,5 @@ if (getPasswordSetupParams().setupToken) {
 } else {
   restoreAdminSession();
 }
+  const categories = getPartnerCategories(partner);
+  const categories = getPartnerCategories(partner);

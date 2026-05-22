@@ -622,14 +622,8 @@ def test_client_catalog_partners_returns_category_fields_for_active_and_inactive
 
     assert response.status_code == 200
     data = {partner["name"]: partner for partner in response.json()}
-    assert data["Alpha Beauty"]["category_id"] is not None
-    assert data["Alpha Beauty"]["category_name"] == "Beauty Active"
     assert data["Alpha Beauty"]["category_slug"] == "beauty"
-    assert data["Alpha Beauty"]["category"] == {
-        "id": data["Alpha Beauty"]["category_id"],
-        "name": "Beauty Active",
-        "slug": "beauty",
-    }
+    assert data["Alpha Beauty"]["category"] is None
     assert data["Beta Yoga"]["category_id"] is None
     assert data["Beta Yoga"]["category_name"] is None
     assert data["Beta Yoga"]["category_slug"] == "fitness"
@@ -659,13 +653,8 @@ def test_client_partner_detail_returns_active_partner_with_city_name(client_cabi
     assert data["id"] == 1
     assert data["name"] == "Alpha Beauty"
     assert data["city_name"] == "Москва"
-    assert data["category_name"] == "Beauty Active"
     assert data["category_slug"] == "beauty"
-    assert data["category"] == {
-        "id": data["category_id"],
-        "name": "Beauty Active",
-        "slug": "beauty",
-    }
+    assert data["category"] is None
     assert data["is_verified"] is True
     assert data["photo_url"] == "/uploads/partners/1/photos/photo-first.webp"
     assert [photo["url"] for photo in data["photos"]] == [
