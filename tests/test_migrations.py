@@ -31,7 +31,7 @@ from app.models import (
 )
 
 
-def _literal_assignment(module: ast.Module, name: str) -> str | None:
+def _literal_assignment(module: ast.Module, name: str) -> str | tuple[str, ...] | None:
     for node in module.body:
         if isinstance(node, ast.Assign):
             for target in node.targets:
@@ -42,7 +42,7 @@ def _literal_assignment(module: ast.Module, name: str) -> str | None:
 
 
 def test_migration_files_have_single_head_revision() -> None:
-    revisions: dict[str, str | None] = {}
+    revisions: dict[str, str | tuple[str, ...] | None] = {}
     for path in Path("alembic/versions").glob("*.py"):
         module = ast.parse(path.read_text())
         revision = _literal_assignment(module, "revision")
@@ -50,10 +50,17 @@ def test_migration_files_have_single_head_revision() -> None:
         assert revision is not None
         revisions[revision] = down_revision
 
-    referenced_revisions = {down_revision for down_revision in revisions.values() if down_revision}
+    referenced_revisions: set[str] = set()
+    for down_revision in revisions.values():
+        if down_revision is None:
+            continue
+        if isinstance(down_revision, tuple):
+            referenced_revisions.update(down_revision)
+        else:
+            referenced_revisions.add(down_revision)
     heads = sorted(set(revisions) - referenced_revisions)
 
-    assert heads == ["20260521_0012", "20260522_0012"]
+    assert heads == ["20260522_0013_merge_heads"]
 
 
 def test_base_metadata_includes_domain_foundation_tables() -> None:
