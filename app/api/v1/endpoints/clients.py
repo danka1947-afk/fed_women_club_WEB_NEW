@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, time, timedelta, timezone
 from decimal import Decimal
 import secrets
 import string
@@ -28,6 +28,9 @@ from app.schemas.client import (
     ClientPartnerPhotoRead,
     ClientProfileRead,
     ClientProfileUpdate,
+    ClientSavingsItemRead,
+    ClientSavingsPeriodRead,
+    ClientSavingsRead,
     ClientVerificationRead,
     SubscriptionRead,
 )
@@ -446,6 +449,51 @@ def list_client_verifications(
     ]
 
 
+@router.get("/me/savings", response_model=ClientSavingsRead)
+def read_client_savings(
+    from_date: date | None = None,
+    to_date: date | None = None,
+    current_user: User = Depends(require_client),
+    db: Session = Depends(get_db),
+) -> ClientSavingsRead:
+    profile = _get_or_create_client_profile(db, current_user.id)
+    statement = (
+        select(PrivilegeVerificationSession, Partner.name.label("partner_name"), PartnerOffer.title.label("offer_title"))
+        .join(Partner, PrivilegeVerificationSession.partner_id == Partner.id)
+        .outerjoin(PartnerOffer, PrivilegeVerificationSession.offer_id == PartnerOffer.id)
+        .where(
+            PrivilegeVerificationSession.client_id == profile.id,
+            PrivilegeVerificationSession.status == PrivilegeVerificationStatus.confirmed.value,
+        )
+    )
+    if from_date is not None:
+        statement = statement.where(PrivilegeVerificationSession.confirmed_at >= datetime.combine(from_date, time.min, tzinfo=timezone.utc))
+    if to_date is not None:
+        statement = statement.where(PrivilegeVerificationSession.confirmed_at <= datetime.combine(to_date, time.max, tzinfo=timezone.utc))
+    statement = statement.order_by(PrivilegeVerificationSession.confirmed_at.desc(), PrivilegeVerificationSession.id.desc())
+    items: list[ClientSavingsItemRead] = []
+    total = Decimal("0.00")
+    for session, partner_name, offer_title in db.execute(statement).all():
+        base_price = session.saving_base_price
+        final_price = session.saving_final_price
+        discount_percent = session.saving_discount_percent
+        saving_amount = session.saving_amount
+        used_at = session.saving_used_at or session.confirmed_at
+        if saving_amount is None:
+            base_price, final_price, discount_percent, saving_amount = _compute_saving_from_offer(session.offer)
+        total += saving_amount
+        items.append(ClientSavingsItemRead(
+            id=session.id, used_at=used_at, partner_id=session.partner_id, partner_name=session.saving_partner_name or partner_name,
+            offer_id=session.offer_id, offer_title=session.saving_offer_title or offer_title, base_price=base_price,
+            final_price=final_price, discount_percent=discount_percent, saving_amount=saving_amount,
+        ))
+    return ClientSavingsRead(
+        total_saving_amount=total,
+        period=ClientSavingsPeriodRead(from_date=from_date.isoformat() if from_date else None, to_date=to_date.isoformat() if to_date else None),
+        items=items,
+    )
+
+
 @router.get("/partners/{partner_id}", response_model=ClientPartnerCatalogItem)
 def read_client_partner(
     partner_id: int,
@@ -522,6 +570,20 @@ def _get_or_create_client_profile(db: Session, user_id: int) -> ClientProfile:
     db.commit()
     db.refresh(profile)
     return profile
+
+
+def _compute_saving_from_offer(offer: PartnerOffer | None) -> tuple[Decimal | None, Decimal | None, Decimal | None, Decimal]:
+    if offer is None or offer.base_price is None:
+        return None, None, offer.discount_percent if offer is not None else None, Decimal("0.00")
+    base_price = offer.base_price
+    discount_percent = offer.discount_percent
+    final_price: Decimal | None = None
+    if discount_percent is not None:
+        final_price = (base_price * (Decimal("1.00") - (discount_percent / Decimal("100.00")))).quantize(Decimal("0.01"))
+    if final_price is None:
+        return base_price, None, discount_percent, Decimal("0.00")
+    saving_amount = max((base_price - final_price).quantize(Decimal("0.01")), Decimal("0.00"))
+    return base_price, final_price, discount_percent, saving_amount
 
 
 def _client_profile_to_read(db: Session, profile: ClientProfile, user: User) -> ClientProfileRead:

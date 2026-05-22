@@ -472,6 +472,7 @@ const partnerState = {
 };
 
 const clientTabs = [
+  { id: 'savings', label: 'Моя экономия', icon: '₽' },
   { id: 'profile', label: 'Профиль', icon: '♡' },
   { id: 'catalog', label: 'Каталог', icon: '✦' },
   { id: 'subscription', label: 'Моя подписка', icon: '₽' },
@@ -503,6 +504,9 @@ const clientState = {
   vkLinkMessage: '',
   verifications: [],
   activityItems: [],
+  savings: null,
+  savingsLoading: false,
+  savingsError: '',
   activityLoading: false,
   activityError: '',
   catalogFilters: {
@@ -2066,6 +2070,18 @@ const loadClientActivity = async () => {
     clientState.activityLoading = false;
   }
 };
+const loadClientSavings = async () => {
+  clientState.savingsLoading = true;
+  clientState.savingsError = '';
+  try {
+    clientState.savings = await clientApiFetch('/api/v1/clients/me/savings');
+  } catch (error) {
+    if (!getClientToken()) throw error;
+    clientState.savingsError = error.message || 'Не удалось загрузить экономию.';
+  } finally {
+    clientState.savingsLoading = false;
+  }
+};
 
 const buildClientCatalogPath = () => {
   const params = new URLSearchParams();
@@ -2413,6 +2429,9 @@ const renderClientTabHeader = (title, description) => `
 `;
 
 const renderClientTabContent = () => {
+  if (clientState.activeTab === 'savings') {
+    return renderClientSavingsTab();
+  }
   if (clientState.activeTab === 'catalog') {
     return renderClientCatalogTab();
   }
@@ -2426,6 +2445,30 @@ const renderClientTabContent = () => {
     return renderClientActivityTab();
   }
   return renderClientProfileTab();
+};
+
+const renderClientSavingsTab = () => {
+  if (clientState.savingsLoading) {
+    return `${renderClientTabHeader('Моя экономия', 'По использованным привилегиям.')}<div class="activity-empty" role="status">Загружаем экономию…</div>`;
+  }
+  if (clientState.savingsError) {
+    return `${renderClientTabHeader('Моя экономия', 'По использованным привилегиям.')}<div class="activity-empty activity-empty--error" role="alert">${escapeHtml(clientState.savingsError)}</div>`;
+  }
+  const data = clientState.savings || { total_saving_amount: 0, items: [] };
+  return `
+    ${renderClientTabHeader('Моя экономия', 'По использованным привилегиям.')}
+    <article class="summary-card"><span>Вы сэкономили</span><strong>${formatPrice(data.total_saving_amount)}</strong><small>По использованным привилегиям</small></article>
+    ${Array.isArray(data.items) && data.items.length ? data.items.map((item) => `
+      <article class="client-privilege-card">
+        <h4>${formatValue(item.partner_name)}</h4>
+        <p>${formatValue(item.offer_title)}</p>
+        <p>${formatValue(formatDate(item.used_at))}</p>
+        <p>Цена без скидки: ${formatPrice(item.base_price)}</p>
+        <p>Цена для участницы: ${formatPrice(item.final_price)}</p>
+        <p>Скидка: ${formatPrice(item.saving_amount)}</p>
+      </article>
+    `).join('') : '<div class="activity-empty" role="status"><strong>Пока нет использованных привилегий.</strong><p>Получайте коды у партнёров — экономия появится здесь после использования.</p></div>'}
+  `;
 };
 
 const renderClientProfileTab = () => {
@@ -4495,6 +4538,8 @@ const loadActiveClientTabData = async () => {
       clientState.activityError = '';
       renderClientLayout();
       await loadClientActivity();
+    } else if (clientState.activeTab === 'savings') {
+      await loadClientSavings();
     }
   } catch (error) {
     if (!getClientToken()) {

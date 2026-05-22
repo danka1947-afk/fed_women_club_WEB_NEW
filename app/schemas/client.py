@@ -145,3 +145,28 @@ class ClientOfferPhotoRead(BaseModel):
     url: str
     alt_text: str | None
     sort_order: int
+
+
+class ClientSavingsItemRead(BaseModel):
+    id: int
+    used_at: datetime | None
+    partner_id: int
+    partner_name: str | None
+    offer_id: int | None
+    offer_title: str | None
+    base_price: Decimal | None
+    final_price: Decimal | None
+    discount_percent: Decimal | None
+    saving_amount: Decimal
+
+
+class ClientSavingsPeriodRead(BaseModel):
+    from_date: str | None
+    to_date: str | None
+
+
+class ClientSavingsRead(BaseModel):
+    total_saving_amount: Decimal
+    currency: str = "RUB"
+    period: ClientSavingsPeriodRead
+    items: list[ClientSavingsItemRead]
