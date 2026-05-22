@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from decimal import Decimal
+from decimal import Decimal
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from sqlalchemy import func, select
@@ -331,6 +332,15 @@ def confirm_partner_verification(
 
     verification.status = PrivilegeVerificationStatus.confirmed.value
     verification.confirmed_at = now
+    if verification.saving_amount is None:
+        base_price, final_price, discount_percent, saving_amount = _compute_saving_from_offer(verification.offer)
+        verification.saving_base_price = base_price
+        verification.saving_final_price = final_price
+        verification.saving_discount_percent = discount_percent
+        verification.saving_amount = saving_amount
+        verification.saving_partner_name = verification.partner.name if verification.partner is not None else None
+        verification.saving_offer_title = verification.offer.title if verification.offer is not None else None
+        verification.saving_used_at = now
     db.commit()
     db.refresh(verification)
     return ConfirmVerificationResponse.model_validate(
@@ -618,6 +628,20 @@ def _strip_offer_title(value: str | None) -> str:
             detail="Offer title must not be empty",
         )
     return normalized
+
+
+def _compute_saving_from_offer(offer: PartnerOffer | None) -> tuple[Decimal | None, Decimal | None, Decimal | None, Decimal]:
+    if offer is None or offer.base_price is None:
+        return None, None, offer.discount_percent if offer is not None else None, Decimal("0.00")
+    base_price = offer.base_price
+    discount_percent = offer.discount_percent
+    final_price: Decimal | None = None
+    if discount_percent is not None:
+        final_price = (base_price * (Decimal("1.00") - (discount_percent / Decimal("100.00")))).quantize(Decimal("0.01"))
+    if final_price is None:
+        return base_price, None, discount_percent, Decimal("0.00")
+    saving_amount = max((base_price - final_price).quantize(Decimal("0.01")), Decimal("0.00"))
+    return base_price, final_price, discount_percent, saving_amount
 
 
 def _normalize_optional_text(value: str | None) -> str | None:

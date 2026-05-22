@@ -3,7 +3,9 @@ from __future__ import annotations
 from datetime import datetime
 from enum import Enum
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, func
+from decimal import Decimal
+
+from sqlalchemy import DateTime, ForeignKey, Integer, Numeric, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -28,6 +30,13 @@ class PrivilegeVerificationSession(Base):
     source: Mapped[str | None] = mapped_column(String(64), nullable=True)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    saving_base_price: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
+    saving_final_price: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
+    saving_discount_percent: Mapped[Decimal | None] = mapped_column(Numeric(5, 2), nullable=True)
+    saving_amount: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
+    saving_partner_name: Mapped[str | None] = mapped_column(Text, nullable=True)
+    saving_offer_title: Mapped[str | None] = mapped_column(Text, nullable=True)
+    saving_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
