@@ -1465,7 +1465,7 @@ const renderOfferImageUploader = (offer, scope) => {
       <div class="offer-image-upload-actions">
         ${isAdmin
           ? (offerId
-            ? `<label class="admin-inline-action admin-action-button">Загрузить фото предложения<input type="file" accept="image/jpeg,image/png,image/webp" ${inputAttr} /></label>`
+            ? `<label class="admin-inline-action ui-button ui-button--secondary">Загрузить фото предложения<input type="file" accept="image/jpeg,image/png,image/webp" ${inputAttr} /></label>`
             : '<p class="helper-text form-message compact-copy">Сначала сохраните предложение, затем загрузите фото.</p>')
           : renderPartnerUploadButton({
             label: 'Загрузить фото предложения',
@@ -1478,7 +1478,7 @@ const renderOfferImageUploader = (offer, scope) => {
             disabledMessage: 'Сначала сохраните предложение, затем загрузите фото',
           })}
       </div>
-      ${!isAdmin && offer?.id && offer?.image_url ? `<button class="admin-inline-action admin-inline-action--danger" type="button" data-partner-offer-image-clear="${escapeHtml(offer.id)}">Удалить фото услуги</button>` : ''}
+      ${!isAdmin && offer?.id && offer?.image_url ? `<button class="admin-inline-action ui-button ui-button--danger admin-inline-action--danger" type="button" data-partner-offer-image-clear="${escapeHtml(offer.id)}">Удалить фото услуги</button>` : ''}
       <p class="helper-text compact-copy">Рекомендуемый формат: горизонтальное фото 16:9 или 4:3. Важные элементы размещайте ближе к центру.</p>
       ${!isAdmin && !offerId ? '<p class="helper-text form-message compact-copy">Сначала сохраните предложение, затем загрузите фото</p>' : ''}
       ${isAdmin ? `<p class="form-message offer-image-status" data-form-message="${messageKey}">${escapeHtml(message)}</p>` : renderPartnerUploadStatus(statusKey)}
@@ -1504,8 +1504,8 @@ const renderPartnerImageUploader = (partner, scope) => {
           ${renderSafePartnerImagePreview(partner.logo_url, 'logo', 'Логотип партнёра')}
           <div class="partner-upload-actions">
             ${isAdmin
-              ? `<label class="admin-inline-action">Загрузить логотип<input type="file" accept="image/jpeg,image/png,image/webp" ${logoInputAttr} /></label>`
-              : `${renderPartnerUploadButton({ label: partner.logo_url ? 'Заменить логотип' : 'Загрузить логотип', trigger: 'profile-image', inputAttr: logoInputAttr, inputSelector: '[data-partner-image-upload="logo"]', statusKey: 'profileImages:logo', kind: 'logo' })}${partner.logo_url ? '<button class="admin-inline-action admin-inline-action--danger" type="button" data-partner-image-clear="logo">Удалить логотип</button>' : ''}`}
+              ? `<label class="admin-inline-action ui-button ui-button--secondary">Загрузить логотип<input type="file" accept="image/jpeg,image/png,image/webp" ${logoInputAttr} /></label>`
+              : `${renderPartnerUploadButton({ label: partner.logo_url ? 'Заменить логотип' : 'Загрузить логотип', trigger: 'profile-image', inputAttr: logoInputAttr, inputSelector: '[data-partner-image-upload="logo"]', statusKey: 'profileImages:logo', kind: 'logo' })}${partner.logo_url ? '<button class="admin-inline-action ui-button ui-button--danger admin-inline-action--danger" type="button" data-partner-image-clear="logo">Удалить логотип</button>' : ''}`}
           </div>
           <p class="helper-text compact-copy">Рекомендуемый формат: квадратное фото 1:1.</p>
           ${!isAdmin ? renderPartnerUploadStatus('profileImages:logo') : ''}
@@ -1515,8 +1515,8 @@ const renderPartnerImageUploader = (partner, scope) => {
           ${renderSafePartnerImagePreview(partner.cover_url, 'cover', 'Обложка партнёра')}
           <div class="partner-upload-actions">
             ${isAdmin
-              ? `<label class="admin-inline-action">Загрузить обложку<input type="file" accept="image/jpeg,image/png,image/webp" ${coverInputAttr} /></label>`
-              : `${renderPartnerUploadButton({ label: partner.cover_url ? 'Заменить обложку' : 'Загрузить обложку', trigger: 'profile-image', inputAttr: coverInputAttr, inputSelector: '[data-partner-image-upload="cover"]', statusKey: 'profileImages:cover', kind: 'cover' })}${partner.cover_url ? '<button class="admin-inline-action admin-inline-action--danger" type="button" data-partner-image-clear="cover">Удалить обложку</button>' : ''}`}
+              ? `<label class="admin-inline-action ui-button ui-button--secondary">Загрузить обложку<input type="file" accept="image/jpeg,image/png,image/webp" ${coverInputAttr} /></label>`
+              : `${renderPartnerUploadButton({ label: partner.cover_url ? 'Заменить обложку' : 'Загрузить обложку', trigger: 'profile-image', inputAttr: coverInputAttr, inputSelector: '[data-partner-image-upload="cover"]', statusKey: 'profileImages:cover', kind: 'cover' })}${partner.cover_url ? '<button class="admin-inline-action ui-button ui-button--danger admin-inline-action--danger" type="button" data-partner-image-clear="cover">Удалить обложку</button>' : ''}`}
           </div>
           <p class="helper-text compact-copy">Рекомендуемый формат: горизонтальное фото 16:9 или 4:3. Важные элементы размещайте ближе к центру.</p>
           ${!isAdmin ? renderPartnerUploadStatus('profileImages:cover') : ''}
@@ -1546,7 +1546,7 @@ const renderPartnerGallery = (partner, photos = [], scope = 'partner') => {
       <div class="partner-gallery-upload partner-gallery-upload-card">
         <h5>Добавить фото</h5>
         ${partnerId ? (isAdmin
-          ? `<label class="admin-inline-action">Загрузить фото в галерею<input type="file" accept="image/jpeg,image/png,image/webp" ${uploadAttr} /></label>`
+          ? `<label class="admin-inline-action ui-button ui-button--secondary">Загрузить фото в галерею<input type="file" accept="image/jpeg,image/png,image/webp" ${uploadAttr} /></label>`
           : renderPartnerUploadButton({ label: 'Загрузить фото в галерею', trigger: 'gallery-photo', inputAttr: uploadAttr, inputSelector: '[data-partner-gallery-upload]', statusKey: 'partnerGallery', kind: 'gallery' })) : '<p class="form-message">Сначала сохраните партнёра, затем загрузите фото.</p>'}
         <p class="helper-text compact-copy">Поддерживаются JPG, PNG, WebP. Лучше использовать вертикальные или квадратные фото хорошего качества.</p>
       </div>
@@ -1558,14 +1558,14 @@ const renderPartnerGallery = (partner, photos = [], scope = 'partner') => {
             return `
               <article class="partner-gallery-item partner-gallery-card ${photo.is_active ? '' : 'is-muted'}">
                 ${safeUrl ? `<div class="partner-gallery-media" role="img" aria-label="${escapeHtml(photo.alt_text || 'Фото партнёра')}"><div class="partner-gallery-media__bg" style="background-image: url('${escapeHtml(safeUrl)}')"></div><img class="partner-gallery-media__img" src="${escapeHtml(safeUrl)}" alt="${escapeHtml(photo.alt_text || 'Фото партнёра')}" loading="lazy"></div>` : '<div class="partner-gallery-media partner-gallery-empty">Фото скрыто</div>'}
-                <form class="partner-gallery-actions" data-${isAdmin ? 'admin' : 'partner'}-gallery-form="photo" data-photo-id="${escapeHtml(photo.id)}">
+                <form class="partner-gallery-actions ui-card-actions ui-action-row ui-action-row--stack-mobile" data-${isAdmin ? 'admin' : 'partner'}-gallery-form="photo" data-photo-id="${escapeHtml(photo.id)}">
                   <div class="partner-gallery-row"><span class="status-badge ${photo.is_active ? 'status-badge--success' : 'status-badge--warning'}">${photo.is_active ? 'Показывается' : 'Скрыто'}</span></div>
                   <label class="partner-gallery-order">Порядок<input name="sort_order" type="number" value="${escapeHtml(photo.sort_order || 0)}" /></label>
                   <input name="is_active" type="hidden" value="${photo.is_active ? 'true' : 'false'}" />
                   <div class="admin-form-actions">
-                    <button class="admin-inline-action admin-inline-action--primary" type="submit">Сохранить</button>
-                    <button class="admin-inline-action admin-inline-action--secondary" type="button" data-${isAdmin ? 'admin' : 'partner'}-photo-hide="${escapeHtml(photo.id)}">${photo.is_active ? 'Скрыть фото' : 'Показать фото'}</button>
-                    ${!isAdmin ? `<button class="admin-inline-action admin-inline-action--danger" type="button" data-partner-photo-delete="${escapeHtml(photo.id)}">Удалить</button>` : ''}
+                    <button class="admin-inline-action ui-button ui-button--primary admin-inline-action--primary" type="submit">Сохранить</button>
+                    <button class="admin-inline-action ui-button ui-button--secondary admin-inline-action--secondary" type="button" data-${isAdmin ? 'admin' : 'partner'}-photo-hide="${escapeHtml(photo.id)}">${photo.is_active ? 'Скрыть фото' : 'Показать фото'}</button>
+                    ${!isAdmin ? `<button class="admin-inline-action ui-button ui-button--danger admin-inline-action--danger" type="button" data-partner-photo-delete="${escapeHtml(photo.id)}">Удалить</button>` : ''}
                   </div>
                 </form>
               </article>
@@ -2367,7 +2367,7 @@ const renderClientHome = () => {
           <p class="section-description compact-copy">${escapeHtml(subscriptionSubtitle)}</p>
           <div class="client-home-actions">
             <button type="button" data-client-tab="${hasActiveSubscription ? 'catalog' : 'subscription'}">${hasActiveSubscription ? 'Смотреть партнёров' : 'Оформить подписку'}</button>
-            <button type="button" class="admin-inline-action" data-client-tab="${hasActiveSubscription ? 'history' : 'catalog'}">${hasActiveSubscription ? 'Мои привилегии' : 'Посмотреть партнёров'}</button>
+            <button type="button" class="admin-inline-action ui-button ui-button--secondary" data-client-tab="${hasActiveSubscription ? 'history' : 'catalog'}">${hasActiveSubscription ? 'Мои привилегии' : 'Посмотреть партнёров'}</button>
           </div>
         </div>
         <div class="client-home-stats text-stack" aria-label="Сводка клиента">
@@ -2391,7 +2391,7 @@ const renderClientHome = () => {
             <p class="helper-text compact-copy">${isVkBound ? 'VK уже привязан' : 'Подключите VK, чтобы получать коды через бота клуба.'}</p>
           </div>
           ${isVkBound
-            ? (vkUrl ? `<a class="admin-inline-action" href="${escapeHtml(vkUrl)}" target="_blank" rel="noopener noreferrer">Открыть VK</a>` : '')
+            ? (vkUrl ? `<a class="admin-inline-action ui-button ui-button--secondary" href="${escapeHtml(vkUrl)}" target="_blank" rel="noopener noreferrer">Открыть VK</a>` : '')
             : '<button type="button" data-client-create-vk-code>Создать код для VK</button>'}
         </div>
         ${isVkBound ? '' : renderClientVkLinkCode()}
@@ -2399,7 +2399,7 @@ const renderClientHome = () => {
       <section class="summary-card client-raffle-card" aria-labelledby="client-raffle-title">
         <h4 id="client-raffle-title">Ежемесячный розыгрыш</h4>
         <p class="compact-copy">${hasProfileContacts ? 'Контакты заполнены. Вы участвуете в розыгрышах клуба.' : 'Заполните имя, телефон и email, чтобы мы могли связаться с вами при победе.'}</p>
-        ${hasProfileContacts ? '' : '<button type="button" class="admin-inline-action" data-client-tab="profile">Заполнить профиль</button>'}
+        ${hasProfileContacts ? '' : '<button type="button" class="admin-inline-action ui-button ui-button--secondary" data-client-tab="profile">Заполнить профиль</button>'}
       </section>
       <section class="client-activity-preview" aria-labelledby="client-activity-preview-title">
         <div class="client-tab-header admin-section-heading text-stack">
@@ -2407,7 +2407,7 @@ const renderClientHome = () => {
           <p class="client-tab-description section-description compact-copy">2–3 последних события по вашим привилегиям.</p>
         </div>
         ${renderClientActivityPreview()}
-        <button type="button" class="admin-inline-action" data-client-tab="activity">Вся активность</button>
+        <button type="button" class="admin-inline-action ui-button ui-button--secondary" data-client-tab="activity">Вся активность</button>
       </section>
       ${renderClientActivePrivilege()}
     </section>
@@ -2598,7 +2598,7 @@ const renderClientProfileTab = () => {
           <p class="helper-text compact-copy">${isVkBound ? 'Ваш VK уже связан с WEB-кабинетом.' : 'Создайте код и отправьте VK-боту: Привязать КОД'}</p>
         </div>
         ${isVkBound
-          ? (vkUrl ? `<a class="admin-inline-action" href="${escapeHtml(vkUrl)}" target="_blank" rel="noopener noreferrer">Открыть VK</a>` : '')
+          ? (vkUrl ? `<a class="admin-inline-action ui-button ui-button--secondary" href="${escapeHtml(vkUrl)}" target="_blank" rel="noopener noreferrer">Открыть VK</a>` : '')
           : '<button type="button" data-client-create-vk-code>Создать код для VK</button>'}
       </div>
       ${isVkBound ? '' : renderClientVkLinkCode()}
@@ -2831,7 +2831,7 @@ const renderClientPartnerCard = (partner) => {
         </div>
         <p>${formatValue(partner.description || 'Витрина услуг партнёра скоро пополнится подробностями.')}</p>
         <div class="client-card-location">${formatValue(cityAddress)}</div>
-        <div class="client-partner-card__actions client-card-actions">
+        <div class="client-partner-card__actions client-card-actions ui-card-actions ui-action-row ui-action-row--stack-mobile">
           <button type="button" data-client-partner-open data-partner-id="${escapeHtml(partnerId)}">Открыть</button>
           <button type="button" data-client-verify-partner="${escapeHtml(partnerId)}">Получить привилегию</button>
         </div>
@@ -2882,7 +2882,7 @@ const renderClientPartnerDetail = (partner = {}) => {
 const renderClientPartnerModalOffer = (partnerId, offer) => `
   <div class="client-partner-modal__offer">
     ${renderClientOffer(partnerId, offer)}
-    ${getOfferPhotos(offer).length ? `<button type="button" class="admin-inline-action" data-client-offer-gallery-open="${escapeHtml(offer.id)}">Посмотреть работы</button>` : ''}
+    ${getOfferPhotos(offer).length ? `<button type="button" class="admin-inline-action ui-button ui-button--secondary" data-client-offer-gallery-open="${escapeHtml(offer.id)}">Посмотреть работы</button>` : ''}
   </div>
 `;
 
@@ -2982,9 +2982,9 @@ const renderClientVerificationResult = (verification) => `
       <div><dt>Срок действия</dt><dd>${formatValue(formatDate(verification.expires_at))}</dd></div>
       <div><dt>Создано</dt><dd>${formatValue(formatDate(verification.created_at))}</dd></div>
     </dl>
-    <div class="client-card-actions">
+    <div class="client-card-actions ui-card-actions ui-action-row ui-action-row--stack-mobile">
       <button type="button" data-client-dismiss-privilege>Понятно</button>
-      <button type="button" class="admin-inline-action" data-client-open-privileges>Мои привилегии</button>
+      <button type="button" class="admin-inline-action ui-button ui-button--secondary" data-client-open-privileges>Мои привилегии</button>
     </div>
   </div>
 `;
@@ -3072,7 +3072,7 @@ const renderPartnerOffersTeaser = () => `
     })).join('') : `
       <div class="partner-empty-state offer-card-placeholder">
         <strong>Добавьте первое предложение — именно оно мотивирует клиентку прийти.</strong>
-        <button class="admin-inline-action" type="button" data-partner-onboarding-tab="offers">Добавить предложение</button>
+        <button class="admin-inline-action ui-button ui-button--secondary" type="button" data-partner-onboarding-tab="offers">Добавить предложение</button>
       </div>
     `}
   </div>
@@ -3174,11 +3174,11 @@ const renderPartnerProfileTab = () => {
 };
 
 const renderPartnerOfferAction = (offer) => `
-  <button class="admin-inline-action admin-inline-action--primary" type="button" data-partner-offer-edit="${escapeHtml(offer.id)}">Редактировать</button>
+  <button class="admin-inline-action ui-button ui-button--secondary admin-inline-action--primary" type="button" data-partner-offer-edit="${escapeHtml(offer.id)}">Редактировать</button>
   ${offer.is_active
-    ? `<button class="admin-inline-action admin-inline-action--secondary" type="button" data-partner-offer-toggle="${escapeHtml(offer.id)}">Скрыть</button>`
-    : '<button class="admin-inline-action admin-inline-action--secondary" type="button" disabled>На проверке</button>'}
-  ${offer.image_url ? `<button class="admin-inline-action admin-inline-action--danger" type="button" data-partner-offer-image-clear="${escapeHtml(offer.id)}">Удалить фото</button>` : ''}
+    ? `<button class="admin-inline-action ui-button ui-button--secondary admin-inline-action--secondary" type="button" data-partner-offer-toggle="${escapeHtml(offer.id)}">Скрыть</button>`
+    : '<button class="admin-inline-action ui-button ui-button--secondary admin-inline-action--secondary" type="button" disabled>На проверке</button>'}
+  ${offer.image_url ? `<button class="admin-inline-action ui-button ui-button--danger admin-inline-action--danger" type="button" data-partner-offer-image-clear="${escapeHtml(offer.id)}">Удалить фото</button>` : ''}
 `;
 
 const renderPartnerOfferForm = () => {
@@ -3213,7 +3213,7 @@ const renderPartnerOfferForm = () => {
       <label>Порядок сортировки<input class="partner-input-compact" name="sort_order" type="number" value="${escapeHtml(offer?.sort_order || 0)}" /></label>
       <div class="admin-form-actions">
         <button type="submit">${isEdit ? 'Сохранить изменения' : 'Создать предложение'}</button>
-        ${isEdit ? '<button class="admin-inline-action" type="button" data-partner-offer-edit-cancel>Отмена</button>' : ''}
+        ${isEdit ? '<button class="admin-inline-action ui-button ui-button--ghost" type="button" data-partner-offer-edit-cancel>Отмена</button>' : ''}
       </div>
       <p class="form-message" data-partner-form-message="${isEdit ? 'offerEdit' : 'offer'}">${escapeHtml(partnerState.formMessages[isEdit ? 'offerEdit' : 'offer'] || '')}</p>
     </form>
@@ -3269,14 +3269,14 @@ const renderPartnerGalleryTab = () => {
           <p class="form-message" data-partner-form-message="offerPhoto">${escapeHtml(partnerState.formMessages.offerPhoto || '')}</p>
           ${offerPhotos.length ? `<div class="partner-gallery-grid">${offerPhotos.map((photo) => `<article class="partner-gallery-item partner-gallery-card ${photo.is_active ? '' : 'is-muted'}">
             ${photo.url ? `<div class="partner-gallery-media" role="img" aria-label="${escapeHtml(photo.alt_text || 'Фото услуги')}"><div class="partner-gallery-media__bg" style="background-image: url('${escapeHtml(photo.url)}')"></div><img class="partner-gallery-media__img" src="${escapeHtml(photo.url)}" alt="${escapeHtml(photo.alt_text || 'Фото услуги')}" loading="lazy"></div>` : '<div class="partner-gallery-media partner-gallery-empty">Фото скрыто</div>'}
-            <form class="partner-gallery-actions" data-partner-offer-photo-form data-offer-id="${escapeHtml(selectedOfferId)}" data-photo-id="${escapeHtml(photo.id)}">
+            <form class="partner-gallery-actions ui-card-actions ui-action-row ui-action-row--stack-mobile" data-partner-offer-photo-form data-offer-id="${escapeHtml(selectedOfferId)}" data-photo-id="${escapeHtml(photo.id)}">
               <div class="partner-gallery-row"><span class="status-badge ${photo.is_active ? 'status-badge--success' : 'status-badge--warning'}">${photo.is_active ? 'Показывается' : 'Скрыто'}</span></div>
               <input type="hidden" name="is_active" value="${photo.is_active ? 'true' : 'false'}">
               <div class="partner-gallery-controls-row">
                 <label class="partner-gallery-order"><span>Порядок</span><input type="number" name="sort_order" value="${escapeHtml(photo.sort_order ?? 0)}"></label>
-                <button class="admin-inline-action admin-inline-action--primary" type="submit">Сохранить</button>
-                <button class="admin-inline-action admin-inline-action--secondary" type="button" data-partner-offer-photo-visibility="${escapeHtml(photo.id)}" data-offer-id="${escapeHtml(selectedOfferId)}" data-next-active="${photo.is_active ? 'false' : 'true'}">${photo.is_active ? 'Скрыть' : 'Показать'}</button>
-                <button class="admin-inline-action admin-inline-action--danger" type="button" data-partner-offer-photo-delete="${escapeHtml(photo.id)}" data-offer-id="${escapeHtml(selectedOfferId)}">Удалить</button>
+                <button class="admin-inline-action ui-button ui-button--primary admin-inline-action--primary" type="submit">Сохранить</button>
+                <button class="admin-inline-action ui-button ui-button--secondary admin-inline-action--secondary" type="button" data-partner-offer-photo-visibility="${escapeHtml(photo.id)}" data-offer-id="${escapeHtml(selectedOfferId)}" data-next-active="${photo.is_active ? 'false' : 'true'}">${photo.is_active ? 'Скрыть' : 'Показать'}</button>
+                <button class="admin-inline-action ui-button ui-button--danger admin-inline-action--danger" type="button" data-partner-offer-photo-delete="${escapeHtml(photo.id)}" data-offer-id="${escapeHtml(selectedOfferId)}">Удалить</button>
               </div>
             </form>
           </article>`).join('')}</div>` : '<div class="partner-gallery-empty partner-empty-state compact-copy"><strong>Фото пока не добавлены.</strong><span>Загрузите первое фото, чтобы клиенты увидели ваши работы.</span></div>'}
@@ -3308,7 +3308,7 @@ const renderPartnerQrTab = () => `
 `;
 
 const renderPartnerVerificationAction = (verification) => verification.status === 'active'
-  ? `<button class="admin-inline-action" type="button" data-partner-confirm-verification="${escapeHtml(verification.id)}">Подтвердить привилегию</button>`
+  ? `<button class="admin-inline-action ui-button ui-button--secondary" type="button" data-partner-confirm-verification="${escapeHtml(verification.id)}">Подтвердить привилегию</button>`
   : '';
 
 const renderPartnerConfirmationCard = (item) => `
@@ -3325,7 +3325,7 @@ const renderPartnerConfirmationCard = (item) => `
       <div><dt>Истекает</dt><dd>${formatValue(formatDate(item.expires_at))}</dd></div>
       <div><dt>Подтверждено</dt><dd>${formatValue(formatDate(item.confirmed_at))}</dd></div>
     </dl>
-    ${renderPartnerVerificationAction(item) ? `<div class="client-card-actions">${renderPartnerVerificationAction(item)}</div>` : ''}
+    ${renderPartnerVerificationAction(item) ? `<div class="client-card-actions ui-card-actions ui-action-row ui-action-row--stack-mobile">${renderPartnerVerificationAction(item)}</div>` : ''}
   </article>
 `;
 
@@ -3630,10 +3630,10 @@ const renderAdminTableActions = (content) => `
 `;
 
 const renderUserActionButton = (user) => renderAdminTableActions(`
-  <button class="admin-inline-action admin-action-button admin-table-action" type="button" data-user-active-toggle="${escapeHtml(user.id)}">
+  <button class="admin-inline-action ui-button ui-button--secondary admin-table-action" type="button" data-user-active-toggle="${escapeHtml(user.id)}">
     ${user.is_active ? 'Заблокировать' : 'Активировать'}
   </button>
-  <button class="admin-inline-action admin-action-button admin-table-action admin-inline-action--danger" type="button" data-user-delete="${escapeHtml(user.id)}">
+  <button class="admin-inline-action ui-button ui-button--danger admin-table-action admin-inline-action--danger" type="button" data-user-delete="${escapeHtml(user.id)}">
     Удалить
   </button>
 `);
@@ -3699,8 +3699,8 @@ const renderUsersTab = () => {
 };
 
 const renderCityActionButtons = (city) => renderAdminTableActions(`
-  <button class="admin-inline-action admin-action-button admin-table-action" type="button" data-admin-city-edit="${escapeHtml(city.id)}">Редактировать</button>
-  <button class="admin-inline-action admin-action-button admin-table-action" type="button" data-admin-city-active-toggle="${escapeHtml(city.id)}">
+  <button class="admin-inline-action ui-button ui-button--secondary admin-table-action" type="button" data-admin-city-edit="${escapeHtml(city.id)}">Редактировать</button>
+  <button class="admin-inline-action ui-button ui-button--secondary admin-table-action" type="button" data-admin-city-active-toggle="${escapeHtml(city.id)}">
     ${city.is_active ? 'Деактивировать' : 'Активировать'}
   </button>
 `);
@@ -3732,7 +3732,7 @@ const renderCityEditForm = () => {
       <label class="checkbox-row"><input name="is_active" type="checkbox" ${city.is_active ? 'checked' : ''} /> Активен</label>
       <div class="admin-form-actions">
         <button type="submit">Сохранить изменения</button>
-        <button class="admin-inline-action" type="button" data-admin-city-edit-cancel>Отмена</button>
+        <button class="admin-inline-action ui-button ui-button--ghost" type="button" data-admin-city-edit-cancel>Отмена</button>
       </div>
       <p class="form-message" data-form-message="cityEdit">${escapeHtml(adminState.formMessages.cityEdit || '')}</p>
     </form>
@@ -3768,8 +3768,8 @@ const renderCitiesTab = () => {
 const getCategoryName = (category) => category.name || category.title || '';
 
 const renderCategoryActionButtons = (category) => renderAdminTableActions(`
-  <button class="admin-inline-action admin-action-button admin-table-action" type="button" data-admin-category-edit="${escapeHtml(category.id)}">Редактировать</button>
-  <button class="admin-inline-action admin-action-button admin-table-action" type="button" data-admin-category-active-toggle="${escapeHtml(category.id)}">
+  <button class="admin-inline-action ui-button ui-button--secondary admin-table-action" type="button" data-admin-category-edit="${escapeHtml(category.id)}">Редактировать</button>
+  <button class="admin-inline-action ui-button ui-button--secondary admin-table-action" type="button" data-admin-category-active-toggle="${escapeHtml(category.id)}">
     ${category.is_active ? 'Деактивировать' : 'Активировать'}
   </button>
 `);
@@ -3801,7 +3801,7 @@ const renderCategoryEditForm = () => {
       <label class="checkbox-row"><input name="is_active" type="checkbox" ${category.is_active ? 'checked' : ''} /> Активна</label>
       <div class="admin-form-actions">
         <button type="submit">Сохранить изменения</button>
-        <button class="admin-inline-action" type="button" data-admin-category-edit-cancel>Отмена</button>
+        <button class="admin-inline-action ui-button ui-button--ghost" type="button" data-admin-category-edit-cancel>Отмена</button>
       </div>
       <p class="form-message" data-form-message="categoryEdit">${escapeHtml(adminState.formMessages.categoryEdit || '')}</p>
     </form>
@@ -3835,7 +3835,7 @@ const renderCategoriesTab = () => {
 };
 
 const renderAdminPartnerAction = (partner) => renderAdminTableActions(`
-  <button class="admin-inline-action admin-action-button admin-table-action" type="button" data-admin-partner-edit="${escapeHtml(partner.id)}">Редактировать</button>
+  <button class="admin-inline-action ui-button ui-button--secondary admin-table-action" type="button" data-admin-partner-edit="${escapeHtml(partner.id)}">Редактировать</button>
 `);
 
 const getAdminLoadedOffersForPartner = (partner) => {
@@ -3943,7 +3943,7 @@ const renderPartnerEditForm = () => {
               </details>
               <div class="admin-partner-detail-actions admin-form-actions">
                 <button type="submit">Сохранить изменения</button>
-                <button class="admin-inline-action" type="button" data-admin-partner-edit-cancel>Отмена</button>
+                <button class="admin-inline-action ui-button ui-button--ghost" type="button" data-admin-partner-edit-cancel>Отмена</button>
               </div>
               <p class="form-message" data-form-message="partnerEdit">${escapeHtml(adminState.formMessages.partnerEdit || '')}</p>
             </form>
@@ -4040,8 +4040,8 @@ const renderPartnersTab = () => {
 };
 
 const renderAdminOfferAction = (offer) => renderAdminTableActions(`
-  <button class="admin-inline-action admin-action-button admin-table-action" type="button" data-admin-offer-edit="${escapeHtml(offer.id)}">Редактировать</button>
-  <label class="admin-inline-action admin-action-button admin-table-action">Загрузить фото<input type="file" accept="image/jpeg,image/png,image/webp" data-admin-offer-image-upload data-offer-id="${escapeHtml(offer.id)}" /></label>
+  <button class="admin-inline-action ui-button ui-button--secondary admin-table-action" type="button" data-admin-offer-edit="${escapeHtml(offer.id)}">Редактировать</button>
+  <label class="admin-inline-action ui-button ui-button--secondary admin-table-action">Загрузить фото<input type="file" accept="image/jpeg,image/png,image/webp" data-admin-offer-image-upload data-offer-id="${escapeHtml(offer.id)}" /></label>
 `);
 
 const renderOfferEditForm = () => {
@@ -4069,7 +4069,7 @@ const renderOfferEditForm = () => {
       <label>Порядок сортировки<input name="sort_order" type="number" value="${escapeHtml(offer.sort_order || 0)}" /></label>
       <div class="admin-form-actions">
         <button type="submit">Сохранить изменения</button>
-        <button class="admin-inline-action" type="button" data-admin-offer-edit-cancel>Отмена</button>
+        <button class="admin-inline-action ui-button ui-button--ghost" type="button" data-admin-offer-edit-cancel>Отмена</button>
       </div>
       <p class="form-message" data-form-message="offerEdit">${escapeHtml(adminState.formMessages.offerEdit || '')}</p>
     </form>
@@ -4152,8 +4152,8 @@ const renderContentReviewOfferCard = (offer) => renderOfferMarketplaceCard(
   {
     note: `Партнёр: ${offer.partner_name || '—'}`,
     actionHtml: `
-      <button class="admin-action-button" type="button" data-content-review-offer-activate="${escapeHtml(offer.id)}">Активировать</button>
-      <button class="admin-inline-action admin-action-button" type="button" data-content-review-partner-open="${escapeHtml(offer.partner_id)}">Открыть партнёра</button>
+      <button class="ui-button ui-button--success" type="button" data-content-review-offer-activate="${escapeHtml(offer.id)}">Активировать</button>
+      <button class="admin-inline-action ui-button ui-button--secondary" type="button" data-content-review-partner-open="${escapeHtml(offer.partner_id)}">Открыть партнёра</button>
     `,
   },
 );
@@ -4173,9 +4173,9 @@ const renderContentReviewPhotoCard = (photo) => {
           <div><dt>Сортировка</dt><dd>${formatValue(photo.sort_order)}</dd></div>
           <div><dt>Создано</dt><dd>${formatValue(formatDate(photo.created_at))}</dd></div>
         </dl>
-        <div class="content-review-actions">
-          <button class="admin-action-button" type="button" data-content-review-photo-activate="${escapeHtml(photo.id)}">Активировать</button>
-          <button class="admin-inline-action admin-action-button" type="button" data-content-review-partner-open="${escapeHtml(photo.partner_id)}">Открыть партнёра</button>
+        <div class="content-review-actions ui-card-actions ui-action-row ui-action-row--stack-mobile">
+          <button class="ui-button ui-button--success" type="button" data-content-review-photo-activate="${escapeHtml(photo.id)}">Активировать</button>
+          <button class="admin-inline-action ui-button ui-button--secondary" type="button" data-content-review-partner-open="${escapeHtml(photo.partner_id)}">Открыть партнёра</button>
         </div>
       </div>
     </article>
@@ -4211,7 +4211,7 @@ const renderContentReviewTab = () => {
 };
 
 const renderAdminQrAction = (link) => renderAdminTableActions(`
-  <button class="admin-inline-action admin-action-button admin-table-action" type="button" data-admin-qr-edit="${escapeHtml(link.id)}">Редактировать</button>
+  <button class="admin-inline-action ui-button ui-button--secondary admin-table-action" type="button" data-admin-qr-edit="${escapeHtml(link.id)}">Редактировать</button>
 `);
 
 const renderQrCreateForm = () => `
@@ -4241,7 +4241,7 @@ const renderQrEditForm = () => {
       <label class="checkbox-row"><input name="is_active" type="checkbox" ${link.is_active ? 'checked' : ''} /> Активна</label>
       <div class="admin-form-actions">
         <button type="submit">Сохранить изменения</button>
-        <button class="admin-inline-action" type="button" data-admin-qr-edit-cancel>Отмена</button>
+        <button class="admin-inline-action ui-button ui-button--ghost" type="button" data-admin-qr-edit-cancel>Отмена</button>
       </div>
       <p class="form-message" data-form-message="qrEdit">${escapeHtml(adminState.formMessages.qrEdit || '')}</p>
     </form>
@@ -4303,30 +4303,30 @@ const renderAdminPaymentActions = (request) => {
   const requestId = getPaymentRequestId(request);
   if (status === 'paid') {
     return `
-      <div class="admin-payment-actions">
+      <div class="admin-payment-actions ui-action-row ui-action-row--stack-mobile">
         <label>Дней доступа
           <input type="number" min="1" step="1" value="${escapeHtml(adminState.paymentApprovalDays)}" data-admin-payment-access-days>
         </label>
-        <button type="button" class="admin-action-button" data-admin-payment-approve="${escapeHtml(requestId)}">Подтвердить</button>
-        <button type="button" class="admin-inline-action admin-inline-action--danger" data-admin-payment-reject="${escapeHtml(requestId)}">Отклонить</button>
+        <button type="button" class="ui-button ui-button--success" data-admin-payment-approve="${escapeHtml(requestId)}">Подтвердить</button>
+        <button type="button" class="admin-inline-action ui-button ui-button--danger admin-inline-action--danger" data-admin-payment-reject="${escapeHtml(requestId)}">Отклонить</button>
       </div>
     `;
   }
   if (status === 'pending') {
     return `
-      <div class="admin-payment-actions admin-payment-actions--note">
+      <div class="admin-payment-actions admin-payment-actions--note ui-action-row ui-action-row--stack-mobile">
         <p>Ожидает отметки клиента “Я оплатил”</p>
-        <button type="button" class="admin-inline-action admin-inline-action--danger" data-admin-payment-reject="${escapeHtml(requestId)}">Отклонить</button>
+        <button type="button" class="admin-inline-action ui-button ui-button--danger admin-inline-action--danger" data-admin-payment-reject="${escapeHtml(requestId)}">Отклонить</button>
       </div>
     `;
   }
   if (status === 'approved') {
-    return `<div class="admin-payment-actions admin-payment-actions--note"><p>Подписка продлена до ${formatValue(formatDate(request?.access_until || request?.subscription_ends_at || request?.ends_at))}</p></div>`;
+    return `<div class="admin-payment-actions admin-payment-actions--note ui-action-row ui-action-row--stack-mobile"><p>Подписка продлена до ${formatValue(formatDate(request?.access_until || request?.subscription_ends_at || request?.ends_at))}</p></div>`;
   }
   if (status === 'rejected') {
-    return '<div class="admin-payment-actions admin-payment-actions--note"><p>Отклонена</p></div>';
+    return '<div class="admin-payment-actions admin-payment-actions--note ui-action-row ui-action-row--stack-mobile"><p>Отклонена</p></div>';
   }
-  return '<div class="admin-payment-actions admin-payment-actions--note"><p>Действия недоступны для текущего статуса.</p></div>';
+  return '<div class="admin-payment-actions admin-payment-actions--note ui-action-row ui-action-row--stack-mobile"><p>Действия недоступны для текущего статуса.</p></div>';
 };
 
 const renderAdminPaymentCard = (request) => {
@@ -4361,7 +4361,7 @@ const renderAdminPaymentCard = (request) => {
         ${renderAdminPaymentMetaItem('Комментарий', request?.comment || request?.admin_comment)}
       </dl>
       ${renderAdminPaymentReceipts(request)}
-      <div class="admin-payment-actions"><button type="button" class="admin-inline-action ui-button ui-button--secondary" data-admin-payment-open="${escapeHtml(requestId)}">Открыть детали</button></div>
+      <div class="admin-payment-actions ui-action-row ui-action-row--stack-mobile"><button type="button" class="admin-inline-action ui-button ui-button--secondary" data-admin-payment-open="${escapeHtml(requestId)}">Открыть детали</button></div>
       ${renderAdminPaymentActions(request)}
     </article>
   `;
