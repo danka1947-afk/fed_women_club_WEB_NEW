@@ -1445,19 +1445,40 @@ def _get_partner_read_or_404(db: Session, partner_id: int) -> PartnerRead:
     return _partner_to_read(partner, city_name, owner_email)
 
 
+def _category_to_api_payload(category: Category | None) -> dict[str, object] | None:
+    if category is None:
+        return None
+    name = getattr(category, "name", None) or getattr(category, "title", None) or getattr(category, "slug", None)
+    title = getattr(category, "title", None) or name
+    return {
+        "id": getattr(category, "id", None),
+        "title": title,
+        "name": name,
+        "slug": getattr(category, "slug", None),
+        "sort_order": getattr(category, "sort_order", 0) or 0,
+        "is_active": bool(getattr(category, "is_active", True)),
+    }
+
+
 def _partner_to_read(partner: Partner, city_name: str | None, owner_email: str | None) -> PartnerRead:
     categories = sorted(partner.categories, key=lambda c: (c.sort_order, c.name.lower(), c.id))
     first = categories[0] if categories else None
+    legacy_slug = partner.category_slug
+    first_category_payload = _category_to_api_payload(first)
+    first_name = str(first_category_payload["name"]) if first_category_payload is not None else None
+    first_slug = str(first_category_payload["slug"]) if first_category_payload is not None else None
+    categories_payload = [_category_to_api_payload(category) for category in categories]
+    normalized_categories_payload = [item for item in categories_payload if item is not None]
     return PartnerRead.model_validate(
         {
             "id": partner.id,
             "city_id": partner.city_id,
             "owner_user_id": partner.owner_user_id,
-            "category_slug": first.slug if first is not None else partner.category_slug,
+            "category_slug": first_slug or legacy_slug,
             "category_id": first.id if first is not None else None,
-            "category_name": first.name if first is not None else None,
-            "category": {"id": first.id, "name": first.name, "slug": first.slug} if first is not None else None,
-            "categories": [{"id": c.id, "name": c.name, "slug": c.slug, "is_active": c.is_active, "sort_order": c.sort_order} for c in categories],
+            "category_name": first_name,
+            "category": first_category_payload,
+            "categories": normalized_categories_payload,
             "category_ids": [c.id for c in categories],
             "category_slugs": [c.slug for c in categories],
             "name": partner.name,

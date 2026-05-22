@@ -128,6 +128,9 @@ def test_admin_partners_returns_list_ordered_with_admin_token(admin_client: Test
     assert [partner["sort_order"] for partner in data] == [10, 20]
     assert data[0]["city_name"] == "Санкт-Петербург"
     assert data[1]["owner_email"] == "owner@example.com"
+    assert isinstance(data[0]["categories"], list)
+    assert isinstance(data[0]["category_ids"], list)
+    assert isinstance(data[0]["category_slugs"], list)
 
 
 def test_admin_partner_create_with_valid_city(admin_client: TestClient, admin_token: str) -> None:
