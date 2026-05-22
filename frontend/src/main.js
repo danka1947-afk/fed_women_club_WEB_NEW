@@ -6687,5 +6687,3 @@ if (getPasswordSetupParams().setupToken) {
 } else {
   restoreAdminSession();
 }
-  const categories = getPartnerCategories(partner);
-  const categories = getPartnerCategories(partner);
