@@ -280,6 +280,12 @@ def test_client_savings_tab_contains_date_filter_controls() -> None:
         assert behavior_marker in source
 
 
+def test_client_savings_uses_defined_price_formatter() -> None:
+    source = _frontend_main()
+    assert "const formatPrice = (value) => {" in source
+    assert "formatPrice(data.total_saving_amount)" in source
+
+
 
 def test_frontend_applies_custom_selects_to_client_catalog_filters() -> None:
     source = _frontend_main()

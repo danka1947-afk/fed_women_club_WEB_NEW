@@ -844,6 +844,17 @@ const formatOfferBasePrice = (value) => {
   })} ₽`;
 };
 
+const formatPrice = (value) => {
+  if (value === null || value === undefined || value === '') return '—';
+  const rawValue = String(value).trim();
+  if (!rawValue || hasScientificNotation(rawValue)) return '—';
+  const normalized = Number(rawValue.replace(',', '.'));
+  if (!Number.isFinite(normalized)) return '—';
+  return `${normalized.toLocaleString('ru-RU', {
+    maximumFractionDigits: 2,
+  })} ₽`;
+};
+
 const formatPrivilegeErrorMessage = (message) => ({
   'Active subscription required': 'Для получения привилегии нужна активная подписка.',
   'Offer not found': 'Предложение сейчас недоступно.',

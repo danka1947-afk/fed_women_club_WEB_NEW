@@ -629,6 +629,9 @@ def test_client_catalog_partners_returns_category_fields_for_active_and_inactive
     assert data["Beta Yoga"]["category_slug"] == "fitness"
     assert data["Beta Yoga"]["category"] is None
     assert data["Alpha Beauty"]["photo_url"] == "/uploads/partners/1/photos/photo-first.webp"
+    assert isinstance(data["Alpha Beauty"]["categories"], list)
+    assert isinstance(data["Alpha Beauty"]["category_ids"], list)
+    assert isinstance(data["Alpha Beauty"]["category_slugs"], list)
 
 
 def test_client_catalog_partners_q_search_works(client_cabinet_client: TestClient) -> None:
