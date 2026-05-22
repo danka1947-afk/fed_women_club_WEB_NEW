@@ -299,10 +299,9 @@ def test_frontend_applies_custom_selects_to_admin_partner_edit_fields() -> None:
     partner_edit_block = source.split("const renderPartnerEditForm = () => {", 1)[1].split("const renderPartnerCreateForm", 1)[0]
 
     assert "renderSelect('city_id'" in partner_edit_block
-    assert "renderSelect('category_slug'" in partner_edit_block
+    assert "name=\"category_ids\"" in partner_edit_block
     assert "renderSelect('owner_user_id'" in partner_edit_block
     assert "adminPartnerField: 'city'" in partner_edit_block
-    assert "adminPartnerField: 'category'" in partner_edit_block
     assert "adminPartnerField: 'owner'" in partner_edit_block
     assert '<select name="city_id"' not in partner_edit_block
     assert '<select name="category_slug"' not in partner_edit_block
@@ -792,6 +791,10 @@ def test_admin_categories_support_create_edit_and_safe_toggle_ui() -> None:
         "patchJson(`/api/v1/admin/categories/${categoryId}`",
         "data-admin-category-edit",
         "data-admin-category-active-toggle",
+        "category_ids",
+        "getPartnerCategories",
+        "partner-multicategory",
+        "category-chip",
     ):
         assert marker in source
 
@@ -1232,7 +1235,7 @@ def test_client_cabinet_uses_human_readable_profile_catalog_history_and_subscrip
 
     assert "selected_city_id: selectedCityId ? Number(selectedCityId) : null" in source
     assert "renderStatusBadge(formatStatus(item.status))" in source
-    assert "formatClientCategory(partner.category_slug)" in source
+    assert "getPartnerCategories(partner)" in source
 
 
 def test_frontend_contains_vk_password_setup_flow_markers() -> None:
