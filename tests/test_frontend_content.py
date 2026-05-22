@@ -247,6 +247,25 @@ def test_frontend_contains_reusable_custom_select_component() -> None:
     ):
         assert marker in combined
 
+
+def test_client_savings_tab_contains_date_filter_controls() -> None:
+    source = _frontend_main()
+
+    for marker in (
+        "data-client-savings-filter-mode=\"all\"",
+        "data-client-savings-filter-mode=\"period\"",
+        "data-client-savings-date=\"from\"",
+        "data-client-savings-date=\"to\"",
+        "data-client-savings-apply",
+        "data-client-savings-reset",
+        "Дата начала не может быть позже даты окончания.",
+        "За всё время",
+        "За период:",
+        "from_date",
+        "to_date",
+    ):
+        assert marker in source
+
     for behavior_marker in (
         "openCustomSelect",
         "closeCustomSelects",
