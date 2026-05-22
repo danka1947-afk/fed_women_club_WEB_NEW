@@ -2210,3 +2210,21 @@ def test_frontend_contains_admin_content_review_queue_markers() -> None:
     ):
         assert removed_lotus_marker not in source
         assert removed_lotus_marker not in styles
+
+
+def test_frontend_dist_build_points_to_assets_bundle() -> None:
+    dist_index = FRONTEND_DIR / "dist" / "index.html"
+    dist_assets = FRONTEND_DIR / "dist" / "assets"
+
+    assert dist_index.exists(), "Expected frontend/dist/index.html after npm run build"
+    assert dist_assets.exists(), "Expected frontend/dist/assets after npm run build"
+
+    dist_html = dist_index.read_text(encoding="utf-8")
+    assert "/src/main.js" not in dist_html
+    assert "/src/styles.css" not in dist_html
+
+    assert '/assets/styles.css' in dist_html
+    assert '/assets/main.js' in dist_html
+
+    assert any(path.suffix == ".js" for path in dist_assets.iterdir())
+    assert any(path.suffix == ".css" for path in dist_assets.iterdir())
