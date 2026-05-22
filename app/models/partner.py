@@ -3,10 +3,19 @@ from __future__ import annotations
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, Numeric, String, Text, func
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, Numeric, String, Table, Text, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+
+partner_categories = Table(
+    "partner_categories",
+    Base.metadata,
+    Column("partner_id", ForeignKey("partners.id"), primary_key=True),
+    Column("category_id", ForeignKey("categories.id"), primary_key=True),
+    Column("created_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+    UniqueConstraint("partner_id", "category_id", name="uq_partner_categories_partner_category"),
+)
 
 
 class Partner(Base):
@@ -43,6 +52,11 @@ class Partner(Base):
     verification_sessions: Mapped[list["PrivilegeVerificationSession"]] = relationship(
         "PrivilegeVerificationSession",
         back_populates="partner",
+    )
+    categories: Mapped[list["Category"]] = relationship(
+        "Category",
+        secondary=partner_categories,
+        back_populates="partners",
     )
 
 

@@ -94,6 +94,12 @@ class PartnerRead(BaseModel):
     city_id: int
     owner_user_id: int | None
     category_slug: str | None
+    category_id: int | None = None
+    category_name: str | None = None
+    category: CategoryRead | None = None
+    categories: list[CategoryRead] = Field(default_factory=list)
+    category_ids: list[int] = Field(default_factory=list)
+    category_slugs: list[str] = Field(default_factory=list)
     name: str
     description: str | None
     address: str | None
@@ -116,6 +122,7 @@ class PartnerCreate(BaseModel):
     city_id: int
     owner_user_id: int | None = None
     category_slug: str | None = None
+    category_ids: list[int] | None = None
     name: str
     description: str | None = None
     address: str | None = None
@@ -134,6 +141,7 @@ class PartnerUpdate(BaseModel):
     city_id: int | None = None
     owner_user_id: int | None = None
     category_slug: str | None = None
+    category_ids: list[int] | None = None
     name: str | None = None
     description: str | None = None
     address: str | None = None

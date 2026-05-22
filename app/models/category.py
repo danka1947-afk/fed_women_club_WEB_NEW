@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 
 from sqlalchemy import Boolean, DateTime, Integer, String, func
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
 
@@ -20,6 +20,11 @@ class Category(Base):
         DateTime(timezone=True),
         nullable=False,
         server_default=func.now(),
+    )
+    partners: Mapped[list["Partner"]] = relationship(
+        "Partner",
+        secondary="partner_categories",
+        back_populates="categories",
     )
 
     @property

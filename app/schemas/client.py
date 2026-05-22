@@ -79,6 +79,9 @@ class ClientPartnerCatalogItem(BaseModel):
     category_name: str | None = None
     category_slug: str | None
     category: "ClientPartnerCategoryRead | None" = None
+    categories: list["ClientPartnerCategoryRead"] = Field(default_factory=list)
+    category_ids: list[int] = Field(default_factory=list)
+    category_slugs: list[str] = Field(default_factory=list)
     name: str
     description: str | None
     address: str | None

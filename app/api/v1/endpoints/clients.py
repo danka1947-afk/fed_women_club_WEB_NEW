@@ -331,42 +331,32 @@ def list_client_catalog_partners(
     normalized_query = _normalize_optional_text(q)
 
     statement = (
-        select(
-            Partner,
-            City.name.label("city_name"),
-            Category.id.label("category_id"),
-            Category.name.label("category_name"),
-            Category.slug.label("category_slug"),
-        )
+        select(Partner, City.name.label("city_name"))
         .join(City, Partner.city_id == City.id)
-        .outerjoin(
-            Category,
-            (Category.slug == Partner.category_slug) & Category.is_active.is_(True),
-        )
+        .options(selectinload(Partner.categories))
         .where(Partner.is_active.is_(True))
         .order_by(Partner.sort_order.asc(), Partner.id.asc())
     )
     if resolved_city_id is not None:
         statement = statement.where(Partner.city_id == resolved_city_id)
     if normalized_category_slug is not None:
-        statement = statement.where(Partner.category_slug == normalized_category_slug)
+        statement = statement.where(
+            Partner.categories.any(Category.slug == normalized_category_slug) | (Partner.category_slug == normalized_category_slug)
+        )
     if normalized_query is not None:
         search = f"%{normalized_query}%"
         statement = statement.where(Partner.name.ilike(search))
 
     rows = db.execute(statement).all()
-    partner_ids = [partner.id for partner, _city_name, _category_id, _category_name, _category_slug in rows]
+    partner_ids = [partner.id for partner, _city_name in rows]
     photos_by_partner = _active_photos_by_partner(db, partner_ids)
     return [
         _partner_to_catalog_item(
             partner,
             city_name,
-            category_id,
-            category_name,
-            category_slug,
             photos_by_partner.get(partner.id, []),
         )
-        for partner, city_name, category_id, category_name, category_slug in rows
+        for partner, city_name in rows
     ]
 
 
@@ -378,7 +368,7 @@ def create_client_partner_verification(
     db: Session = Depends(get_db),
 ) -> ClientVerificationRead:
     profile = _get_or_create_client_profile(db, current_user.id)
-    partner, _city_name, _category_id, _category_name, _category_slug = _get_active_partner_row_or_404(db, partner_id)
+    partner, _city_name = _get_active_partner_row_or_404(db, partner_id)
     request_payload = payload or ClientCreateVerificationRequest()
     offer = _resolve_partner_offer_for_verification(db, partner.id, request_payload.offer_id)
 
@@ -453,13 +443,10 @@ def read_client_partner(
     db: Session = Depends(get_db),
 ) -> ClientPartnerCatalogItem:
     del current_user
-    partner, city_name, category_id, category_name, category_slug = _get_active_partner_row_or_404(db, partner_id)
+    partner, city_name = _get_active_partner_row_or_404(db, partner_id)
     return _partner_to_catalog_item(
         partner,
         city_name,
-        category_id,
-        category_name,
-        category_slug,
         _active_photos_by_partner(db, [partner.id]).get(partner.id, []),
     )
 
@@ -661,26 +648,17 @@ def _resolve_catalog_city_id(
 def _get_active_partner_row_or_404(
     db: Session,
     partner_id: int,
-) -> tuple[Partner, str | None, int | None, str | None, str | None]:
+) -> tuple[Partner, str | None]:
     row = db.execute(
-        select(
-            Partner,
-            City.name.label("city_name"),
-            Category.id.label("category_id"),
-            Category.name.label("category_name"),
-            Category.slug.label("category_slug"),
-        )
+        select(Partner, City.name.label("city_name"))
         .join(City, Partner.city_id == City.id)
-        .outerjoin(
-            Category,
-            (Category.slug == Partner.category_slug) & Category.is_active.is_(True),
-        )
+        .options(selectinload(Partner.categories))
         .where(Partner.id == partner_id, Partner.is_active.is_(True))
     ).one_or_none()
     if row is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=PARTNER_NOT_FOUND_DETAIL)
-    partner, city_name, category_id, category_name, category_slug = row
-    return partner, city_name, category_id, category_name, category_slug
+    partner, city_name = row
+    return partner, city_name
 
 
 def _get_active_partner_offer_or_404(db: Session, partner_id: int, offer_id: int) -> PartnerOffer:
@@ -767,25 +745,30 @@ def _active_photos_by_partner(db: Session, partner_ids: list[int]) -> dict[int, 
 def _partner_to_catalog_item(
     partner: Partner,
     city_name: str | None,
-    category_id: int | None,
-    category_name: str | None,
-    category_slug: str | None,
     photos: list[ClientPartnerPhotoRead] | None = None,
 ) -> ClientPartnerCatalogItem:
+    active_categories = sorted(
+        [category for category in partner.categories if category.is_active],
+        key=lambda c: (c.sort_order, c.name.lower(), c.id),
+    )
+    first = active_categories[0] if active_categories else None
     photo_url = photos[0].url if photos else None
     return ClientPartnerCatalogItem.model_validate(
         {
             "id": partner.id,
             "city_id": partner.city_id,
             "city_name": city_name,
-            "category_id": category_id,
-            "category_name": category_name,
-            "category_slug": partner.category_slug,
+            "category_id": first.id if first is not None else None,
+            "category_name": first.name if first is not None else None,
+            "category_slug": first.slug if first is not None else partner.category_slug,
             "category": (
-                ClientPartnerCategoryRead(id=category_id, name=category_name, slug=category_slug)
-                if category_id is not None and category_name is not None and category_slug is not None
+                ClientPartnerCategoryRead(id=first.id, name=first.name, slug=first.slug)
+                if first is not None
                 else None
             ),
+            "categories": [ClientPartnerCategoryRead(id=c.id, name=c.name, slug=c.slug) for c in active_categories],
+            "category_ids": [c.id for c in active_categories],
+            "category_slugs": [c.slug for c in active_categories],
             "name": partner.name,
             "description": partner.description,
             "address": partner.address,

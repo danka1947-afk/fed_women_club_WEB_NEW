@@ -653,6 +653,7 @@ def create_admin_partner(
     if payload.owner_user_id is not None:
         _get_partner_owner(db, payload.owner_user_id)
 
+    category_ids = payload.category_ids
     partner = Partner(
         city_id=payload.city_id,
         owner_user_id=payload.owner_user_id,
@@ -666,6 +667,9 @@ def create_admin_partner(
         setattr(partner, field, _normalize_optional_text(getattr(payload, field)))
 
     db.add(partner)
+    if category_ids is not None:
+        partner.categories = _get_categories_by_ids_or_400(db, category_ids)
+        partner.category_slug = partner.categories[0].slug if partner.categories else None
     db.commit()
     db.refresh(partner)
     return _get_partner_read_or_404(db, partner.id)
@@ -718,6 +722,9 @@ def update_admin_partner(
         partner.owner_user_id = owner_user_id
     if "category_slug" in update_data:
         partner.category_slug = _normalize_category_slug(db, update_data["category_slug"])
+    if "category_ids" in update_data:
+        partner.categories = _get_categories_by_ids_or_400(db, update_data["category_ids"] or [])
+        partner.category_slug = partner.categories[0].slug if partner.categories else None
     if "name" in update_data:
         partner.name = _strip_partner_name(update_data["name"])
 
@@ -1428,6 +1435,7 @@ def _get_partner_read_or_404(db: Session, partner_id: int) -> PartnerRead:
         select(Partner, City.name.label("city_name"), User.email.label("owner_email"))
         .join(City, Partner.city_id == City.id)
         .outerjoin(User, Partner.owner_user_id == User.id)
+        .options(selectinload(Partner.categories))
         .where(Partner.id == partner_id)
     )
     row = db.execute(statement).one_or_none()
@@ -1438,12 +1446,20 @@ def _get_partner_read_or_404(db: Session, partner_id: int) -> PartnerRead:
 
 
 def _partner_to_read(partner: Partner, city_name: str | None, owner_email: str | None) -> PartnerRead:
+    categories = sorted(partner.categories, key=lambda c: (c.sort_order, c.name.lower(), c.id))
+    first = categories[0] if categories else None
     return PartnerRead.model_validate(
         {
             "id": partner.id,
             "city_id": partner.city_id,
             "owner_user_id": partner.owner_user_id,
-            "category_slug": partner.category_slug,
+            "category_slug": first.slug if first is not None else partner.category_slug,
+            "category_id": first.id if first is not None else None,
+            "category_name": first.name if first is not None else None,
+            "category": {"id": first.id, "name": first.name, "slug": first.slug} if first is not None else None,
+            "categories": [{"id": c.id, "name": c.name, "slug": c.slug, "is_active": c.is_active, "sort_order": c.sort_order} for c in categories],
+            "category_ids": [c.id for c in categories],
+            "category_slugs": [c.slug for c in categories],
             "name": partner.name,
             "description": partner.description,
             "address": partner.address,
@@ -1460,3 +1476,13 @@ def _partner_to_read(partner: Partner, city_name: str | None, owner_email: str |
             "owner_email": owner_email,
         }
     )
+
+
+def _get_categories_by_ids_or_400(db: Session, category_ids: list[int]) -> list[Category]:
+    if not category_ids:
+        return []
+    categories = db.execute(select(Category).where(Category.id.in_(category_ids))).scalars().all()
+    by_id = {category.id: category for category in categories}
+    if len(by_id) != len(set(category_ids)):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Category not found")
+    return [by_id[category_id] for category_id in dict.fromkeys(category_ids)]
