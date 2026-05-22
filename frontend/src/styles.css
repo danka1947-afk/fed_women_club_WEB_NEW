@@ -1357,8 +1357,18 @@ h2 {
 .client-card-actions button,
 .client-offer-card button,
 .client-vk-link-card button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid transparent;
   border-radius: 12px;
   font-weight: 700;
+  line-height: 1.2;
+  cursor: pointer;
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease, filter 0.2s ease, opacity 0.2s ease;
 }
 
 .ui-button--primary,
@@ -1384,6 +1394,46 @@ h2 {
   border: 1px solid rgba(190, 93, 101, 0.32);
   background: rgba(253, 235, 237, 0.95);
   color: var(--color-danger);
+}
+
+.ui-button--success {
+  border: 1px solid rgba(98, 145, 84, 0.42);
+  background: rgba(232, 248, 226, 0.95);
+  color: #2f6b3e;
+}
+
+.ui-button--disabled,
+.ui-button:disabled {
+  opacity: 0.58;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.ui-button--sm { min-height: 34px; padding: 0 10px; font-size: 0.82rem; }
+.ui-button--md { min-height: 40px; padding: 0 14px; }
+.ui-button--lg { min-height: 46px; padding: 0 18px; font-size: 0.98rem; }
+.ui-button--full { width: 100%; }
+
+.ui-action-row,
+.ui-card-actions,
+.ui-form-actions,
+.ui-toolbar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.ui-action-row--right { justify-content: flex-end; }
+.ui-action-row--between { justify-content: space-between; }
+
+.ui-card-actions { margin-top: 10px; }
+.ui-form-actions { margin-top: 14px; }
+
+@media (max-width: 720px) {
+  .ui-action-row--stack-mobile > * {
+    width: 100%;
+  }
 }
 
 .status-badge {
