@@ -507,6 +507,10 @@ const clientState = {
   savings: null,
   savingsLoading: false,
   savingsError: '',
+  savingsFilterMode: 'all',
+  savingsFilterFromDate: '',
+  savingsFilterToDate: '',
+  savingsFilterUiError: '',
   activityLoading: false,
   activityError: '',
   catalogFilters: {
@@ -908,6 +912,12 @@ const renderOfferMarketplaceCard = (offer = {}, options = {}) => {
 
 const renderDisplayValue = (value) => String(value || '').startsWith('<span class="status-badge') ? value : formatValue(value);
 const formatDate = (value) => (value ? new Date(value).toLocaleString('ru-RU') : '—');
+const formatDateRu = (value) => {
+  if (!value) return '—';
+  const [year, month, day] = String(value).split('-');
+  if (!year || !month || !day) return formatDate(value);
+  return `${day}.${month}.${year}`;
+};
 
 const activityEventMeta = {
   privilege_created: { label: 'Привилегия', icon: '♡', tone: 'privilege' },
@@ -2070,11 +2080,19 @@ const loadClientActivity = async () => {
     clientState.activityLoading = false;
   }
 };
-const loadClientSavings = async () => {
+const buildClientSavingsPath = ({ fromDate = '', toDate = '' } = {}) => {
+  const params = new URLSearchParams();
+  if (fromDate) params.set('from_date', fromDate);
+  if (toDate) params.set('to_date', toDate);
+  const query = params.toString();
+  return `/api/v1/clients/me/savings${query ? `?${query}` : ''}`;
+};
+
+const loadClientSavings = async ({ fromDate = '', toDate = '' } = {}) => {
   clientState.savingsLoading = true;
   clientState.savingsError = '';
   try {
-    clientState.savings = await clientApiFetch('/api/v1/clients/me/savings');
+    clientState.savings = await clientApiFetch(buildClientSavingsPath({ fromDate, toDate }));
   } catch (error) {
     if (!getClientToken()) throw error;
     clientState.savingsError = error.message || 'Не удалось загрузить экономию.';
@@ -2448,8 +2466,19 @@ const renderClientTabContent = () => {
 };
 
 const renderClientSavingsTab = () => {
+  const isPeriodMode = clientState.savingsFilterMode === 'period';
+  const activePeriodLabel = isPeriodMode
+    ? `За период: ${formatDateRu(clientState.savingsFilterFromDate)} — ${formatDateRu(clientState.savingsFilterToDate)}`
+    : 'За всё время';
   if (clientState.savingsLoading) {
-    return `${renderClientTabHeader('Моя экономия', 'По использованным привилегиям.')}<div class="activity-empty" role="status">Загружаем экономию…</div>`;
+    return `${renderClientTabHeader('Моя экономия', 'По использованным привилегиям.')}
+      <section class="client-savings-filter">
+        <div class="client-savings-filter__modes">
+          <button type="button" class="ui-button ${!isPeriodMode ? 'ui-button--primary' : 'ui-button--secondary'}" data-client-savings-filter-mode="all">За всё время</button>
+          <button type="button" class="ui-button ${isPeriodMode ? 'ui-button--primary' : 'ui-button--secondary'}" data-client-savings-filter-mode="period">Период</button>
+        </div>
+      </section>
+      <div class="activity-empty" role="status">Загружаем экономию…</div>`;
   }
   if (clientState.savingsError) {
     return `${renderClientTabHeader('Моя экономия', 'По использованным привилегиям.')}<div class="activity-empty activity-empty--error" role="alert">${escapeHtml(clientState.savingsError)}</div>`;
@@ -2457,6 +2486,24 @@ const renderClientSavingsTab = () => {
   const data = clientState.savings || { total_saving_amount: 0, items: [] };
   return `
     ${renderClientTabHeader('Моя экономия', 'По использованным привилегиям.')}
+    <section class="client-savings-filter">
+      <div class="client-savings-filter__modes">
+        <button type="button" class="ui-button ${!isPeriodMode ? 'ui-button--primary' : 'ui-button--secondary'}" data-client-savings-filter-mode="all">За всё время</button>
+        <button type="button" class="ui-button ${isPeriodMode ? 'ui-button--primary' : 'ui-button--secondary'}" data-client-savings-filter-mode="period">Период</button>
+      </div>
+      ${isPeriodMode ? `
+        <div class="client-savings-filter__fields">
+          <label>От<input type="date" name="from_date" value="${escapeHtml(clientState.savingsFilterFromDate)}" data-client-savings-date="from" /></label>
+          <label>До<input type="date" name="to_date" value="${escapeHtml(clientState.savingsFilterToDate)}" data-client-savings-date="to" /></label>
+        </div>
+        <div class="client-savings-filter__actions">
+          <button type="button" class="ui-button ui-button--primary" data-client-savings-apply>Применить</button>
+          <button type="button" class="ui-button ui-button--ghost" data-client-savings-reset>Сбросить</button>
+        </div>
+      ` : ''}
+      ${clientState.savingsFilterUiError ? `<p class="form-message" role="alert">${escapeHtml(clientState.savingsFilterUiError)}</p>` : ''}
+    </section>
+    <article class="summary-card"><span>Активный период</span><strong>${escapeHtml(activePeriodLabel)}</strong></article>
     <article class="summary-card"><span>Вы сэкономили</span><strong>${formatPrice(data.total_saving_amount)}</strong><small>По использованным привилегиям</small></article>
     ${Array.isArray(data.items) && data.items.length ? data.items.map((item) => `
       <article class="client-privilege-card">
@@ -5901,6 +5948,45 @@ root.addEventListener('click', async (event) => {
     return;
   }
 
+  const savingsModeButton = event.target.closest('[data-client-savings-filter-mode]');
+  if (savingsModeButton) {
+    const mode = savingsModeButton.dataset.clientSavingsFilterMode === 'period' ? 'period' : 'all';
+    clientState.savingsFilterMode = mode;
+    clientState.savingsFilterUiError = '';
+    if (mode === 'all') {
+      clientState.savingsFilterFromDate = '';
+      clientState.savingsFilterToDate = '';
+      await loadClientSavings();
+    }
+    renderClientLayout();
+    return;
+  }
+
+  const savingsApplyButton = event.target.closest('[data-client-savings-apply]');
+  if (savingsApplyButton) {
+    clientState.savingsFilterUiError = '';
+    const { savingsFilterFromDate: fromDate, savingsFilterToDate: toDate } = clientState;
+    if (fromDate && toDate && fromDate > toDate) {
+      clientState.savingsFilterUiError = 'Дата начала не может быть позже даты окончания.';
+      renderClientLayout();
+      return;
+    }
+    await loadClientSavings({ fromDate, toDate });
+    renderClientLayout();
+    return;
+  }
+
+  const savingsResetButton = event.target.closest('[data-client-savings-reset]');
+  if (savingsResetButton) {
+    clientState.savingsFilterMode = 'all';
+    clientState.savingsFilterFromDate = '';
+    clientState.savingsFilterToDate = '';
+    clientState.savingsFilterUiError = '';
+    await loadClientSavings();
+    renderClientLayout();
+    return;
+  }
+
   const createVkCodeButton = event.target.closest('[data-client-create-vk-code]');
   if (createVkCodeButton) {
     await createClientVkLinkCode();
@@ -5975,6 +6061,17 @@ root.addEventListener('input', (event) => {
   }
 
   const searchInput = event.target.closest('[data-admin-search]');
+  const savingsDateInput = event.target.closest('[data-client-savings-date]');
+  if (savingsDateInput) {
+    if (savingsDateInput.dataset.clientSavingsDate === 'from') {
+      clientState.savingsFilterFromDate = savingsDateInput.value;
+    } else {
+      clientState.savingsFilterToDate = savingsDateInput.value;
+    }
+    clientState.savingsFilterUiError = '';
+    return;
+  }
+
   if (!searchInput) {
     return;
   }
