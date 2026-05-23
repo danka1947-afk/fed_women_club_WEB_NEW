@@ -397,6 +397,14 @@ const adminState = {
   panelMessage: '',
   formMessages: {},
   overviewPartialError: false,
+  partnerFilters: {
+    city: '',
+    category: '',
+    activity: 'all',
+    photos: 'all',
+    offers: 'all',
+    verification: 'all',
+  },
   search: {
     users: '',
     cities: '',
@@ -4034,52 +4042,162 @@ const renderPartnerForm = () => {
   `;
 };
 
-const renderPartnersList = (partners) => `
+
+const defaultPartnerFilters = () => ({
+  city: '',
+  category: '',
+  activity: 'all',
+  photos: 'all',
+  offers: 'all',
+  verification: 'all',
+});
+
+const hasVerificationData = (partners) => partners.some((partner) => partner?.is_verified !== undefined && partner?.is_verified !== null);
+
+const getPartnerFilterOptions = (partners) => {
+  const cityMap = new Map();
+  adminState.cities.forEach((city) => {
+    const name = String(city?.name || '').trim();
+    if (name) cityMap.set(name.toLowerCase(), name);
+  });
+  partners.forEach((partner) => {
+    const name = String(partner?.city_name || '').trim();
+    if (name) cityMap.set(name.toLowerCase(), name);
+  });
+
+  const categoryMap = new Map();
+  adminState.categories.forEach((category) => {
+    const title = String(category?.title || category?.name || '').trim();
+    if (title) categoryMap.set(title.toLowerCase(), title);
+  });
+  partners.forEach((partner) => {
+    getPartnerCategories(partner).forEach((category) => {
+      const title = String(category?.name || category?.title || '').trim();
+      if (title) categoryMap.set(title.toLowerCase(), title);
+    });
+  });
+
+  return {
+    cities: Array.from(cityMap.values()).sort((a, b) => a.localeCompare(b, 'ru')),
+    categories: Array.from(categoryMap.values()).sort((a, b) => a.localeCompare(b, 'ru')),
+  };
+};
+
+const filterPartnersRegistry = (partners) => {
+  const filters = { ...defaultPartnerFilters(), ...(adminState.partnerFilters || {}) };
+  return partners.filter((partner) => {
+    const cityName = String(partner.city_name || '').trim();
+    if (filters.city && cityName !== filters.city) return false;
+
+    const categories = getPartnerCategories(partner).map((category) => String(category.name || '').trim());
+    if (filters.category && !categories.includes(filters.category)) return false;
+
+    if (filters.activity === 'active' && partner.is_active !== true) return false;
+    if (filters.activity === 'inactive' && partner.is_active === true) return false;
+
+    const photosCount = Number(partner.photos_count ?? adminState.partnerPhotosByPartner[String(partner.id)]?.length ?? 0);
+    const hasPhoto = Boolean(partner.cover_url || partner.logo_url || photosCount > 0);
+    if (filters.photos === 'with' && !hasPhoto) return false;
+    if (filters.photos === 'without' && hasPhoto) return false;
+
+    const offersCount = getAdminLoadedOffersForPartner(partner).length;
+    if (filters.offers === 'with' && offersCount <= 0) return false;
+    if (filters.offers === 'without' && offersCount > 0) return false;
+
+    if (filters.verification === 'verified' && partner.is_verified !== true) return false;
+    if (filters.verification === 'unverified' && partner.is_verified === true) return false;
+
+    return true;
+  });
+};
+
+const hasActivePartnerFilters = () => {
+  const filters = { ...defaultPartnerFilters(), ...(adminState.partnerFilters || {}) };
+  return Boolean(filters.city || filters.category || filters.activity !== 'all' || filters.photos !== 'all' || filters.offers !== 'all' || filters.verification !== 'all' || adminState.search.partners);
+};
+
+const renderPartnersList = (partners, totalPartners) => {
+  const filterOptions = getPartnerFilterOptions(totalPartners);
+  const filters = { ...defaultPartnerFilters(), ...(adminState.partnerFilters || {}) };
+  const showVerificationFilter = hasVerificationData(totalPartners);
+  const activeChips = [
+    filters.city ? ['city', `Город: ${filters.city}`] : null,
+    filters.category ? ['category', `Категория: ${filters.category}`] : null,
+    filters.activity === 'active' ? ['activity', 'Активные'] : null,
+    filters.activity === 'inactive' ? ['activity', 'Скрытые / неактивные'] : null,
+    filters.photos === 'with' ? ['photos', 'Есть фото'] : null,
+    filters.photos === 'without' ? ['photos', 'Без фото'] : null,
+    filters.offers === 'with' ? ['offers', 'Есть услуги'] : null,
+    filters.offers === 'without' ? ['offers', 'Без услуг'] : null,
+    filters.verification === 'verified' ? ['verification', 'Проверенные'] : null,
+    filters.verification === 'unverified' ? ['verification', 'Требуют проверки'] : null,
+  ].filter(Boolean);
+
+  const rows = partners.map((partner) => {
+    const cats = getPartnerCategories(partner).map((c) => c.title || c.name || c.slug).filter(Boolean);
+    const offersCount = getAdminLoadedOffersForPartner(partner).length;
+    const photosCount = (partner.photos_count ?? adminState.partnerPhotosByPartner[String(partner.id)]?.length ?? 0);
+    return [
+      `<div><strong>${escapeHtml(partner.name || '—')}</strong><div class="muted">${escapeHtml(partner.city_name || '—')}</div><div class="muted">${escapeHtml(partner.owner_email || partner.phone || '—')}</div></div>`,
+      cats.length ? `<div class="admin-partner-chips">${cats.map((c) => `<span class="status-badge">${escapeHtml(c)}</span>`).join('')}</div>` : '—',
+      `${renderBoolStatusBadge(partner.is_active)} ${renderVerifiedStatusBadge(partner.is_verified)}`,
+      `${partner.cover_url || partner.logo_url ? 'Есть фото' : 'Нет фото'} · ${photosCount || 0}`,
+      String(offersCount || 0),
+      formatValue(partner.updated_at || partner.created_at || '—'),
+      `<div class="admin-table-actions">${renderAdminPartnerAction(partner)}</div>`,
+    ];
+  });
+
+  const hasAnyPartners = totalPartners.length > 0;
+  const noResults = hasAnyPartners && partners.length === 0;
+
+  return `
   <section>
     <header class="admin-page-header"><h3>Партнёры</h3><p>Управление партнёрами клуба, категориями, статусами и витриной.</p></header>
     <div class="admin-page-toolbar">
       <div class="ui-toolbar-actions">
         <button class="ui-button ui-button--primary" type="button" data-admin-partner-create>+ Добавить партнёра</button>
       </div>
-      ${renderAdminSearch('partners', 'Поиск по партнёрам')}
+      ${renderAdminSearch('partners', 'Поиск по партнёрам, городам, email, телефону и категориям')}
+      ${hasActivePartnerFilters() ? '<button class="ui-button ui-button--ghost" type="button" data-admin-partner-filter-clear>Сбросить</button>' : ''}
     </div>
-    ${renderTable(
-      ['Партнёр', 'Категории', 'Статус', 'Витрина', 'Услуги', 'Обновлено', 'Действия'],
-      partners.map((partner) => {
-        const cats = getPartnerCategories(partner).map((c) => c.title || c.name || c.slug).filter(Boolean);
-        const offersCount = getAdminLoadedOffersForPartner(partner).length;
-        const photosCount = (partner.photos_count ?? adminState.partnerPhotosByPartner[String(partner.id)]?.length ?? 0);
-        return [
-          `<div><strong>${escapeHtml(partner.name || '—')}</strong><div class="muted">${escapeHtml(partner.city_name || '—')}</div><div class="muted">${escapeHtml(partner.owner_email || '—')}</div></div>`,
-          cats.length ? `<div class="admin-partner-chips">${cats.map((c) => `<span class="status-badge">${escapeHtml(c)}</span>`).join('')}</div>` : '—',
-          `${renderBoolStatusBadge(partner.is_active)} ${renderVerifiedStatusBadge(partner.is_verified)}`,
-          `${partner.cover_url || partner.logo_url ? 'Есть фото' : 'Нет фото'} · ${photosCount || 0}`,
-          String(offersCount || 0),
-          formatValue(partner.updated_at || partner.created_at || '—'),
-          renderAdminPartnerAction(partner),
-        ];
-      }),
-      true,
-      'admin-table--compact admin-table--partners admin-partners-table',
-      adminState.search.partners ? 'Ничего не найдено.' : 'Партнёры пока не добавлены. Создайте первого партнёра.',
-    )}
+    <div class="admin-filter-panel">
+      <div class="admin-filter-grid">
+        <label class="admin-filter-field">Город${renderSelect('partner_filter_city', [['', 'Все города'], ...filterOptions.cities.map((city) => [city, city])], false, filters.city, null, { data: { adminPartnerFilter: 'city' } })}</label>
+        <label class="admin-filter-field">Категория${renderSelect('partner_filter_category', [['', 'Все категории'], ...filterOptions.categories.map((category) => [category, category])], false, filters.category, null, { data: { adminPartnerFilter: 'category' } })}</label>
+        <label class="admin-filter-field">Активность${renderSelect('partner_filter_activity', [['all', 'Все'], ['active', 'Активные'], ['inactive', 'Скрытые / неактивные']], false, filters.activity, null, { data: { adminPartnerFilter: 'activity' } })}</label>
+        <label class="admin-filter-field">Фото${renderSelect('partner_filter_photos', [['all', 'Все'], ['with', 'Есть фото'], ['without', 'Нет фото']], false, filters.photos, null, { data: { adminPartnerFilter: 'photos' } })}</label>
+        <label class="admin-filter-field">Услуги${renderSelect('partner_filter_offers', [['all', 'Все'], ['with', 'Есть услуги'], ['without', 'Нет услуг']], false, filters.offers, null, { data: { adminPartnerFilter: 'offers' } })}</label>
+        ${showVerificationFilter ? `<label class="admin-filter-field">Проверка${renderSelect('partner_filter_verification', [['all', 'Все'], ['verified', 'Проверенные'], ['unverified', 'Требуют проверки']], false, filters.verification, null, { data: { adminPartnerFilter: 'verification' } })}</label>` : ''}
+      </div>
+      ${activeChips.length ? `<div class="admin-filter-chips">${activeChips.map(([key, label]) => `<span class="admin-filter-chip">${escapeHtml(label)}<button class="ui-button ui-button--ghost" type="button" data-admin-partner-filter-reset="${escapeHtml(key)}">×</button></span>`).join('')}<button class="ui-button ui-button--ghost" type="button" data-admin-partner-filter-clear>Сбросить всё</button></div>` : ''}
+    </div>
+    <div class="admin-summary-strip">Найдено: <strong>${partners.length}</strong> из ${totalPartners.length}</div>
+    ${!hasAnyPartners ? `<div class="admin-empty-state"><p>Партнёры пока не добавлены.</p><button class="ui-button ui-button--primary" type="button" data-admin-partner-create>+ Добавить партнёра</button></div>` : ''}
+    ${noResults ? `<div class="admin-empty-state"><p>По выбранным фильтрам партнёры не найдены.</p><button class="ui-button ui-button--ghost" type="button" data-admin-partner-filter-clear>Сбросить фильтры</button></div>` : ''}
+    ${!noResults && hasAnyPartners ? renderTable(['Партнёр', 'Категории', 'Статус', 'Витрина', 'Услуги', 'Обновлено', 'Действия'], rows, true, 'admin-table--compact admin-table--partners admin-partners-table') : ''}
   </section>
 `;
+};
 
 const renderPartnersTab = () => {
-  const partners = filterAdminRows(adminState.partners, adminState.search.partners, [
+  const searchedPartners = filterAdminRows(adminState.partners, adminState.search.partners, [
     'name',
     'city_name',
     'category_slug',
+    'category_name',
     'owner_email',
     'phone',
+    (partner) => getPartnerCategories(partner).map((category) => `${category.name} ${category.slug || ''}`).join(' '),
     (partner) => searchableBool(partner.is_active),
     (partner) => (partner.is_verified ? 'verified проверен проверенный true' : 'unverified не проверен непроверенный false'),
   ]);
 
+  const partners = filterPartnersRegistry(searchedPartners);
+
   return `
     <div class="admin-partners-layout">
-      ${renderPartnersList(partners)}
+      ${renderPartnersList(partners, adminState.partners)}
       ${renderPartnerForm()}
     </div>
   `;
@@ -5682,6 +5800,21 @@ root.addEventListener('click', async (event) => {
     return;
   }
 
+  const partnerFilterReset = event.target.closest('[data-admin-partner-filter-reset]');
+  if (partnerFilterReset) {
+    adminState.partnerFilters = { ...defaultPartnerFilters(), ...(adminState.partnerFilters || {}), [partnerFilterReset.dataset.adminPartnerFilterReset]: defaultPartnerFilters()[partnerFilterReset.dataset.adminPartnerFilterReset] ?? '' };
+    renderAdminLayout();
+    return;
+  }
+
+  const partnerFilterClear = event.target.closest('[data-admin-partner-filter-clear]');
+  if (partnerFilterClear) {
+    adminState.partnerFilters = defaultPartnerFilters();
+    adminState.search.partners = '';
+    renderAdminLayout();
+    return;
+  }
+
   const userToggle = event.target.closest('[data-user-active-toggle]');
   if (userToggle) {
     toggleUserActive(userToggle.dataset.userActiveToggle);
@@ -6184,6 +6317,14 @@ root.addEventListener('input', (event) => {
   const paymentAccessDaysInput = event.target.closest('[data-admin-payment-access-days]');
   if (paymentAccessDaysInput) {
     adminState.paymentApprovalDays = Math.max(1, Number(paymentAccessDaysInput.value) || 30);
+    return;
+  }
+
+  const partnerFilterInput = event.target.closest('[data-admin-partner-filter]');
+  if (partnerFilterInput) {
+    const filterKey = partnerFilterInput.dataset.adminPartnerFilter;
+    adminState.partnerFilters = { ...defaultPartnerFilters(), ...(adminState.partnerFilters || {}), [filterKey]: partnerFilterInput.value };
+    renderAdminLayout();
     return;
   }
 

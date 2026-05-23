@@ -825,7 +825,13 @@ def test_admin_partners_phase2_form_toggle_and_sections_markers() -> None:
         "<h5 class=\"admin-form-section__title\">Медиа</h5>",
         "admin-partners-layout",
         "admin-partners-table",
-        "renderPartnersList(partners)",
+        "partnerFilters",
+        "data-admin-partner-filter",
+        "data-admin-partner-filter-reset",
+        "data-admin-partner-filter-clear",
+        "Найдено:",
+        "По выбранным фильтрам партнёры не найдены.",
+        "renderPartnersList(partners, adminState.partners)",
         "renderPartnerForm()",
         "adminState.partnerFormOpen = true;",
         "adminState.partnerFormOpen = false;",
@@ -835,6 +841,24 @@ def test_admin_partners_phase2_form_toggle_and_sections_markers() -> None:
     assert "adminState.partnerFormOpen ? '' : 'hidden'" in source
     assert 'class="admin-partner-form-panel is-open"' not in source
 
+
+
+def test_admin_partners_phase21_filters_and_category_normalization_markers() -> None:
+    source = _frontend_main()
+
+    for marker in (
+        "city: ''",
+        "category: ''",
+        "activity: 'all'",
+        "photos: 'all'",
+        "offers: 'all'",
+        "getPartnerCategories(partner)",
+        "name === '[object Object]'",
+        "slug === '[object Object]'",
+        "+ Добавить партнёра",
+        "adminState.partnerFormOpen",
+    ):
+        assert marker in source
 def test_frontend_category_admin_keeps_public_dashboard_and_removed_image_markers() -> None:
     source = _frontend_main()
     styles = _frontend_styles()
