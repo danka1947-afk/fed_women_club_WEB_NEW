@@ -2288,3 +2288,34 @@ def test_frontend_dist_build_points_to_assets_bundle() -> None:
 
     assert any(path.suffix == ".js" for path in dist_assets.iterdir())
     assert any(path.suffix == ".css" for path in dist_assets.iterdir())
+
+def test_admin_partner_wizard_markers_present() -> None:
+    source = _frontend_main()
+
+    for marker in (
+        "partnerFormStep",
+        "basic",
+        "status",
+        "contacts",
+        "description",
+        "media",
+        "review",
+        "Основное",
+        "Категории",
+        "Контакты",
+        "Описание",
+        "Медиа",
+        "Проверка",
+        "Далее",
+        "Назад",
+        "Сохранить партнёра",
+        "Укажите название партнёра.",
+        "Проверка перед сохранением",
+        "adminState.partnerFormOpen",
+        "category_ids",
+        "Партнёр может отображаться сразу в нескольких категориях.",
+        "data-admin-partner-step-next",
+        "type=\"button\"",
+        "data-admin-partner-wizard-form",
+    ):
+        assert marker in source
