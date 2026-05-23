@@ -5,3 +5,11 @@
 - Backward compatibility aliases retained for admin inline actions: `.admin-inline-action--primary`, `.admin-inline-action--secondary`, `.admin-inline-action--danger` and `.admin-action-button` mapped visually to new UI button semantics.
 - Action groups normalized in Admin/Partner/Client cards and media sections, including payment request cards and content review cards, by applying `ui-card-actions` / `ui-action-row` wrappers.
 - Phase 2 TODO: deeper semantic review for ambiguous neutral actions (for example “Открыть партнёра” context priority) and broader refactor of legacy component-specific button selectors.
+
+## Phase 2 implementation notes — Admin Partners
+
+- Экран **Admin → Партнёры** переведён в формат реестра: список отображается в таблице с ключевыми колонками (партнёр, категории, статусы, витрина, услуги, обновление, действия).
+- Форма создания/редактирования партнёра теперь **скрыта по умолчанию** и открывается по явному действию: кнопка «+ Добавить партнёра» или «Редактировать» в строке реестра.
+- Форма структурирована по секциям: **Основное**, **Статусы**, **Категории**, **Контакты**, **Описание**, **Медиа**.
+- Действия, существовавшие в бизнес-логике, сохранены без изменения API: редактирование, загрузка медиа и текущие submit-потоки create/edit.
+- Для Phase 3 остаются: углублённые фильтры реестра, дополнительные массовые операции и расширенные сценарии аналитики/публикации в рамках отдельного UX-цикла.

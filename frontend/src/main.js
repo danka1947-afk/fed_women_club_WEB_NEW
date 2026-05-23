@@ -390,6 +390,7 @@ const adminState = {
   selectedPartnerIdForQr: '',
   selectedQrLinkIdForEdit: '',
   selectedPartnerIdForEdit: '',
+  partnerFormOpen: false,
   selectedCityIdForEdit: '',
   selectedCategoryIdForEdit: '',
   selectedOfferIdForEdit: '',
@@ -3110,7 +3111,7 @@ const renderPartnerProfileTab = () => {
               <label>Телефон<input class="${isRequiredProfileFieldEmpty(profile, 'phone') ? 'partner-required-empty' : ''}" name="phone" autocomplete="tel" required value="${escapeHtml(profile.phone || '')}" placeholder="+7 999 123-45-67" /></label>
               <label>График работы<input class="${isRequiredProfileFieldEmpty(profile, 'working_hours') ? 'partner-required-empty' : ''}" name="working_hours" required value="${escapeHtml(profile.working_hours || '')}" placeholder="Пн–Пт 10:00–20:00, Сб 11:00–18:00" /></label>
               <label>Сайт<input name="website_url" value="${escapeHtml(profile.website_url || '')}" placeholder="https://example.ru" /></label>
-              <label>Соцсеть<input name="social_url" value="${escapeHtml(profile.social_url || '')}" placeholder="https://vk.com/bloom_beauty" /></label>
+              <label>Ссылка на соцсеть / сайт<input name="social_url" value="${escapeHtml(profile.social_url || '')}" placeholder="https://vk.com/bloom_beauty" /></label>
             </div>
           </section>
 
@@ -3777,7 +3778,7 @@ const renderCategoryActionButtons = (category) => renderAdminTableActions(`
 const renderCategoryCreateForm = () => `
   <form class="admin-form" data-admin-form="category">
     <h4>Новая категория</h4>
-    <label>Название<input name="name" required /></label>
+    <label>Название партнёра<input name="name" required /></label>
     <label>Slug<input name="slug" required /></label>
     <label>Порядок сортировки<input name="sort_order" type="number" value="0" /></label>
     <label class="checkbox-row"><input name="is_active" type="checkbox" checked /> Активна</label>
@@ -3924,7 +3925,7 @@ const renderPartnerEditForm = () => {
               <div class="admin-section-heading text-stack"><h4 class="section-title">Основные данные</h4><p class="section-description compact-copy">Профиль, контакты и статусы для каталога.</p></div>
               <label>Город${renderSelect('city_id', adminState.cities.map((city) => [city.id, city.name]), true, partner.city_id, null, { label: 'Город', data: { adminPartnerField: 'city' } })}</label>
               <fieldset class="partner-multicategory"><legend>Категории</legend><div class="partner-category-chips">${activeCategories.map((category) => `<label class="checkbox-row"><input type="checkbox" name="category_ids" value="${escapeHtml(category.id)}" ${selectedCategoryIds.has(String(category.id)) ? 'checked' : ''}/> ${escapeHtml(category.title)}</label>`).join('')}</div></fieldset>
-              <label>Владелец${renderSelect('owner_user_id', adminState.users.filter((item) => item.role === 'partner').map((item) => [item.id, item.email || item.phone || `Партнёр #${item.id}`]), false, partner.owner_user_id || '', 'Без владельца', { label: 'Владелец', data: { adminPartnerField: 'owner' } })}</label>
+              <label>Владелец / аккаунт партнёра${renderSelect('owner_user_id', adminState.users.filter((item) => item.role === 'partner').map((item) => [item.id, item.email || item.phone || `Партнёр #${item.id}`]), false, partner.owner_user_id || '', 'Без владельца', { label: 'Владелец', data: { adminPartnerField: 'owner' } })}</label>
               <label>Название<input name="name" required value="${escapeHtml(partner.name || '')}" /></label>
               <label>Описание<textarea name="description" rows="3">${escapeHtml(partner.description || '')}</textarea></label>
               <label>Адрес<input name="address" value="${escapeHtml(partner.address || '')}" /></label>
@@ -3977,44 +3978,92 @@ const renderPartnerEditForm = () => {
   `;
 };
 
-const renderPartnerCreateForm = () => `
-  <form class="admin-form" data-admin-form="partner">
-    <h4>Новый партнёр</h4>
-    <label>Город${renderSelect('city_id', adminState.cities.map((city) => [city.id, city.name]), true, '', null, { label: 'Город', data: { adminPartnerField: 'city' } })}</label>
-    <label>Владелец / аккаунт партнёра${renderSelect('owner_user_id', adminState.users.filter((item) => item.role === 'partner').map((item) => [item.id, item.email || item.phone || `Партнёр #${item.id}`]), false, '', 'Без владельца', { label: 'Владелец', data: { adminPartnerField: 'owner' } })}</label>
-    <fieldset class="partner-multicategory"><legend>Категории</legend><div class="partner-category-chips">${adminState.categories.filter((category) => category.is_active !== false).map((category) => `<label class="checkbox-row"><input type="checkbox" name="category_ids" value="${escapeHtml(category.id)}"/> ${escapeHtml(category.title)}</label>`).join('')}</div></fieldset>
-    <label>Название партнёра<input name="name" required /></label>
-    <label>Описание<textarea name="description" rows="3"></textarea></label>
-    <label>Адрес<input name="address" /></label>
-    <label>Телефон<input name="phone" /></label>
-    <label>Ссылка на соцсеть / сайт<input name="social_url" /></label>
-    <label class="checkbox-row"><input name="is_active" type="checkbox" checked /> Активен</label>
-    <label class="checkbox-row"><input name="is_verified" type="checkbox" /> Проверен</label>
-    <button type="submit">Создать партнёра</button>
-    <p class="form-message" data-form-message="partner">${escapeHtml(adminState.formMessages.partner || '')}</p>
-  </form>
-`;
+const renderPartnerForm = () => {
+  const isEditMode = Boolean(adminState.selectedPartnerIdForEdit);
+  const partner = isEditMode
+    ? adminState.partners.find((item) => String(item.id) === String(adminState.selectedPartnerIdForEdit))
+    : null;
+
+  const activeCategories = adminState.categories.filter((category) => category.is_active !== false);
+  const selectedCategoryIds = new Set(
+    isEditMode && partner
+      ? getPartnerCategories(partner)
+        .map((item) => {
+          if (item.id) return String(item.id);
+          const match = activeCategories.find((category) => category.slug === item.slug);
+          return match ? String(match.id) : '';
+        })
+        .filter(Boolean)
+      : [],
+  );
+
+  return `
+    <aside class="admin-partner-form-panel ${adminState.partnerFormOpen ? 'is-open' : ''}" ${adminState.partnerFormOpen ? '' : 'hidden'}>
+      <div class="admin-partner-form-panel__header">
+        <h4>${isEditMode ? 'Редактирование партнёра' : 'Новый партнёр'}</h4>
+        <p>${isEditMode ? escapeHtml(partner?.name || '') : 'Заполните карточку нового партнёра.'}</p>
+      </div>
+      <form class="admin-form" data-admin-form="${isEditMode ? 'partnerEdit' : 'partner'}" ${isEditMode ? `data-partner-id="${escapeHtml(partner?.id)}"` : ''}>
+        <section class="admin-form-section"><h5 class="admin-form-section__title">Основное</h5><div class="admin-form-grid">
+          <label>Название<input name="name" required value="${escapeHtml(partner?.name || '')}" /></label>
+          <label>Город${renderSelect('city_id', adminState.cities.map((city) => [city.id, city.name]), true, partner?.city_id || '', null, { label: 'Город', data: { adminPartnerField: 'city' } })}</label>
+          <label>Владелец${renderSelect('owner_user_id', adminState.users.filter((item) => item.role === 'partner').map((item) => [item.id, item.email || item.phone || `Партнёр #${item.id}`]), false, partner?.owner_user_id || '', 'Без владельца', { label: 'Владелец', data: { adminPartnerField: 'owner' } })}</label>
+          <label>Порядок сортировки<input name="sort_order" type="number" value="${escapeHtml(partner?.sort_order ?? 0)}" /></label>
+        </div></section>
+        <section class="admin-form-section"><h5 class="admin-form-section__title">Статусы</h5><div class="admin-form-grid">
+          <label class="checkbox-row"><input name="is_active" type="checkbox" ${partner?.is_active || !isEditMode ? 'checked' : ''} /> Активен</label>
+          <label class="checkbox-row"><input name="is_verified" type="checkbox" ${partner?.is_verified ? 'checked' : ''} /> Проверен</label>
+        </div></section>
+        <section class="admin-form-section"><h5 class="admin-form-section__title">Категории</h5><p class="helper-text">Партнёр может отображаться сразу в нескольких категориях.</p><fieldset class="partner-multicategory"><div class="partner-category-chips admin-partner-chips">${activeCategories.map((category) => `<label class="checkbox-row"><input type="checkbox" name="category_ids" value="${escapeHtml(category.id)}" ${selectedCategoryIds.has(String(category.id)) ? 'checked' : ''}/> ${escapeHtml(category.title)}</label>`).join('')}</div></fieldset></section>
+        <section class="admin-form-section"><h5 class="admin-form-section__title">Контакты</h5><div class="admin-form-grid">
+          <label>Адрес<input name="address" value="${escapeHtml(partner?.address || '')}" /></label>
+          <label>Телефон<input name="phone" value="${escapeHtml(partner?.phone || '')}" /></label>
+          <label>Сайт<input name="website_url" value="${escapeHtml(partner?.website_url || '')}" /></label>
+          <label>Соцсеть<input name="social_url" value="${escapeHtml(partner?.social_url || '')}" /></label>
+          <label>График работы<input name="working_hours" value="${escapeHtml(partner?.working_hours || '')}" /></label>
+        </div></section>
+        <section class="admin-form-section"><h5 class="admin-form-section__title">Описание</h5><label>Описание<textarea name="description" rows="3">${escapeHtml(partner?.description || '')}</textarea></label></section>
+        <section class="admin-form-section"><h5 class="admin-form-section__title">Медиа</h5><div class="admin-form-grid"><label>Логотип URL<input name="logo_url" value="${escapeHtml(partner?.logo_url || '')}" /></label><label>Обложка URL<input name="cover_url" value="${escapeHtml(partner?.cover_url || '')}" /></label></div>${isEditMode && partner ? renderPartnerImageUploader(partner, 'admin') : ''}${isEditMode && partner ? renderPartnerGallery(partner, adminState.partnerPhotosByPartner[adminState.selectedPartnerIdForEdit] || [], 'admin') : ''}</section>
+        <div class="ui-form-actions">
+          <button class="ui-button ui-button--primary" type="submit">Сохранить партнёра</button>
+          <button class="admin-inline-action ui-button ui-button--ghost" type="button" data-admin-partner-edit-cancel>Отмена</button>
+        </div>
+        <p class="form-message" data-form-message="${isEditMode ? 'partnerEdit' : 'partner'}">${escapeHtml(adminState.formMessages[isEditMode ? 'partnerEdit' : 'partner'] || '')}</p>
+      </form>
+    </aside>
+  `;
+};
 
 const renderPartnersList = (partners) => `
-  <div>
-    <div class="admin-section-heading"><h4>Партнёры</h4><p>Базовый список партнёров клуба.</p></div>
-    ${renderAdminSearch('partners', 'Поиск по партнёрам')}
+  <section>
+    <header class="admin-page-header"><h3>Партнёры</h3><p>Управление партнёрами клуба, категориями, статусами и витриной.</p></header>
+    <div class="admin-page-toolbar">
+      <div class="ui-toolbar-actions">
+        <button class="ui-button ui-button--primary" type="button" data-admin-partner-create>+ Добавить партнёра</button>
+      </div>
+      ${renderAdminSearch('partners', 'Поиск по партнёрам')}
+    </div>
     ${renderTable(
-      ['Партнёр', 'Город', 'Категория', 'Владелец', 'Активен', 'Проверен', 'Действие'],
-      partners.map((partner) => [
-        formatValue(partner.name),
-        formatValue(partner.city_name),
-        formatValue(formatPartnerCategory(partner)),
-        formatValue(partner.owner_email),
-        renderBoolStatusBadge(partner.is_active),
-        renderVerifiedStatusBadge(partner.is_verified),
-        renderAdminPartnerAction(partner),
-      ]),
+      ['Партнёр', 'Категории', 'Статус', 'Витрина', 'Услуги', 'Обновлено', 'Действия'],
+      partners.map((partner) => {
+        const cats = getPartnerCategories(partner).map((c) => c.title || c.name || c.slug).filter(Boolean);
+        const offersCount = getAdminLoadedOffersForPartner(partner).length;
+        const photosCount = (partner.photos_count ?? adminState.partnerPhotosByPartner[String(partner.id)]?.length ?? 0);
+        return [
+          `<div><strong>${escapeHtml(partner.name || '—')}</strong><div class="muted">${escapeHtml(partner.city_name || '—')}</div><div class="muted">${escapeHtml(partner.owner_email || '—')}</div></div>`,
+          cats.length ? `<div class="admin-partner-chips">${cats.map((c) => `<span class="status-badge">${escapeHtml(c)}</span>`).join('')}</div>` : '—',
+          `${renderBoolStatusBadge(partner.is_active)} ${renderVerifiedStatusBadge(partner.is_verified)}`,
+          `${partner.cover_url || partner.logo_url ? 'Есть фото' : 'Нет фото'} · ${photosCount || 0}`,
+          String(offersCount || 0),
+          formatValue(partner.updated_at || partner.created_at || '—'),
+          renderAdminPartnerAction(partner),
+        ];
+      }),
       true,
-      'admin-table--compact admin-table--partners',
-      adminState.search.partners ? 'Ничего не найдено.' : 'Пока нет данных.',
+      'admin-table--compact admin-table--partners admin-partners-table',
+      adminState.search.partners ? 'Ничего не найдено.' : 'Партнёры пока не добавлены. Создайте первого партнёра.',
     )}
-  </div>
+  </section>
 `;
 
 const renderPartnersTab = () => {
@@ -4027,14 +4076,11 @@ const renderPartnersTab = () => {
     (partner) => searchableBool(partner.is_active),
     (partner) => (partner.is_verified ? 'verified проверен проверенный true' : 'unverified не проверен непроверенный false'),
   ]);
-  if (adminState.selectedPartnerIdForEdit) {
-    return renderPartnerEditForm();
-  }
 
   return `
-    <div class="admin-two-column admin-two-column--wide">
+    <div class="admin-partners-layout">
       ${renderPartnersList(partners)}
-      ${renderPartnerCreateForm()}
+      ${renderPartnerForm()}
     </div>
   `;
 };
@@ -5275,6 +5321,10 @@ const handleAdminFormSubmit = async (form) => {
       await submitQrEdit(form);
     }
     setFormMessage(formType, 'Сохранено.');
+    if (formType === 'partner' || formType === 'partnerEdit') {
+      adminState.partnerFormOpen = false;
+      adminState.selectedPartnerIdForEdit = '';
+    }
     setPanelMessage('Сохранено.', 'success');
     renderAdminLayout();
   } catch (error) {
@@ -5688,9 +5738,20 @@ root.addEventListener('click', async (event) => {
     return;
   }
 
+  const partnerCreateButton = event.target.closest('[data-admin-partner-create]');
+  if (partnerCreateButton) {
+    adminState.selectedPartnerIdForEdit = '';
+    adminState.partnerFormOpen = false;
+    adminState.partnerFormOpen = true;
+    setFormMessage('partner');
+    renderAdminLayout();
+    return;
+  }
+
   const partnerEditButton = event.target.closest('[data-admin-partner-edit]');
   if (partnerEditButton) {
     adminState.selectedPartnerIdForEdit = partnerEditButton.dataset.adminPartnerEdit;
+    adminState.partnerFormOpen = true;
     setFormMessage('partnerEdit');
     setFormMessage('partnerGallery');
     adminState.selectedPartnerAnalytics = adminState.partnerAnalyticsById[adminState.selectedPartnerIdForEdit] || null;
