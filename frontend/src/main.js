@@ -391,6 +391,8 @@ const adminState = {
   selectedQrLinkIdForEdit: '',
   selectedPartnerIdForEdit: '',
   partnerFormOpen: false,
+  partnerFormStep: 'basic',
+  partnerFormInlineError: '',
   selectedCityIdForEdit: '',
   selectedCategoryIdForEdit: '',
   selectedOfferIdForEdit: '',
@@ -423,6 +425,17 @@ const adminState = {
   activityEventType: '',
   selectedPartnerIdForActivity: '',
 };
+
+const adminPartnerWizardSteps = [
+  { key: 'basic', label: 'Основное' },
+  { key: 'status', label: 'Категории' },
+  { key: 'contacts', label: 'Контакты' },
+  { key: 'description', label: 'Описание' },
+  { key: 'media', label: 'Медиа' },
+  { key: 'review', label: 'Проверка' },
+];
+
+const getPartnerWizardStepIndex = (key) => adminPartnerWizardSteps.findIndex((step) => step.key === key);
 
 const normalizeSearchText = (value) => String(value ?? '').trim().toLowerCase();
 
@@ -4004,36 +4017,63 @@ const renderPartnerForm = () => {
         .filter(Boolean)
       : [],
   );
+  const currentStepIndex = Math.max(getPartnerWizardStepIndex(adminState.partnerFormStep), 0);
+  const currentStep = adminPartnerWizardSteps[currentStepIndex]?.key || 'basic';
+  const isReviewStep = currentStep === 'review';
+  const selectedCategories = activeCategories.filter((category) => selectedCategoryIds.has(String(category.id)));
+  const hasDescription = Boolean(String(partner?.description || '').trim());
+  const hasPhoto = Boolean(partner?.logo_url || partner?.cover_url || (adminState.partnerPhotosByPartner[adminState.selectedPartnerIdForEdit] || []).length);
+  const hasContacts = Boolean(
+    String(partner?.address || '').trim()
+      || String(partner?.phone || '').trim()
+      || String(partner?.website_url || '').trim()
+      || String(partner?.social_url || '').trim()
+      || String(partner?.working_hours || '').trim(),
+  );
+  const renderStepClass = (stepKey) => `admin-partner-step ${currentStep === stepKey ? '' : 'hidden'}`;
 
   return `
     <aside class="admin-partner-form-panel ${adminState.partnerFormOpen ? 'is-open' : ''}" ${adminState.partnerFormOpen ? '' : 'hidden'}>
-      <div class="admin-partner-form-panel__header">
-        <h4>${isEditMode ? 'Редактирование партнёра' : 'Новый партнёр'}</h4>
-        <p>${isEditMode ? escapeHtml(partner?.name || '') : 'Заполните карточку нового партнёра.'}</p>
+      <div class="admin-partner-form-panel__header admin-partner-wizard">
+        <div class="admin-partner-wizard__header">
+          <h4>${isEditMode ? 'Редактировать партнёра' : 'Добавить партнёра'}</h4>
+          <p>${isEditMode ? 'Обновите данные партнёра по шагам.' : 'Заполните данные партнёра по шагам.'}</p>
+        </div>
+        <div class="admin-partner-stepper" role="tablist" aria-label="Шаги формы партнёра">
+          ${adminPartnerWizardSteps.map((step, index) => `<button class="admin-partner-stepper__item ${index === currentStepIndex ? 'admin-partner-stepper__item--active' : ''} ${index < currentStepIndex ? 'admin-partner-stepper__item--done' : ''}" type="button" data-admin-partner-step-jump="${escapeHtml(step.key)}">${index + 1}. ${escapeHtml(step.label)}</button>`).join('')}
+        </div>
       </div>
-      <form class="admin-form" data-admin-form="${isEditMode ? 'partnerEdit' : 'partner'}" ${isEditMode ? `data-partner-id="${escapeHtml(partner?.id)}"` : ''}>
-        <section class="admin-form-section"><h5 class="admin-form-section__title">Основное</h5><div class="admin-form-grid">
+      <form class="admin-form" data-admin-form="${isEditMode ? 'partnerEdit' : 'partner'}" ${isEditMode ? `data-partner-id="${escapeHtml(partner?.id)}"` : ''} data-admin-partner-wizard-form>
+        <section class="${renderStepClass('basic')}"><h5 class="admin-form-section__title">Основное</h5><div class="admin-form-grid">
           <label>Название<input name="name" required value="${escapeHtml(partner?.name || '')}" /></label>
           <label>Город${renderSelect('city_id', adminState.cities.map((city) => [city.id, city.name]), true, partner?.city_id || '', null, { label: 'Город', data: { adminPartnerField: 'city' } })}</label>
           <label>Владелец${renderSelect('owner_user_id', adminState.users.filter((item) => item.role === 'partner').map((item) => [item.id, item.email || item.phone || `Партнёр #${item.id}`]), false, partner?.owner_user_id || '', 'Без владельца', { label: 'Владелец', data: { adminPartnerField: 'owner' } })}</label>
           <label>Порядок сортировки<input name="sort_order" type="number" value="${escapeHtml(partner?.sort_order ?? 0)}" /></label>
-        </div></section>
-        <section class="admin-form-section"><h5 class="admin-form-section__title">Статусы</h5><div class="admin-form-grid">
+        </div>${adminState.partnerFormInlineError ? `<p class="admin-form-inline-error">${escapeHtml(adminState.partnerFormInlineError)}</p>` : ''}</section>
+        <section class="${renderStepClass('status')}"><h5 class="admin-form-section__title">Статусы</h5><div class="admin-form-grid">
           <label class="checkbox-row"><input name="is_active" type="checkbox" ${partner?.is_active || !isEditMode ? 'checked' : ''} /> Активен</label>
           <label class="checkbox-row"><input name="is_verified" type="checkbox" ${partner?.is_verified ? 'checked' : ''} /> Проверен</label>
-        </div></section>
-        <section class="admin-form-section"><h5 class="admin-form-section__title">Категории</h5><p class="helper-text">Партнёр может отображаться сразу в нескольких категориях.</p><fieldset class="partner-multicategory"><div class="partner-category-chips admin-partner-chips">${activeCategories.map((category) => `<label class="checkbox-row"><input type="checkbox" name="category_ids" value="${escapeHtml(category.id)}" ${selectedCategoryIds.has(String(category.id)) ? 'checked' : ''}/> ${escapeHtml(category.title)}</label>`).join('')}</div></fieldset></section>
-        <section class="admin-form-section"><h5 class="admin-form-section__title">Контакты</h5><div class="admin-form-grid">
+        </div><h5 class="admin-form-section__title">Категории</h5><p class="helper-text">Партнёр может отображаться сразу в нескольких категориях.</p><fieldset class="partner-multicategory"><div class="partner-category-chips admin-partner-chips">${activeCategories.map((category) => `<label class="checkbox-row"><input type="checkbox" name="category_ids" value="${escapeHtml(category.id)}" ${selectedCategoryIds.has(String(category.id)) ? 'checked' : ''}/> ${escapeHtml(category.title)}</label>`).join('')}</div></fieldset></section>
+        <section class="${renderStepClass('contacts')}"><h5 class="admin-form-section__title">Контакты</h5><div class="admin-form-grid">
           <label>Адрес<input name="address" value="${escapeHtml(partner?.address || '')}" /></label>
           <label>Телефон<input name="phone" value="${escapeHtml(partner?.phone || '')}" /></label>
           <label>Сайт<input name="website_url" value="${escapeHtml(partner?.website_url || '')}" /></label>
           <label>Соцсеть<input name="social_url" value="${escapeHtml(partner?.social_url || '')}" /></label>
           <label>График работы<input name="working_hours" value="${escapeHtml(partner?.working_hours || '')}" /></label>
         </div></section>
-        <section class="admin-form-section"><h5 class="admin-form-section__title">Описание</h5><label>Описание<textarea name="description" rows="3">${escapeHtml(partner?.description || '')}</textarea></label></section>
-        <section class="admin-form-section"><h5 class="admin-form-section__title">Медиа</h5><div class="admin-form-grid"><label>Логотип URL<input name="logo_url" value="${escapeHtml(partner?.logo_url || '')}" /></label><label>Обложка URL<input name="cover_url" value="${escapeHtml(partner?.cover_url || '')}" /></label></div>${isEditMode && partner ? renderPartnerImageUploader(partner, 'admin') : ''}${isEditMode && partner ? renderPartnerGallery(partner, adminState.partnerPhotosByPartner[adminState.selectedPartnerIdForEdit] || [], 'admin') : ''}</section>
-        <div class="ui-form-actions">
-          <button class="ui-button ui-button--primary" type="submit">Сохранить партнёра</button>
+        <section class="${renderStepClass('description')}"><h5 class="admin-form-section__title">Описание</h5><label>Описание<textarea name="description" rows="3">${escapeHtml(partner?.description || '')}</textarea></label></section>
+        <section class="${renderStepClass('media')}"><h5 class="admin-form-section__title">Медиа</h5><div class="admin-form-grid"><label>Логотип URL<input name="logo_url" value="${escapeHtml(partner?.logo_url || '')}" /></label><label>Обложка URL<input name="cover_url" value="${escapeHtml(partner?.cover_url || '')}" /></label></div>${isEditMode && partner ? renderPartnerImageUploader(partner, 'admin') : ''}${isEditMode && partner ? renderPartnerGallery(partner, adminState.partnerPhotosByPartner[adminState.selectedPartnerIdForEdit] || [], 'admin') : ''}</section>
+        <section class="${renderStepClass('review')} admin-partner-review"><h5 class="admin-form-section__title">Проверка перед сохранением</h5>
+          <div class="admin-partner-review-grid">
+            <p><strong>Название:</strong> ${escapeHtml(partner?.name || '—')}</p><p><strong>Город:</strong> ${escapeHtml(partner?.city_name || '—')}</p>
+            <p><strong>Категории:</strong> ${escapeHtml(selectedCategories.map((c) => c.title).join(', ') || 'Не выбраны')}</p><p><strong>Активность:</strong> ${partner?.is_active ? 'Активен' : 'Не активен'}</p>
+            <p><strong>Описание:</strong> ${hasDescription ? 'Заполнено' : 'Не заполнено'}</p><p><strong>Фото:</strong> ${hasPhoto ? 'Добавлено' : 'Не добавлено'}</p>
+            <p><strong>Контакты:</strong> ${hasContacts ? 'Заполнены' : 'Не заполнены'}</p>
+          </div>
+        </section>
+        <div class="ui-form-actions admin-partner-wizard-actions">
+          ${currentStepIndex > 0 ? '<button class="ui-button ui-button--ghost" type="button" data-admin-partner-step-prev>Назад</button>' : '<span></span>'}
+          ${!isReviewStep ? '<button class="ui-button ui-button--primary" type="button" data-admin-partner-step-next>Далее</button>' : '<button class="ui-button ui-button--primary" type="submit">Сохранить партнёра</button>'}
           <button class="admin-inline-action ui-button ui-button--ghost" type="button" data-admin-partner-edit-cancel>Отмена</button>
         </div>
         <p class="form-message" data-form-message="${isEditMode ? 'partnerEdit' : 'partner'}">${escapeHtml(adminState.formMessages[isEditMode ? 'partnerEdit' : 'partner'] || '')}</p>
@@ -5442,6 +5482,8 @@ const handleAdminFormSubmit = async (form) => {
     if (formType === 'partner' || formType === 'partnerEdit') {
       adminState.partnerFormOpen = false;
       adminState.selectedPartnerIdForEdit = '';
+      adminState.partnerFormStep = 'basic';
+      adminState.partnerFormInlineError = '';
     }
     setPanelMessage('Сохранено.', 'success');
     renderAdminLayout();
@@ -5874,8 +5916,9 @@ root.addEventListener('click', async (event) => {
   const partnerCreateButton = event.target.closest('[data-admin-partner-create]');
   if (partnerCreateButton) {
     adminState.selectedPartnerIdForEdit = '';
-    adminState.partnerFormOpen = false;
     adminState.partnerFormOpen = true;
+    adminState.partnerFormStep = 'basic';
+    adminState.partnerFormInlineError = '';
     setFormMessage('partner');
     renderAdminLayout();
     return;
@@ -5885,6 +5928,8 @@ root.addEventListener('click', async (event) => {
   if (partnerEditButton) {
     adminState.selectedPartnerIdForEdit = partnerEditButton.dataset.adminPartnerEdit;
     adminState.partnerFormOpen = true;
+    adminState.partnerFormStep = 'basic';
+    adminState.partnerFormInlineError = '';
     setFormMessage('partnerEdit');
     setFormMessage('partnerGallery');
     adminState.selectedPartnerAnalytics = adminState.partnerAnalyticsById[adminState.selectedPartnerIdForEdit] || null;
@@ -5907,8 +5952,53 @@ root.addEventListener('click', async (event) => {
     adminState.selectedPartnerAnalytics = null;
     adminState.partnerAnalyticsError = '';
     adminState.partnerAnalyticsLoading = false;
+    adminState.partnerFormOpen = false;
+    adminState.partnerFormStep = 'basic';
+    adminState.partnerFormInlineError = '';
     setFormMessage('partnerEdit');
     renderAdminLayout();
+    return;
+  }
+
+  const partnerStepJump = event.target.closest('[data-admin-partner-step-jump]');
+  if (partnerStepJump) {
+    const stepKey = partnerStepJump.dataset.adminPartnerStepJump;
+    if (getPartnerWizardStepIndex(stepKey) >= 0) {
+      adminState.partnerFormStep = stepKey;
+      adminState.partnerFormInlineError = '';
+      renderAdminLayout();
+    }
+    return;
+  }
+
+  const partnerStepPrev = event.target.closest('[data-admin-partner-step-prev]');
+  if (partnerStepPrev) {
+    const index = getPartnerWizardStepIndex(adminState.partnerFormStep);
+    if (index > 0) {
+      adminState.partnerFormStep = adminPartnerWizardSteps[index - 1].key;
+      adminState.partnerFormInlineError = '';
+      renderAdminLayout();
+    }
+    return;
+  }
+
+  const partnerStepNext = event.target.closest('[data-admin-partner-step-next]');
+  if (partnerStepNext) {
+    const form = event.target.closest('[data-admin-partner-wizard-form]');
+    const index = getPartnerWizardStepIndex(adminState.partnerFormStep);
+    if (adminState.partnerFormStep === 'basic') {
+      const nameInput = form?.querySelector('input[name="name"]');
+      if (!String(nameInput?.value || '').trim()) {
+        adminState.partnerFormInlineError = 'Укажите название партнёра.';
+        renderAdminLayout();
+        return;
+      }
+    }
+    if (index < adminPartnerWizardSteps.length - 1) {
+      adminState.partnerFormStep = adminPartnerWizardSteps[index + 1].key;
+      adminState.partnerFormInlineError = '';
+      renderAdminLayout();
+    }
     return;
   }
 
@@ -6723,6 +6813,12 @@ document.addEventListener('click', (event) => {
 });
 
 document.addEventListener('keydown', (event) => {
+  const partnerWizardForm = event.target.closest?.('[data-admin-partner-wizard-form]');
+  if (event.key === 'Enter' && partnerWizardForm && adminState.partnerFormStep !== 'review') {
+    event.preventDefault();
+    return;
+  }
+
   if (event.key === 'Escape' && clientState.selectedPartnerModalId) {
     event.preventDefault();
     resetClientPartnerModalState();

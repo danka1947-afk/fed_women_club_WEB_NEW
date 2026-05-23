@@ -6833,3 +6833,18 @@ body.client-partner-modal-open {
 .admin-summary-strip { margin: 8px 0 12px; font-size: 14px; color: var(--text-secondary); }
 .admin-empty-state { margin: 16px 0; padding: 16px; border: 1px dashed var(--border-color); border-radius: 12px; display: flex; gap: 10px; align-items: center; justify-content: space-between; }
 .admin-table-actions .ui-action-row { flex-wrap: wrap; }
+
+.admin-partner-wizard__header { margin-bottom: 10px; }
+.admin-partner-stepper { display:flex; gap:8px; overflow-x:auto; padding-bottom:6px; }
+.admin-partner-stepper__item { border:1px solid var(--color-border); background:#fff; border-radius:999px; padding:6px 12px; white-space:nowrap; font-size:13px; }
+.admin-partner-stepper__item--active { border-color:var(--color-rose); background:rgba(246,216,210,.35); }
+.admin-partner-stepper__item--done { border-color:var(--color-success); }
+.admin-partner-step { margin-top: 10px; }
+.admin-partner-review { background: rgba(255,255,255,.65); border:1px solid var(--color-border); border-radius:12px; padding:12px; }
+.admin-partner-review-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:8px 16px; }
+.admin-partner-wizard-actions { position: sticky; bottom: 0; background: rgba(255,250,248,.95); padding-top: 10px; display:flex; gap:8px; flex-wrap:wrap; }
+.admin-form-inline-error { color: var(--color-danger); font-size: 13px; margin-top: 8px; }
+
+@media (max-width: 768px) {
+  .admin-partner-wizard-actions .ui-button { flex: 1 1 140px; }
+}
