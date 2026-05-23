@@ -2319,3 +2319,29 @@ def test_admin_partner_wizard_markers_present() -> None:
         "data-admin-partner-wizard-form",
     ):
         assert marker in source
+
+
+def test_admin_partner_wizard_submit_only_review_and_enter_guard_markers() -> None:
+    source = _frontend_main()
+
+    for marker in (
+        "const isReviewStep = currentStep === 'review';",
+        "!isReviewStep ? '<button class=\"ui-button ui-button--primary\" type=\"button\" data-admin-partner-step-next>Далее</button>' : '<button class=\"ui-button ui-button--primary\" type=\"submit\">Сохранить партнёра</button>'",
+        "if (event.key === 'Enter' && partnerWizardForm && adminState.partnerFormStep !== 'review')",
+        "event.preventDefault();",
+    ):
+        assert marker in source
+
+
+def test_admin_partner_wizard_reset_and_category_review_normalization_markers() -> None:
+    source = _frontend_main()
+
+    for marker in (
+        "adminState.partnerFormStep = 'basic';",
+        "adminState.partnerFormInlineError = '';",
+        "adminState.selectedPartnerIdForEdit = '';",
+        "name=\"category_ids\"",
+        "selectedCategoryIds.has(String(category.id)) ? 'checked' : ''",
+        "selectedCategories.map((c) => c.title).join(', ')",
+    ):
+        assert marker in source
