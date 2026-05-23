@@ -805,6 +805,36 @@ def test_admin_categories_support_create_edit_and_safe_toggle_ui() -> None:
         assert marker in source
 
 
+
+
+def test_admin_partners_phase2_form_toggle_and_sections_markers() -> None:
+    source = _frontend_main()
+
+    for marker in (
+        "adminState.partnerFormOpen",
+        "data-admin-partner-create",
+        "+ Добавить партнёра",
+        "data-admin-partner-edit",
+        "data-admin-partner-edit-cancel",
+        "admin-partner-form-panel",
+        "<h5 class=\"admin-form-section__title\">Основное</h5>",
+        "<h5 class=\"admin-form-section__title\">Статусы</h5>",
+        "<h5 class=\"admin-form-section__title\">Категории</h5>",
+        "<h5 class=\"admin-form-section__title\">Контакты</h5>",
+        "<h5 class=\"admin-form-section__title\">Описание</h5>",
+        "<h5 class=\"admin-form-section__title\">Медиа</h5>",
+        "admin-partners-layout",
+        "admin-partners-table",
+        "renderPartnersList(partners)",
+        "renderPartnerForm()",
+        "adminState.partnerFormOpen = true;",
+        "adminState.partnerFormOpen = false;",
+    ):
+        assert marker in source
+
+    assert "adminState.partnerFormOpen ? '' : 'hidden'" in source
+    assert 'class="admin-partner-form-panel is-open"' not in source
+
 def test_frontend_category_admin_keeps_public_dashboard_and_removed_image_markers() -> None:
     source = _frontend_main()
     styles = _frontend_styles()
