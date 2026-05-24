@@ -877,6 +877,81 @@ const formatPrice = (value) => {
   })} ₽`;
 };
 
+
+const parseMoneyValue = (value) => {
+  if (value === null || value === undefined || value === '') return null;
+  if (typeof value === 'object') return null;
+  const rawValue = String(value).trim();
+  if (!rawValue || hasScientificNotation(rawValue)) return null;
+  const normalized = Number(rawValue.replace(',', '.'));
+  if (!Number.isFinite(normalized)) return null;
+  return normalized;
+};
+
+const formatMoneyLabel = (value) => {
+  if (!Number.isFinite(value)) return '';
+  return `${value.toLocaleString('ru-RU', { maximumFractionDigits: 2 })} ₽`;
+};
+
+const getOfferPricingView = (offer = {}) => {
+  const basePrice = [offer.base_price, offer.regular_price, offer.price, offer.old_price]
+    .map(parseMoneyValue)
+    .find((value) => Number.isFinite(value));
+
+  let memberPrice = [offer.final_price, offer.member_price, offer.club_price, offer.discounted_price, offer.price_with_discount]
+    .map(parseMoneyValue)
+    .find((value) => Number.isFinite(value));
+
+  if (!Number.isFinite(memberPrice) && Number.isFinite(basePrice)) {
+    const discountPercent = parseMoneyValue(offer.discount_percent);
+    if (Number.isFinite(discountPercent)) {
+      memberPrice = basePrice * (1 - (discountPercent / 100));
+    }
+  }
+
+  const hasBasePrice = Number.isFinite(basePrice);
+  const hasMemberPrice = Number.isFinite(memberPrice);
+  const savingAmount = hasBasePrice && hasMemberPrice ? basePrice - memberPrice : null;
+  const hasSaving = Number.isFinite(savingAmount) && savingAmount > 0;
+
+  return {
+    basePrice: hasBasePrice ? basePrice : null,
+    memberPrice: hasMemberPrice ? memberPrice : null,
+    savingAmount: hasSaving ? savingAmount : null,
+    hasBasePrice,
+    hasMemberPrice,
+    hasSaving,
+    basePriceLabel: hasBasePrice ? formatMoneyLabel(basePrice) : '',
+    memberPriceLabel: hasMemberPrice ? formatMoneyLabel(memberPrice) : '',
+    savingLabel: hasSaving ? `−${formatMoneyLabel(savingAmount)}` : '',
+  };
+};
+
+const renderOfferPricingBlock = (offer, options = {}) => {
+  const pricing = getOfferPricingView(offer);
+  const fallbackLabel = options.fallbackLabel || 'Цена уточняется';
+
+  if (pricing.hasBasePrice && pricing.hasMemberPrice) {
+    return `
+      <div class="offer-pricing">
+        <div class="offer-pricing__row"><span class="offer-pricing__label">Обычная цена</span><span class="offer-pricing__value offer-pricing__value--base">${escapeHtml(pricing.basePriceLabel)}</span></div>
+        <div class="offer-pricing__row"><span class="offer-pricing__label">Для участниц клуба</span><span class="offer-pricing__value offer-pricing__value--member">${escapeHtml(pricing.memberPriceLabel)}</span></div>
+        ${pricing.hasSaving ? `<div class="offer-pricing__saving">Выгода ${escapeHtml(pricing.savingLabel)}</div>` : ''}
+      </div>
+    `;
+  }
+
+  if (pricing.hasBasePrice) {
+    return `<div class="offer-pricing"><div class="offer-pricing__fallback">Цена: ${escapeHtml(pricing.basePriceLabel)}</div></div>`;
+  }
+
+  if (pricing.hasMemberPrice) {
+    return `<div class="offer-pricing"><div class="offer-pricing__fallback">Для участниц клуба: ${escapeHtml(pricing.memberPriceLabel)}</div></div>`;
+  }
+
+  return `<div class="offer-pricing"><div class="offer-pricing__fallback">${escapeHtml(fallbackLabel)}</div></div>`;
+};
+
 const formatPrivilegeErrorMessage = (message) => ({
   'Active subscription required': 'Для получения привилегии нужна активная подписка.',
   'Offer not found': 'Предложение сейчас недоступно.',
@@ -931,8 +1006,7 @@ const renderOfferMarketplaceCard = (offer = {}, options = {}) => {
         <p class="card-description compact-copy ${isPartnerCabinetCard ? 'partner-offer-card__description' : ''}">${escapeHtml(description)}</p>
         <dl class="offer-marketplace-meta ${isPartnerCabinetCard ? 'partner-offer-card__details' : ''}">
           <div><dt>Условия</dt><dd>${escapeHtml(conditions)}</dd></div>
-          <div><dt>Базовая цена</dt><dd>${escapeHtml(basePrice)}</dd></div>
-          <div><dt>Скидка</dt><dd>${escapeHtml(formatDiscountPercent(offer.discount_percent) || 'Индивидуально')}</dd></div>
+          <div><dd>${renderOfferPricingBlock(offer)}</dd></div>
         </dl>
         <div class="${isPartnerCabinetCard ? 'partner-offer-card__actions' : 'offer-marketplace-preview offer-marketplace-preview__actions'}">
           ${isPartnerCabinetCard ? '' : `<span class="helper-text">${escapeHtml(note)}</span>`}
@@ -3222,8 +3296,8 @@ const renderPartnerOfferForm = () => {
       <label>Описание<textarea name="description" rows="3">${escapeHtml(offer?.description || '')}</textarea></label>
       <label>Условия<textarea name="conditions" rows="3">${escapeHtml(offer?.conditions || '')}</textarea></label>
       <div class="partner-offer-form-numeric-row">
-        <label>Базовая цена<input class="partner-input-compact" name="base_price" type="number" step="0.01" inputmode="decimal" value="${escapeHtml(offer?.base_price || '')}" /></label>
-        <label>Скидка, %<input class="partner-input-compact" name="discount_percent" type="number" step="0.01" inputmode="decimal" value="${escapeHtml(offer?.discount_percent || '')}" /></label>
+        <label>Базовая цена (обычная цена)<input class="partner-input-compact" name="base_price" type="number" step="0.01" inputmode="decimal" value="${escapeHtml(offer?.base_price || '')}" /></label>
+        <label>Скидка, % (доп. поле)<input class="partner-input-compact" name="discount_percent" type="number" step="0.01" inputmode="decimal" value="${escapeHtml(offer?.discount_percent || '')}" /></label>
       </div>
       ${renderOfferImageUploader(offer, 'partner')}
       <details class="partner-profile-advanced">
@@ -3254,14 +3328,14 @@ const renderPartnerOffersTab = () => `
       })).join('')}
     </div>
     ${renderTable(
-      ['Название', 'Краткая выгода', 'Описание', 'Условия', 'Базовая цена', 'Скидка, %', 'Активно', 'Порядок сортировки', 'Действие'],
+      ['Название', 'Краткая выгода', 'Описание', 'Условия', 'Обычная цена', 'Цена для участниц', 'Активно', 'Порядок сортировки', 'Действие'],
       partnerState.offers.map((offer) => [
         formatValue(offer.title),
         formatValue(formatPartnerBenefit(offer)),
         formatValue(offer.description),
         formatValue(offer.conditions),
-        formatValue(formatOfferBasePrice(offer.base_price)),
-        formatValue(formatDiscountPercent(offer.discount_percent) || '—'),
+        formatValue(getOfferPricingView(offer).basePriceLabel || '—'),
+        formatValue(getOfferPricingView(offer).memberPriceLabel || '—'),
         renderPartnerReviewStatusBadge(offer.is_active),
         formatValue(offer.sort_order),
         renderPartnerOfferAction(offer),
@@ -4261,8 +4335,8 @@ const renderOfferEditForm = () => {
       <label>Скидка / выгода<input name="benefit_text" value="${escapeHtml(offer.benefit_text || '')}" /></label>
       <label>Описание<textarea name="description" rows="3">${escapeHtml(offer.description || '')}</textarea></label>
       <label>Условия<textarea name="conditions" rows="3">${escapeHtml(offer.conditions || '')}</textarea></label>
-      <label>Базовая цена<input name="base_price" type="number" step="0.01" value="${escapeHtml(offer.base_price || '')}" /></label>
-      <label>Скидка, %<input name="discount_percent" type="number" step="0.01" value="${escapeHtml(offer.discount_percent || '')}" /></label>
+      <label>Базовая цена (обычная цена)<input name="base_price" type="number" step="0.01" value="${escapeHtml(offer.base_price || '')}" /></label>
+      <label>Скидка, % (legacy)<input name="discount_percent" type="number" step="0.01" value="${escapeHtml(offer.discount_percent || '')}" /></label>
       ${renderOfferImageUploader(offer, 'admin')}
       <details class="partner-profile-advanced">
         <summary>URL изображения предложения</summary>
@@ -4287,9 +4361,9 @@ const renderOfferCreateForm = () => `
     <label>Краткая выгода<input name="benefit_text" /></label>
     <label>Описание<textarea name="description" rows="3"></textarea></label>
     <label>Условия<textarea name="conditions" rows="3"></textarea></label>
-    <label>Базовая цена<input name="base_price" type="number" step="0.01" /></label>
-    <p class="helper-text form-message compact-copy">Скидка считается от базовой цены.</p>
-    <label>Скидка, %<input name="discount_percent" type="number" step="0.01" /></label>
+    <label>Базовая цена (обычная цена)<input name="base_price" type="number" step="0.01" /></label>
+    <p class="helper-text form-message compact-copy">Цена для участниц клуба и выгода рассчитаются автоматически в preview. Скидка, % — дополнительное поле.</p>
+    <label>Скидка, % (legacy)<input name="discount_percent" type="number" step="0.01" /></label>
     ${renderOfferImageUploader(null, 'admin')}
     <details class="partner-profile-advanced">
       <summary>URL изображения предложения</summary>
@@ -4334,8 +4408,8 @@ const renderOffersTab = () => {
         <section class="admin-offers-table-panel">
           <div class="admin-section-heading text-stack"><h4 class="section-title">Таблица предложений</h4><p class="helper-text compact-copy">Кнопки действий собраны справа.</p></div>
           ${renderTable(
-            ['Название предложения', 'Краткая выгода', 'Базовая цена', 'Скидка, %', 'Активно', 'Сортировка', 'Действие'],
-            offers.map((offer) => [formatValue(offer.title), formatValue(formatPartnerBenefit(offer)), formatValue(formatOfferBasePrice(offer.base_price)), formatValue(formatDiscountPercent(offer.discount_percent) || '—'), renderActiveStatusBadge(offer.is_active), formatValue(offer.sort_order), renderAdminOfferAction(offer)]),
+            ['Название предложения', 'Краткая выгода', 'Обычная цена', 'Цена для участниц', 'Активно', 'Сортировка', 'Действие'],
+            offers.map((offer) => [formatValue(offer.title), formatValue(formatPartnerBenefit(offer)), formatValue(getOfferPricingView(offer).basePriceLabel || '—'), formatValue(getOfferPricingView(offer).memberPriceLabel || '—'), renderActiveStatusBadge(offer.is_active), formatValue(offer.sort_order), renderAdminOfferAction(offer)]),
             true,
             'admin-table--compact admin-table--offers',
             adminState.search.offers ? 'Ничего не найдено.' : 'Пока нет данных.',
