@@ -613,6 +613,104 @@ def test_client_catalog_partners_filters_by_category_slug(client_cabinet_client:
     assert [partner["name"] for partner in response.json()] == ["Alpha Beauty"]
 
 
+def test_client_catalog_partner_visibility_with_m2m_categories_city_and_active_offer(
+    client_cabinet_client: TestClient,
+    admin_token: str,
+) -> None:
+    token = _client_token(client_cabinet_client)
+
+    category_payloads = [
+        {"name": "Красота", "slug": "krasota", "is_active": True, "sort_order": 10},
+        {"name": "Маникюр / педикюр", "slug": "manikyur-pedikyur", "is_active": True, "sort_order": 20},
+        {"name": "Брови / ресницы", "slug": "brovi-resnitsy", "is_active": True, "sort_order": 30},
+        {"name": "Косметология", "slug": "kosmetologiya", "is_active": True, "sort_order": 40},
+    ]
+    created_categories: list[dict[str, object]] = []
+    for payload in category_payloads:
+        response = client_cabinet_client.post("/api/v1/admin/categories", headers=_auth_headers(admin_token), json=payload)
+        assert response.status_code == 200
+        created_categories.append(response.json())
+
+    partner_response = client_cabinet_client.post(
+        "/api/v1/admin/partners",
+        headers=_auth_headers(admin_token),
+        json={
+            "city_id": 1,
+            "name": "Счастье есть",
+            "is_active": True,
+            "is_verified": True,
+            "category_slug": "krasota",
+            "category_ids": [category["id"] for category in created_categories],
+        },
+    )
+    assert partner_response.status_code == 200
+    partner_id = partner_response.json()["id"]
+
+    offer_response = client_cabinet_client.post(
+        f"/api/v1/admin/partners/{partner_id}/offers",
+        headers=_auth_headers(admin_token),
+        json={
+            "title": 'Наращивание ресниц "Классика" |Топ-мастер Арина ❤️|',
+            "base_price": "2250.00",
+            "discount_percent": "11.00",
+            "is_active": True,
+            "sort_order": 1,
+        },
+    )
+    assert offer_response.status_code == 200
+
+    catalog_response = client_cabinet_client.get("/api/v1/clients/catalog/partners", headers=_auth_headers(token))
+    assert catalog_response.status_code == 200
+    by_name = {partner["name"]: partner for partner in catalog_response.json()}
+    assert "Счастье есть" in by_name
+
+    catalog_partner = by_name["Счастье есть"]
+    assert catalog_partner["category_slug"] == "krasota"
+    assert catalog_partner["category_slugs"] == [
+        "krasota",
+        "manikyur-pedikyur",
+        "brovi-resnitsy",
+        "kosmetologiya",
+    ]
+    assert len(catalog_partner["categories"]) == 4
+    assert sorted(catalog_partner["category_ids"]) == sorted([category["id"] for category in created_categories])
+
+    for category in ("krasota", "manikyur-pedikyur", "brovi-resnitsy", "kosmetologiya"):
+        category_response = client_cabinet_client.get(
+            f"/api/v1/clients/catalog/partners?category_slug={category}",
+            headers=_auth_headers(token),
+        )
+        assert category_response.status_code == 200
+        assert "Счастье есть" in [item["name"] for item in category_response.json()]
+
+    detail_response = client_cabinet_client.get(f"/api/v1/clients/partners/{partner_id}", headers=_auth_headers(token))
+    assert detail_response.status_code == 200
+    assert detail_response.json()["name"] == "Счастье есть"
+
+    offers_response = client_cabinet_client.get(f"/api/v1/clients/partners/{partner_id}/offers", headers=_auth_headers(token))
+    assert offers_response.status_code == 200
+    offers = offers_response.json()
+    assert len(offers) == 1
+    assert offers[0]["title"] == 'Наращивание ресниц "Классика" |Топ-мастер Арина ❤️|'
+    assert offers[0]["base_price"] == "2250.00"
+    assert offers[0]["discount_percent"] == "11.00"
+    assert offers[0]["image_url"] is None
+
+    same_city_response = client_cabinet_client.get(
+        "/api/v1/clients/catalog/partners?city_id=1",
+        headers=_auth_headers(token),
+    )
+    assert same_city_response.status_code == 200
+    assert "Счастье есть" in [item["name"] for item in same_city_response.json()]
+
+    other_city_response = client_cabinet_client.get(
+        "/api/v1/clients/catalog/partners?city_id=2",
+        headers=_auth_headers(token),
+    )
+    assert other_city_response.status_code == 200
+    assert "Счастье есть" not in [item["name"] for item in other_city_response.json()]
+
+
 def test_client_catalog_partners_returns_category_fields_for_active_and_inactive_categories(
     client_cabinet_client: TestClient,
 ) -> None:
