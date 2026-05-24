@@ -2345,3 +2345,33 @@ def test_admin_partner_wizard_reset_and_category_review_normalization_markers() 
         "selectedCategories.map((c) => c.title).join(', ')",
     ):
         assert marker in source
+
+
+def test_offer_pricing_helpers_and_copy_present() -> None:
+    source = _frontend_main()
+    styles = _frontend_styles()
+
+    for marker in (
+        'const getOfferPricingView = (offer = {}) =>',
+        'const renderOfferPricingBlock = (offer, options = {}) =>',
+        'Обычная цена',
+        'Для участниц клуба',
+        'Выгода',
+        'renderOfferPricingBlock(offer)',
+        'offer_id',
+        'saving_amount',
+        'discount_percent',
+    ):
+        assert marker in source
+
+    for css_marker in (
+        '.offer-pricing',
+        '.offer-pricing__row',
+        '.offer-pricing__label',
+        '.offer-pricing__value',
+        '.offer-pricing__value--base',
+        '.offer-pricing__value--member',
+        '.offer-pricing__saving',
+        '.offer-pricing__fallback',
+    ):
+        assert css_marker in styles

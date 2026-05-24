@@ -6848,3 +6848,50 @@ body.client-partner-modal-open {
 @media (max-width: 768px) {
   .admin-partner-wizard-actions .ui-button { flex: 1 1 140px; }
 }
+
+.offer-pricing {
+  display: grid;
+  gap: 8px;
+}
+
+.offer-pricing__row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: baseline;
+}
+
+.offer-pricing__label {
+  color: var(--color-text-muted);
+  font-size: 0.86rem;
+}
+
+.offer-pricing__value {
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.offer-pricing__value--base {
+  opacity: 0.82;
+}
+
+.offer-pricing__value--member {
+  color: #8f3558;
+  font-weight: 700;
+}
+
+.offer-pricing__saving {
+  display: inline-flex;
+  align-self: flex-start;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(224, 126, 156, 0.16);
+  color: #7a2547;
+  font-weight: 700;
+  font-size: 0.82rem;
+}
+
+.offer-pricing__fallback {
+  color: var(--color-text-muted);
+  font-size: 0.88rem;
+}
