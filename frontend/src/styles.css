@@ -2962,6 +2962,11 @@ body.is-dashboard {
   gap: 22px;
 }
 
+.partner-dashboard .admin-tab-panel {
+  width: min(1080px, 100%);
+  margin-inline: auto;
+}
+
 .admin-section-heading {
   padding: 2px 2px 4px;
 }
@@ -6711,12 +6716,85 @@ body.client-partner-modal-open {
 
 .partner-offer-form-numeric-row {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 220px));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
 }
 
 .partner-input-compact {
-  max-width: 220px;
+  max-width: 100%;
+}
+
+.partner-cabinet-offers > .admin-form.admin-form--inline {
+  width: min(920px, 100%);
+  margin: 8px auto 0;
+  padding: clamp(14px, 2vw, 20px);
+  border-radius: 20px;
+}
+
+.partner-cabinet-offers .offer-marketplace-preview {
+  width: min(920px, 100%);
+  margin-inline: auto;
+}
+
+.partner-cabinet-offers > .admin-form.admin-form--inline label {
+  display: grid;
+  gap: 6px;
+}
+
+.partner-cabinet-offers > .admin-form.admin-form--inline input,
+.partner-cabinet-offers > .admin-form.admin-form--inline select,
+.partner-cabinet-offers > .admin-form.admin-form--inline textarea,
+.partner-contact-grid input,
+.partner-contact-grid textarea,
+.partner-contact-grid select {
+  width: 100%;
+  min-height: 42px;
+}
+
+.partner-cabinet-offers > .admin-form.admin-form--inline textarea {
+  min-height: 108px;
+  resize: vertical;
+}
+
+.partner-cabinet-offers > .admin-form.admin-form--inline > label:nth-of-type(1),
+.partner-cabinet-offers > .admin-form.admin-form--inline > label:nth-of-type(2) {
+  display: inline-grid;
+  width: calc(50% - 8px);
+  vertical-align: top;
+}
+
+.partner-cabinet-offers > .admin-form.admin-form--inline > label:nth-of-type(2) {
+  margin-left: 12px;
+}
+
+.partner-cabinet-offers > .admin-form.admin-form--inline .admin-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding-top: 8px;
+}
+
+.partner-cabinet-offers .admin-form-actions button[type="submit"] {
+  background: linear-gradient(135deg, var(--color-rose), #b87368);
+  color: #fff;
+  border-color: transparent;
+}
+
+.partner-cabinet-offers .admin-form-actions .ui-button--ghost {
+  color: var(--color-muted-strong);
+}
+
+.partner-offer-preview-empty {
+  min-height: 128px;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  border: 1px dashed var(--color-border-strong);
+  border-radius: 18px;
+  background: rgba(255, 250, 248, 0.8);
+  color: var(--color-muted-strong);
+  font-weight: 700;
+  padding: 14px;
 }
 
 .partner-gallery-toggle {
@@ -6802,6 +6880,12 @@ body.client-partner-modal-open {
 
   .partner-offer-form-numeric-row {
     grid-template-columns: 1fr;
+  }
+
+  .partner-cabinet-offers > .admin-form.admin-form--inline > label:nth-of-type(1),
+  .partner-cabinet-offers > .admin-form.admin-form--inline > label:nth-of-type(2) {
+    width: 100%;
+    margin-left: 0;
   }
 }
 .partner-multicategory {
