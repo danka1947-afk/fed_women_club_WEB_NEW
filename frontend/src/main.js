@@ -492,6 +492,10 @@ const partnerState = {
   uploadStatuses: {},
 };
 
+const toastState = {
+  timeoutId: null,
+};
+
 const clientTabs = [
   { id: 'savings', label: 'Моя экономия', icon: '₽' },
   { id: 'profile', label: 'Профиль', icon: '♡' },
@@ -1431,6 +1435,7 @@ const renderDashboardApp = (role) => {
         </main>
       </div>
     </div>
+    <div class="ui-toast" data-ui-toast role="status" aria-live="polite"></div>
   `;
   bindDashboardElements();
 };
@@ -2058,9 +2063,30 @@ const apiFetch = async (path, options = {}) => {
 
 
 const setPartnerPanelMessage = (message = '', type = 'info') => {
-  partnerState.panelMessage = message
-    ? `<div class="admin-status admin-status--${type}" role="status">${escapeHtml(message)}</div>`
-    : '';
+  const toastNode = document.querySelector('[data-ui-toast]');
+  if (!message) {
+    if (toastState.timeoutId) {
+      clearTimeout(toastState.timeoutId);
+      toastState.timeoutId = null;
+    }
+    if (toastNode) {
+      toastNode.classList.remove('is-visible');
+      toastNode.textContent = '';
+    }
+    return;
+  }
+  if (!toastNode) {
+    return;
+  }
+  toastNode.className = `ui-toast ui-toast--${type} is-visible`;
+  toastNode.textContent = message;
+  if (toastState.timeoutId) {
+    clearTimeout(toastState.timeoutId);
+  }
+  toastState.timeoutId = setTimeout(() => {
+    toastNode.classList.remove('is-visible');
+    toastNode.textContent = '';
+  }, 2500);
 };
 
 const setPartnerFormMessage = (formType, message = '') => {
@@ -3120,7 +3146,6 @@ const renderClientActivityTab = () => `
 const renderPartnerLayout = () => {
   renderDashboardApp('partner');
   partnerDashboard.innerHTML = `
-    ${partnerState.panelMessage}
     <section class="admin-tab-panel">${renderPartnerTabContent()}</section>
   `;
 };
@@ -3149,7 +3174,6 @@ const isRequiredProfileFieldEmpty = (profile, field) => !String(profile?.[field]
 const getPartnerSaveStatusLabel = () => {
   if (partnerState.profileSaveStatus === 'saving') return 'Сохранение…';
   if (partnerState.isProfileDirty) return 'Есть несохранённые изменения';
-  if (partnerState.profileSaveStatus === 'saved') return 'Сохранено';
   return '';
 };
 
@@ -3213,14 +3237,6 @@ const renderPartnerProfileTab = () => {
             <p class="helper-text form-message partner-profile-admin-note compact-copy">Название, город, категорию и статусы обновляет администратор.</p>
           </section>
 
-          <section class="partner-section partner-section--compact partner-combined-section">
-            ${renderPartnerSectionHeader('Адрес и график', 'Контакты и ссылки редактируются в отдельной вкладке «Контакты».')}
-            <div class="partner-profile-grid partner-contact-grid partner-form-grid">
-              <label>Адрес<input class="${isRequiredProfileFieldEmpty(profile, 'address') ? 'partner-required-empty' : ''}" name="address" required value="${escapeHtml(profile.address || '')}" placeholder="Новосибирск, ул. Ленина, 15" /></label>
-              <label>График работы<input class="${isRequiredProfileFieldEmpty(profile, 'working_hours') ? 'partner-required-empty' : ''}" name="working_hours" required value="${escapeHtml(profile.working_hours || '')}" placeholder="Пн–Пт 10:00–20:00, Сб 11:00–18:00" /></label>
-            </div>
-          </section>
-
           <section class="partner-section partner-section--compact">
             ${renderPartnerSectionHeader('Описание', 'Коротко о вашем сервисе.')}
             <label>Описание<textarea class="partner-description-textarea ${isRequiredProfileFieldEmpty(profile, 'description') ? 'partner-required-empty' : ''}" name="description" required placeholder="Уютная студия красоты в центре города…">${escapeHtml(profile.description || '')}</textarea></label>
@@ -3279,7 +3295,10 @@ const renderPartnerContactsTab = () => {
     <div class="admin-section-heading text-stack"><p class="section-eyebrow section-kicker">Контакты</p><h4 class="section-title">Связь и ссылки</h4></div>
     <form class="admin-form partner-profile-form" data-partner-form="profile">
       <section class="partner-section partner-section--compact partner-combined-section">
+        ${renderPartnerSectionHeader('Адрес и график работы', 'Контактные ссылки и каналы связи для клиенток.')}
         <div class="partner-profile-grid partner-contact-grid partner-form-grid">
+          <label>Адрес<input class="${isRequiredProfileFieldEmpty(profile, 'address') ? 'partner-required-empty' : ''}" name="address" required value="${escapeHtml(profile.address || '')}" placeholder="Новосибирск, ул. Ленина, 15" /></label>
+          <label>График работы<input class="${isRequiredProfileFieldEmpty(profile, 'working_hours') ? 'partner-required-empty' : ''}" name="working_hours" required value="${escapeHtml(profile.working_hours || '')}" placeholder="Пн–Пт 10:00–20:00, Сб 11:00–18:00" /></label>
           <label>Телефон<input name="phone" autocomplete="tel" value="${escapeHtml(profile.phone || '')}" placeholder="+7 999 123-45-67" /></label>
           <label>Сайт<input name="website_url" value="${escapeHtml(profile.website_url || '')}" placeholder="https://example.ru" /></label>
           <label>Instagram<input name="instagram_url" value="${escapeHtml(profile.instagram_url || '')}" placeholder="https://instagram.com/your_brand" /></label>
@@ -5037,6 +5056,8 @@ const submitPartnerOfferEdit = async (form) => {
 
 const handlePartnerFormSubmit = async (form) => {
   const formType = form.dataset.partnerForm;
+  const shouldRestoreScroll = ['profile', 'offer', 'offerEdit'].includes(formType);
+  const preservedScrollY = shouldRestoreScroll ? window.scrollY : null;
   setPartnerFormMessage(formType);
 
   try {
@@ -5060,6 +5081,9 @@ const handlePartnerFormSubmit = async (form) => {
   }
 
   renderPartnerLayout();
+  if (shouldRestoreScroll && Number.isFinite(preservedScrollY)) {
+    requestAnimationFrame(() => window.scrollTo({ top: preservedScrollY, behavior: 'auto' }));
+  }
 };
 
 const submitClientProfile = async (form) => {
