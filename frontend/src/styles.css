@@ -3693,7 +3693,7 @@ body.is-dashboard {
   width: 132px;
   min-height: 132px;
   border-radius: 999px;
-  background-size: cover;
+  background-size: contain;
 }
 
 .partner-image-preview--cover {
@@ -3768,7 +3768,7 @@ body.is-dashboard {
 .offer-image-preview {
   display: grid;
   min-height: 160px;
-  aspect-ratio: 16 / 9;
+  aspect-ratio: 4 / 3;
   place-items: center;
   overflow: hidden;
   border: 1px dashed rgba(201, 130, 120, 0.38);
@@ -3779,6 +3779,12 @@ body.is-dashboard {
   background-size: cover;
   color: var(--color-muted);
   font-weight: 900;
+}
+
+@media (max-width: 768px) {
+  .partner-form-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .offer-image-preview--placeholder {
@@ -5979,6 +5985,18 @@ body.is-dashboard {
 .partner-description-textarea {
   min-height: 130px;
   resize: vertical;
+}
+
+.partner-form-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.partner-profile-form input,
+.partner-profile-form textarea,
+.partner-profile-form select {
+  width: 100%;
+  min-width: 0;
 }
 
 .partner-textarea-hint {

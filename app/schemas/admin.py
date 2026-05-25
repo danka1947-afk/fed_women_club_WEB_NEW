@@ -106,6 +106,11 @@ class PartnerRead(BaseModel):
     phone: str | None
     website_url: str | None
     social_url: str | None
+    instagram_url: str | None
+    vk_url: str | None
+    telegram_url: str | None
+    whatsapp_url: str | None
+    map_url: str | None
     working_hours: str | None
     logo_url: str | None
     cover_url: str | None
@@ -129,6 +134,11 @@ class PartnerCreate(BaseModel):
     phone: str | None = None
     website_url: str | None = None
     social_url: str | None = None
+    instagram_url: str | None = None
+    vk_url: str | None = None
+    telegram_url: str | None = None
+    whatsapp_url: str | None = None
+    map_url: str | None = None
     working_hours: str | None = None
     logo_url: str | None = None
     cover_url: str | None = None
@@ -148,6 +158,11 @@ class PartnerUpdate(BaseModel):
     phone: str | None = None
     website_url: str | None = None
     social_url: str | None = None
+    instagram_url: str | None = None
+    vk_url: str | None = None
+    telegram_url: str | None = None
+    whatsapp_url: str | None = None
+    map_url: str | None = None
     working_hours: str | None = None
     logo_url: str | None = None
     cover_url: str | None = None
