@@ -459,17 +459,16 @@ const filterAdminRows = (rows, query, fields) => {
 const searchableBool = (value) => `${formatBool(value)} ${value ? 'active активен активна активно да true' : 'inactive неактивен неактивна неактивно нет false'}`;
 
 const partnerTabs = [
+  { id: 'overview', label: 'Обзор', icon: '◎' },
   { id: 'profile', label: 'Профиль', icon: '♡' },
-  { id: 'offers', label: 'Предложения', icon: '%' },
-  { id: 'gallery', label: 'Галерея', icon: '🖼' },
-  { id: 'qr', label: 'QR / лиды', icon: 'QR' },
-  { id: 'verifications', label: 'Подтверждения', icon: '✓' },
-  { id: 'analytics', label: 'Аналитика', icon: '↗' },
-  { id: 'activity', label: 'Активность', icon: '•' },
+  { id: 'contacts', label: 'Контакты', icon: '☎' },
+  { id: 'media', label: 'Медиа', icon: '🖼' },
+  { id: 'services', label: 'Услуги', icon: '%' },
+  { id: 'preview', label: 'Предпросмотр', icon: '◧' },
 ];
 
 const partnerState = {
-  activeTab: 'profile',
+  activeTab: 'overview',
   user: null,
   profile: null,
   photos: [],
@@ -1753,25 +1752,25 @@ const getPartnerOnboardingSteps = (partner = {}, options = {}) => {
         && String(partner.working_hours || '').trim()
       ),
       action: 'Заполнить профиль',
-      tab: 'profile',
+      tab: 'contacts',
     },
     {
       title: 'Фото и обложка',
       isComplete: Boolean(String(partner.logo_url || '').trim() && String(partner.cover_url || '').trim()),
       action: 'Загрузить изображения',
-      tab: 'profile',
+      tab: 'media',
     },
     {
       title: 'Предложения',
       isComplete: Array.isArray(options.offers) && options.offers.length > 0,
-      action: 'Создать предложение',
-      tab: 'offers',
+      action: 'Добавить услугу',
+      tab: 'services',
     },
     {
       title: 'Публикация и проверка',
       isComplete: Boolean(partner.is_active) && Boolean(partner.is_verified),
       action: 'Проверить статус',
-      tab: 'activity',
+      tab: 'overview',
     },
   ];
 };
@@ -3123,23 +3122,20 @@ const renderPartnerLayout = () => {
 };
 
 const renderPartnerTabContent = () => {
-  if (partnerState.activeTab === 'offers') {
+  if (partnerState.activeTab === 'overview') {
+    return renderPartnerOverviewTab();
+  }
+  if (partnerState.activeTab === 'contacts') {
+    return renderPartnerContactsTab();
+  }
+  if (partnerState.activeTab === 'media') {
+    return renderPartnerMediaTab();
+  }
+  if (partnerState.activeTab === 'services') {
     return renderPartnerOffersTab();
   }
-  if (partnerState.activeTab === 'gallery') {
-    return renderPartnerGalleryTab();
-  }
-  if (partnerState.activeTab === 'qr') {
-    return renderPartnerQrTab();
-  }
-  if (partnerState.activeTab === 'verifications') {
-    return renderPartnerVerificationsTab();
-  }
-  if (partnerState.activeTab === 'analytics') {
-    return renderPartnerAnalyticsTab();
-  }
-  if (partnerState.activeTab === 'activity') {
-    return renderPartnerActivityTab();
+  if (partnerState.activeTab === 'preview') {
+    return renderPartnerPreviewTab();
   }
   return renderPartnerProfileTab();
 };
@@ -3174,6 +3170,21 @@ const renderPartnerOffersTeaser = () => `
   </div>
 `;
 
+const renderPartnerOverviewTab = () => {
+  const profile = partnerState.profile || {};
+  return `
+    <div class="admin-section-heading text-stack">
+      <p class="section-eyebrow section-kicker">Обзор кабинета</p>
+      <h4 class="section-title">Статус и готовность профиля</h4>
+      <p class="section-description compact-copy">Проверьте готовность и перейдите к нужной вкладке в один клик.</p>
+    </div>
+    ${renderPartnerOnboardingChecklist(profile, { offers: partnerState.offers, photos: partnerState.photos })}
+    <section class="panel-card">
+      ${renderPartnerProfileHints(profile, { offers: partnerState.offers })}
+    </section>
+  `;
+};
+
 const renderPartnerProfileTab = () => {
   const profile = partnerState.profile || {};
   const descriptionLength = String(profile.description || '').length;
@@ -3183,7 +3194,6 @@ const renderPartnerProfileTab = () => {
       <h4 class="section-title">Профиль партнёра</h4>
       <p class="section-description compact-copy">Главные данные для витрины.</p>
     </div>
-    ${renderPartnerOnboardingChecklist(profile, { offers: partnerState.offers, photos: partnerState.photos })}
     <div class="partner-profile-layout partner-profile-top-grid">
       <form class="admin-form partner-profile-form" id="partner-profile-form" data-partner-form="profile">
         <main class="partner-profile-main partner-profile-settings">
@@ -3200,24 +3210,10 @@ const renderPartnerProfileTab = () => {
           </section>
 
           <section class="partner-section partner-section--compact partner-combined-section">
-            ${renderPartnerSectionHeader('Контакты и график', 'Адрес, связь и время работы.')}
+            ${renderPartnerSectionHeader('Адрес и график', 'Контакты и ссылки редактируются в отдельной вкладке «Контакты».')}
             <div class="partner-profile-grid partner-contact-grid partner-form-grid">
               <label>Адрес<input class="${isRequiredProfileFieldEmpty(profile, 'address') ? 'partner-required-empty' : ''}" name="address" required value="${escapeHtml(profile.address || '')}" placeholder="Новосибирск, ул. Ленина, 15" /></label>
-              <label>Телефон<input class="${isRequiredProfileFieldEmpty(profile, 'phone') ? 'partner-required-empty' : ''}" name="phone" autocomplete="tel" required value="${escapeHtml(profile.phone || '')}" placeholder="+7 999 123-45-67" /></label>
               <label>График работы<input class="${isRequiredProfileFieldEmpty(profile, 'working_hours') ? 'partner-required-empty' : ''}" name="working_hours" required value="${escapeHtml(profile.working_hours || '')}" placeholder="Пн–Пт 10:00–20:00, Сб 11:00–18:00" /></label>
-            </div>
-          </section>
-
-          <section class="partner-section partner-section--compact partner-combined-section">
-            ${renderPartnerSectionHeader('Ссылки и контакты', 'Описание — для текста о партнёре, ссылки лучше заполнять в отдельных полях ниже.')}
-            <div class="partner-profile-grid partner-contact-grid partner-form-grid">
-              <label>Сайт<input name="website_url" value="${escapeHtml(profile.website_url || '')}" placeholder="https://example.ru" /></label>
-              <label>Instagram URL<input name="instagram_url" value="${escapeHtml(profile.instagram_url || '')}" placeholder="https://instagram.com/your_brand" /></label>
-              <label>VK URL<input name="vk_url" value="${escapeHtml(profile.vk_url || profile.social_url || '')}" placeholder="https://vk.com/your_brand" /></label>
-              <label>Telegram URL<input name="telegram_url" value="${escapeHtml(profile.telegram_url || '')}" placeholder="https://t.me/your_brand" /></label>
-              <label>WhatsApp URL / телефон<input name="whatsapp_url" value="${escapeHtml(profile.whatsapp_url || '')}" placeholder="https://wa.me/79991234567 или +7..." /></label>
-              <label>2GIS / Яндекс.Карты / маршрут<input name="map_url" value="${escapeHtml(profile.map_url || '')}" placeholder="https://yandex.ru/maps/..." /></label>
-              <label>Общая соцссылка (legacy)<input name="social_url" value="${escapeHtml(profile.social_url || '')}" placeholder="https://vk.com/bloom_beauty" /></label>
             </div>
           </section>
 
@@ -3258,15 +3254,10 @@ const renderPartnerProfileTab = () => {
           </section>
         </div>
 
-        <section class="partner-section partner-section--compact partner-profile-offers">
-          ${renderPartnerSectionHeader('Предложения', 'Конкретная выгода для визита.')}
-          ${renderPartnerOffersTeaser()}
-        </section>
-
         <section class="partner-section partner-section--compact partner-profile-save-section">
-          ${renderPartnerSectionHeader('Сохранить изменения', 'Проверьте и сохраните.')}
+          ${renderPartnerSectionHeader('Сохранить профиль', 'Проверьте и сохраните профильные поля.')}
           ${getPartnerSaveStatusLabel() ? `<div class="partner-save-status" role="status">${escapeHtml(getPartnerSaveStatusLabel())}</div>` : ''}
-          <div class="ui-action-row ui-action-row--right ui-action-row--stack-mobile"><button class="ui-button ui-button--primary" type="submit">Сохранить изменения</button></div>
+          <div class="ui-action-row ui-action-row--right ui-action-row--stack-mobile"><button class="ui-button ui-button--primary" type="submit">Сохранить профиль</button></div>
           <p class="form-message" data-partner-form-message="profile">${escapeHtml(partnerState.formMessages.profile || '')}</p>
         </section>
       </form>
@@ -3279,6 +3270,45 @@ const renderPartnerProfileTab = () => {
     ` : ''}
   `;
 };
+
+const renderPartnerContactsTab = () => {
+  const profile = partnerState.profile || {};
+  return `
+    <div class="admin-section-heading text-stack"><p class="section-eyebrow section-kicker">Контакты</p><h4 class="section-title">Связь и ссылки</h4></div>
+    <form class="admin-form partner-profile-form" data-partner-form="profile">
+      <section class="partner-section partner-section--compact partner-combined-section">
+        <div class="partner-profile-grid partner-contact-grid partner-form-grid">
+          <label>Телефон<input name="phone" autocomplete="tel" value="${escapeHtml(profile.phone || '')}" placeholder="+7 999 123-45-67" /></label>
+          <label>Сайт<input name="website_url" value="${escapeHtml(profile.website_url || '')}" placeholder="https://example.ru" /></label>
+          <label>Instagram<input name="instagram_url" value="${escapeHtml(profile.instagram_url || '')}" placeholder="https://instagram.com/your_brand" /></label>
+          <label>VK<input name="vk_url" value="${escapeHtml(profile.vk_url || profile.social_url || '')}" placeholder="https://vk.com/your_brand" /></label>
+          <label>Telegram<input name="telegram_url" value="${escapeHtml(profile.telegram_url || '')}" placeholder="https://t.me/your_brand" /></label>
+          <label>WhatsApp<input name="whatsapp_url" value="${escapeHtml(profile.whatsapp_url || '')}" placeholder="https://wa.me/79991234567" /></label>
+          <label>Карта / маршрут<input name="map_url" value="${escapeHtml(profile.map_url || '')}" placeholder="https://yandex.ru/maps/..." /></label>
+          <label>Общая соцссылка (legacy)<input name="social_url" value="${escapeHtml(profile.social_url || '')}" placeholder="https://vk.com/bloom_beauty" /></label>
+        </div>
+      </section>
+      <div class="ui-action-row ui-action-row--right"><button class="ui-button ui-button--primary" type="submit">Сохранить контакты</button></div>
+      <p class="form-message" data-partner-form-message="profile">${escapeHtml(partnerState.formMessages.profile || '')}</p>
+    </form>
+  `;
+};
+
+const renderPartnerMediaTab = () => `
+  <div class="stack">
+    <div class="admin-section-heading text-stack"><p class="section-eyebrow section-kicker">Медиа</p><h4 class="section-title">Логотип, обложка и галерея</h4><p class="section-description compact-copy">Логотип — квадрат, обложка — горизонтальная, галерея — фото работ и интерьера.</p></div>
+    <section class="panel-card">${renderPartnerImageUploader(partnerState.profile || {}, 'partner')}</section>
+    ${renderPartnerGalleryTab()}
+  </div>
+`;
+
+const renderPartnerPreviewTab = () => `
+  <div class="stack">
+    <div class="admin-section-heading text-stack"><p class="section-eyebrow section-kicker">Предпросмотр</p><h4 class="section-title">Как карточка выглядит в Mini App</h4><p class="section-description compact-copy">Компактный read-only preview на основе текущих данных.</p></div>
+    <section class="panel-card">${renderPartnerMarketplaceCard(partnerState.profile || {}, { offers: partnerState.offers, note: 'Read-only preview', photos: partnerState.photos })}</section>
+    <section class="panel-card">${renderPartnerOffersTeaser()}</section>
+  </div>
+`;
 
 const renderPartnerOfferAction = (offer) => `
   <button class="admin-inline-action ui-button ui-button--secondary admin-inline-action--primary" type="button" data-partner-offer-edit="${escapeHtml(offer.id)}">Редактировать</button>
@@ -3299,7 +3329,7 @@ const renderPartnerOfferForm = () => {
       ${renderOfferMarketplaceCard(previewOffer, { note: 'Preview для клиента' })}
     </section>
     <form class="admin-form admin-form--inline" data-partner-form="${isEdit ? 'offerEdit' : 'offer'}" ${isEdit ? `data-offer-id="${escapeHtml(offer.id)}"` : ''}>
-      <h4>${isEdit ? 'Редактировать предложение' : 'Новое предложение'}</h4>
+      <h4>${isEdit ? 'Редактировать услугу' : 'Новая услуга'}</h4>
       <p class="helper-text form-message compact-copy">Публикация после проверки администратором.</p>
       ${isEdit && offer?.is_active === false ? '<p class="helper-text form-message compact-copy">Ожидает активации.</p>' : ''}
       <label>Название<input name="title" required value="${escapeHtml(offer?.title || '')}" /></label>
@@ -3319,7 +3349,7 @@ const renderPartnerOfferForm = () => {
       ${isEdit ? `<label class="checkbox-row"><input name="is_active" type="checkbox" ${offer?.is_active === false ? '' : 'checked'} ${offer?.is_active === false ? 'disabled' : ''} /> Активно</label>` : ''}
       <label>Порядок сортировки<input class="partner-input-compact" name="sort_order" type="number" value="${escapeHtml(offer?.sort_order || 0)}" /></label>
       <div class="admin-form-actions">
-        <button type="submit">${isEdit ? 'Сохранить изменения' : 'Создать предложение'}</button>
+        <button type="submit">${isEdit ? 'Сохранить услугу' : 'Добавить услугу'}</button>
         ${isEdit ? '<button class="admin-inline-action ui-button ui-button--ghost" type="button" data-partner-offer-edit-cancel>Отмена</button>' : ''}
       </div>
       <p class="form-message" data-partner-form-message="${isEdit ? 'offerEdit' : 'offer'}">${escapeHtml(partnerState.formMessages[isEdit ? 'offerEdit' : 'offer'] || '')}</p>
@@ -3329,7 +3359,7 @@ const renderPartnerOfferForm = () => {
 
 const renderPartnerOffersTab = () => `
   <div class="partner-cabinet-offers">
-    <div class="admin-section-heading text-stack"><p class="section-eyebrow section-kicker">Предложения</p><h4 class="section-title">Предложения и привилегии</h4><p class="section-description compact-copy">Короткая выгода и условия для клиенток.</p></div>
+    <div class="admin-section-heading text-stack"><p class="section-eyebrow section-kicker">Услуги</p><h4 class="section-title">Услуги и привилегии</h4><p class="section-description compact-copy">Добавляйте услуги, фото и условия без изменения логики цен.</p></div>
     ${partnerState.offers.length ? `
     <div class="offer-card-grid">
       ${partnerState.offers.map((offer) => renderOfferMarketplaceCard(offer, {
@@ -4889,26 +4919,15 @@ const loadActivePartnerTabData = async () => {
   renderPartnerLayout();
 
   try {
-    if (partnerState.activeTab === 'profile') {
+    if (partnerState.activeTab === 'overview' || partnerState.activeTab === 'profile' || partnerState.activeTab === 'contacts' || partnerState.activeTab === 'preview') {
       await Promise.all([loadPartnerProfile(), loadPartnerOffers(), loadPartnerPhotos()]);
-    } else if (partnerState.activeTab === 'offers') {
+    } else if (partnerState.activeTab === 'services') {
       await loadPartnerOffers();
-    } else if (partnerState.activeTab === 'gallery') {
+    } else if (partnerState.activeTab === 'media') {
       await Promise.all([loadPartnerProfile(), loadPartnerOffers(), loadPartnerPhotos()]);
       if (partnerState.selectedOfferIdForGallery) {
         await loadPartnerOfferPhotos(partnerState.selectedOfferIdForGallery);
       }
-    } else if (partnerState.activeTab === 'qr') {
-      await Promise.all([loadPartnerQrLinks(), loadPartnerLeads()]);
-    } else if (partnerState.activeTab === 'verifications') {
-      await loadPartnerVerifications();
-    } else if (partnerState.activeTab === 'analytics') {
-      await loadPartnerAnalytics();
-    } else if (partnerState.activeTab === 'activity') {
-      partnerState.activityLoading = true;
-      partnerState.activityError = '';
-      renderPartnerLayout();
-      await loadPartnerActivity();
     }
   } catch (error) {
     if (!getPartnerToken()) {
