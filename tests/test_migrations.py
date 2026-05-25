@@ -58,9 +58,12 @@ def test_migration_files_have_single_head_revision() -> None:
             referenced_revisions.update(down_revision)
         else:
             referenced_revisions.add(down_revision)
-    heads = sorted(set(revisions) - referenced_revisions)
 
-    assert heads == ["20260522_0013_merge_heads"]
+    missing_references = sorted(referenced_revisions - set(revisions))
+    assert missing_references == []
+
+    heads = sorted(set(revisions) - referenced_revisions)
+    assert heads == ["20260525_0014"]
 
 
 def test_base_metadata_includes_domain_foundation_tables() -> None:
