@@ -6019,16 +6019,16 @@ body.is-dashboard {
 }
 
 .partner-save-bar {
-  position: sticky;
-  right: 0;
+  position: fixed;
+  right: 24px;
   bottom: 18px;
-  left: 0;
+  left: auto;
   z-index: 20;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 14px;
-  margin-top: 18px;
+  width: min(460px, calc(100vw - 32px));
   padding: 14px 16px;
   border: 1px solid rgba(201, 130, 120, 0.28);
   border-radius: 24px;
@@ -6036,6 +6036,36 @@ body.is-dashboard {
   box-shadow: 0 18px 44px rgba(143, 81, 75, 0.16);
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
+}
+
+.ui-toast {
+  position: fixed;
+  top: 84px;
+  right: 24px;
+  z-index: 60;
+  max-width: min(420px, calc(100vw - 32px));
+  padding: 10px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(201, 130, 120, 0.26);
+  background: rgba(255, 250, 248, 0.96);
+  color: var(--color-rose-dark);
+  font-weight: 800;
+  box-shadow: 0 14px 36px rgba(143, 81, 75, 0.16);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-6px);
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+.ui-toast.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.ui-toast--error {
+  border-color: rgba(185, 28, 28, 0.32);
+  background: rgba(254, 242, 242, 0.98);
+  color: #991b1b;
 }
 
 .partner-save-bar span {
@@ -6089,9 +6119,15 @@ body.is-dashboard {
   }
 
   .partner-save-bar {
+    right: 10px;
     bottom: 10px;
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .ui-toast {
+    top: 72px;
+    right: 10px;
   }
 }
 
