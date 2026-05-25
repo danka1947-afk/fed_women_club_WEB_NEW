@@ -252,3 +252,29 @@ def test_vk_miniapp_login_preflight_returns_cors_headers(vk_miniapp_client: Test
     assert "authorization" in allow_headers
     assert "content-type" in allow_headers
     assert "accept" in allow_headers
+
+
+def test_vk_miniapp_login_invalid_payload_is_not_404(vk_miniapp_client: TestClient) -> None:
+    response = vk_miniapp_client.post("/api/v1/auth/vk-miniapp-login", json={"launch_params": {}})
+    assert response.status_code != 404
+
+
+def test_vk_miniapp_login_preflight_vk_origin_returns_cors_headers(vk_miniapp_client: TestClient) -> None:
+    response = vk_miniapp_client.options(
+        "/api/v1/auth/vk-miniapp-login",
+        headers={
+            "Origin": "https://m.vk.ru",
+            "Access-Control-Request-Method": "POST",
+            "Access-Control-Request-Headers": "content-type",
+        },
+    )
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == "https://m.vk.ru"
+    assert "POST" in response.headers["access-control-allow-methods"]
+    assert "content-type" in response.headers["access-control-allow-headers"].lower()
+
+
+def test_api_v1_auth_vk_miniapp_login_route_is_registered() -> None:
+    target = "/api/v1/auth/vk-miniapp-login"
+    post_routes = {route.path for route in app.router.routes if "POST" in getattr(route, "methods", set())}
+    assert target in post_routes
