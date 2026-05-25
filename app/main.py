@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
@@ -10,6 +11,11 @@ from fastapi.staticfiles import StaticFiles
 from app.core.config import settings
 from app.api.v1.router import api_router
 from app.api.v1.endpoints.public import router as public_router
+
+
+logger = logging.getLogger("app.auth_cors")
+
+VK_MINIAPP_AUTH_LOG_PATHS = {"/api/v1/auth/vk-miniapp-login", "/auth/vk-miniapp-login"}
 
 
 app = FastAPI(
@@ -80,3 +86,29 @@ async def api_health_check() -> dict[str, str]:
 
 app.include_router(public_router)
 app.include_router(api_router)
+
+
+@app.middleware("http")
+async def log_vk_miniapp_auth_cors_debug(request, call_next):
+    path = request.url.path
+    if path not in VK_MINIAPP_AUTH_LOG_PATHS:
+        return await call_next(request)
+
+    method = request.method
+    origin = request.headers.get("origin", "")
+    acr_method = request.headers.get("access-control-request-method", "")
+    acr_headers = request.headers.get("access-control-request-headers", "")
+    user_agent = request.headers.get("user-agent", "")[:120]
+
+    response = await call_next(request)
+    logger.info(
+        "vk-miniapp-login method=%s path=%s origin=%s acr_method=%s acr_headers=%s status=%s ua=%s",
+        method,
+        path,
+        origin,
+        acr_method,
+        acr_headers,
+        response.status_code,
+        user_agent,
+    )
+    return response

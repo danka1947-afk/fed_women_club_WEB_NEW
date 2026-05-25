@@ -259,17 +259,30 @@ def test_vk_miniapp_login_invalid_payload_is_not_404(vk_miniapp_client: TestClie
     assert response.status_code != 404
 
 
-def test_vk_miniapp_login_preflight_vk_origin_returns_cors_headers(vk_miniapp_client: TestClient) -> None:
+@pytest.mark.parametrize(
+    "origin",
+    [
+        "https://m.vk.ru",
+        "https://m.vk.com",
+        "https://vk.com",
+        "https://vk.ru",
+        "https://bloomclub.ru",
+    ],
+)
+def test_vk_miniapp_login_preflight_vk_origin_returns_cors_headers(
+    vk_miniapp_client: TestClient,
+    origin: str,
+) -> None:
     response = vk_miniapp_client.options(
         "/api/v1/auth/vk-miniapp-login",
         headers={
-            "Origin": "https://m.vk.ru",
+            "Origin": origin,
             "Access-Control-Request-Method": "POST",
             "Access-Control-Request-Headers": "content-type",
         },
     )
     assert response.status_code == 200
-    assert response.headers["access-control-allow-origin"] == "https://m.vk.ru"
+    assert response.headers["access-control-allow-origin"] == origin
     assert "POST" in response.headers["access-control-allow-methods"]
     assert "content-type" in response.headers["access-control-allow-headers"].lower()
 
