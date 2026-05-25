@@ -3266,12 +3266,10 @@ const renderPartnerProfileTab = () => {
         </section>
       </form>
     </div>
-    ${partnerState.isProfileDirty ? `
-      <div class="partner-save-bar" role="status">
-        <span>Есть несохранённые изменения</span>
-        <button type="submit" form="partner-profile-form">Сохранить</button>
-      </div>
-    ` : ''}
+    <div class="partner-save-bar" role="status" ${partnerState.isProfileDirty ? '' : 'hidden'}>
+      <span>Есть несохранённые изменения</span>
+      <button type="submit" form="partner-profile-form">Сохранить</button>
+    </div>
   `;
 };
 
@@ -6519,17 +6517,27 @@ root.addEventListener('input', (event) => {
     }
     partnerState.isProfileDirty = true;
     partnerState.profileSaveStatus = 'dirty';
-    renderPartnerLayout();
-    requestAnimationFrame(() => {
-      const updatedInput = root.querySelector(`[name="${partnerProfileInput.name}"]`);
-      if (updatedInput) {
-        updatedInput.focus();
-        if (typeof updatedInput.setSelectionRange === 'function') {
-          const cursorPosition = partnerProfileInput.selectionStart ?? updatedInput.value.length;
-          updatedInput.setSelectionRange(cursorPosition, cursorPosition);
-        }
+
+    const saveStatusNode = root.querySelector('.partner-save-status');
+    if (saveStatusNode) {
+      saveStatusNode.textContent = getPartnerSaveStatusLabel();
+    }
+
+    const dirtyBar = root.querySelector('.partner-save-bar');
+    if (dirtyBar) {
+      dirtyBar.hidden = false;
+    }
+
+    if (partnerProfileInput.classList.contains('partner-required-empty') && String(partnerProfileInput.value || '').trim()) {
+      partnerProfileInput.classList.remove('partner-required-empty');
+    }
+
+    if (partnerProfileInput.matches('textarea[name="description"]')) {
+      const hint = partnerProfileInput.closest('section')?.querySelector('.partner-textarea-hint');
+      if (hint) {
+        hint.textContent = `${partnerProfileInput.value.length} символов. Рекомендация: 200–500 символов.`;
       }
-    });
+    }
     return;
   }
 
