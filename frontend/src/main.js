@@ -981,9 +981,13 @@ const formatPrivilegeStatus = (status) => getStatusBadgeMeta(status)?.label || '
 const renderOfferMarketplaceCard = (offer = {}, options = {}) => {
   const offerPhotos = getOfferPhotos(offer);
   const imageUrl = offerPhotos[0]?.url || (isSafePublicAssetUrl(offer.image_url) ? offer.image_url : '');
-  const title = String(offer.title || '').trim() || 'Название предложения';
-  const description = String(offer.description || '').trim() || 'Короткое описание услуги.';
-  const conditions = String(offer.conditions || offer.terms || '').trim() || 'Условия появятся здесь.';
+  const rawTitle = String(offer.title || '').trim();
+  const rawDescription = String(offer.description || '').trim();
+  const rawConditions = String(offer.conditions || offer.terms || '').trim();
+  const allowFallbacks = options.showFallbackPlaceholders !== false;
+  const title = rawTitle || (allowFallbacks ? 'Название предложения' : '');
+  const description = rawDescription || (allowFallbacks ? 'Короткое описание услуги.' : '');
+  const conditions = rawConditions || (allowFallbacks ? 'Условия появятся здесь.' : '');
   const benefit = formatPartnerBenefit(offer);
   const basePrice = formatOfferBasePrice(offer.base_price);
   const ctaText = options.cta || 'Получить привилегию';
@@ -1001,10 +1005,10 @@ const renderOfferMarketplaceCard = (offer = {}, options = {}) => {
           <span class="offer-marketplace-benefit">${escapeHtml(benefit)}</span>
           ${offer.is_active === undefined ? '' : renderActiveStatusBadge(offer.is_active)}
         </div>
-        <h4 class="card-title">${escapeHtml(title)}</h4>
-        <p class="card-description compact-copy ${isPartnerCabinetCard ? 'partner-offer-card__description' : ''}">${escapeHtml(description)}</p>
+        ${title ? `<h4 class="card-title">${escapeHtml(title)}</h4>` : ''}
+        ${description ? `<p class="card-description compact-copy ${isPartnerCabinetCard ? 'partner-offer-card__description' : ''}">${escapeHtml(description)}</p>` : ''}
         <dl class="offer-marketplace-meta ${isPartnerCabinetCard ? 'partner-offer-card__details' : ''}">
-          <div><dt>Условия</dt><dd>${escapeHtml(conditions)}</dd></div>
+          ${conditions ? `<div><dt>Условия</dt><dd>${escapeHtml(conditions)}</dd></div>` : ''}
           <div><dd>${renderOfferPricingBlock(offer)}</dd></div>
         </dl>
         <div class="${isPartnerCabinetCard ? 'partner-offer-card__actions' : 'offer-marketplace-preview offer-marketplace-preview__actions'}">
@@ -3322,11 +3326,22 @@ const renderPartnerOfferForm = () => {
   const offer = partnerState.offers.find((item) => String(item.id) === String(partnerState.selectedOfferIdForEdit));
   const isEdit = Boolean(offer);
   const previewOffer = isEdit ? offer : { is_active: false };
+  const hasPreviewData = Boolean(
+    String(previewOffer?.title || '').trim()
+    || String(previewOffer?.benefit_text || '').trim()
+    || String(previewOffer?.description || '').trim()
+    || String(previewOffer?.conditions || previewOffer?.terms || '').trim()
+    || String(previewOffer?.base_price || '').trim()
+    || String(previewOffer?.discount_percent || '').trim()
+    || isSafePublicAssetUrl(previewOffer?.image_url),
+  );
 
   return `
     <section class="offer-marketplace-preview">
       <span class="section-eyebrow section-kicker">Preview предложения</span>
-      ${renderOfferMarketplaceCard(previewOffer, { note: 'Preview для клиента' })}
+      ${hasPreviewData
+    ? renderOfferMarketplaceCard(previewOffer, { note: 'Preview для клиента', showFallbackPlaceholders: false })
+    : '<div class="partner-offer-preview-empty">Заполните услугу, чтобы увидеть предпросмотр</div>'}
     </section>
     <form class="admin-form admin-form--inline" data-partner-form="${isEdit ? 'offerEdit' : 'offer'}" ${isEdit ? `data-offer-id="${escapeHtml(offer.id)}"` : ''}>
       <h4>${isEdit ? 'Редактировать услугу' : 'Новая услуга'}</h4>
