@@ -306,6 +306,46 @@ def test_partner_me_patch_ignores_protected_fields(partner_client: TestClient) -
     assert data["is_verified"] is True
 
 
+def test_partner_me_patch_partial_updates_do_not_wipe_other_sections(partner_client: TestClient) -> None:
+    token = _partner_token(partner_client)
+
+    profile_response = partner_client.patch(
+        "/api/v1/partners/me",
+        headers=_auth_headers(token),
+        json={"description": "Updated profile description"},
+    )
+    assert profile_response.status_code == 200
+    assert profile_response.json()["description"] == "Updated profile description"
+
+    contacts_response = partner_client.patch(
+        "/api/v1/partners/me",
+        headers=_auth_headers(token),
+        json={
+            "address": "New address",
+            "phone": "+79998887766",
+            "working_hours": "09:00-18:00",
+        },
+    )
+    assert contacts_response.status_code == 200
+    contacts_data = contacts_response.json()
+    assert contacts_data["description"] == "Updated profile description"
+    assert contacts_data["address"] == "New address"
+    assert contacts_data["phone"] == "+79998887766"
+    assert contacts_data["working_hours"] == "09:00-18:00"
+
+    profile_second_response = partner_client.patch(
+        "/api/v1/partners/me",
+        headers=_auth_headers(token),
+        json={"description": "Second profile description"},
+    )
+    assert profile_second_response.status_code == 200
+    second_data = profile_second_response.json()
+    assert second_data["description"] == "Second profile description"
+    assert second_data["address"] == "New address"
+    assert second_data["phone"] == "+79998887766"
+    assert second_data["working_hours"] == "09:00-18:00"
+
+
 def test_partner_offers_returns_only_own_offers_ordered(partner_client: TestClient) -> None:
     token = _partner_token(partner_client)
 
