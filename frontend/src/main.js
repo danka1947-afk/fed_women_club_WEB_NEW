@@ -3293,7 +3293,7 @@ const renderPartnerContactsTab = () => {
   const profile = partnerState.profile || {};
   return `
     <div class="admin-section-heading text-stack"><p class="section-eyebrow section-kicker">Контакты</p><h4 class="section-title">Связь и ссылки</h4></div>
-    <form class="admin-form partner-profile-form" data-partner-form="profile">
+    <form class="admin-form partner-profile-form" data-partner-form="contacts">
       <section class="partner-section partner-section--compact partner-combined-section">
         ${renderPartnerSectionHeader('Адрес и график работы', 'Контактные ссылки и каналы связи для клиенток.')}
         <div class="partner-profile-grid partner-contact-grid partner-form-grid">
@@ -3310,7 +3310,7 @@ const renderPartnerContactsTab = () => {
         </div>
       </section>
       <div class="ui-action-row ui-action-row--right"><button class="ui-button ui-button--primary" type="submit">Сохранить контакты</button></div>
-      <p class="form-message" data-partner-form-message="profile">${escapeHtml(partnerState.formMessages.profile || '')}</p>
+      <p class="form-message" data-partner-form-message="contacts">${escapeHtml(partnerState.formMessages.contacts || '')}</p>
     </form>
   `;
 };
@@ -5006,8 +5006,18 @@ const submitPartnerProfile = async (form) => {
   const formData = new FormData(form);
   partnerState.profileSaveStatus = 'saving';
   renderPartnerLayout();
-  await partnerPatchJson('/api/v1/partners/me', {
+  const updatedProfile = await partnerPatchJson('/api/v1/partners/me', {
     description: getOptionalText(formData, 'description'),
+  });
+  partnerState.profile = { ...(partnerState.profile || {}), ...(updatedProfile || {}) };
+  await loadPartnerPhotos();
+  partnerState.isProfileDirty = false;
+  partnerState.profileSaveStatus = 'saved';
+};
+
+const submitPartnerContacts = async (form) => {
+  const formData = new FormData(form);
+  const updatedProfile = await partnerPatchJson('/api/v1/partners/me', {
     address: getOptionalText(formData, 'address'),
     phone: getOptionalText(formData, 'phone'),
     website_url: getOptionalText(formData, 'website_url'),
@@ -5018,12 +5028,8 @@ const submitPartnerProfile = async (form) => {
     whatsapp_url: getOptionalText(formData, 'whatsapp_url'),
     map_url: getOptionalText(formData, 'map_url'),
     working_hours: getOptionalText(formData, 'working_hours'),
-    logo_url: getOptionalText(formData, 'logo_url'),
-    cover_url: getOptionalText(formData, 'cover_url'),
   });
-  await loadPartnerProfile();
-  partnerState.isProfileDirty = false;
-  partnerState.profileSaveStatus = 'saved';
+  partnerState.profile = { ...(partnerState.profile || {}), ...(updatedProfile || {}) };
 };
 
 const buildPartnerOfferPayload = (formData) => ({
@@ -5056,13 +5062,15 @@ const submitPartnerOfferEdit = async (form) => {
 
 const handlePartnerFormSubmit = async (form) => {
   const formType = form.dataset.partnerForm;
-  const shouldRestoreScroll = ['profile', 'offer', 'offerEdit'].includes(formType);
+  const shouldRestoreScroll = ['profile', 'contacts', 'offer', 'offerEdit'].includes(formType);
   const preservedScrollY = shouldRestoreScroll ? window.scrollY : null;
   setPartnerFormMessage(formType);
 
   try {
     if (formType === 'profile') {
       await submitPartnerProfile(form);
+    } else if (formType === 'contacts') {
+      await submitPartnerContacts(form);
     } else if (formType === 'offer') {
       await submitPartnerOffer(form);
     } else if (formType === 'offerEdit') {
