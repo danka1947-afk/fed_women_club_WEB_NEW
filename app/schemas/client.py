@@ -88,6 +88,11 @@ class ClientPartnerCatalogItem(BaseModel):
     phone: str | None
     website_url: str | None
     social_url: str | None
+    instagram_url: str | None
+    vk_url: str | None
+    telegram_url: str | None
+    whatsapp_url: str | None
+    map_url: str | None
     working_hours: str | None
     logo_url: str | None
     cover_url: str | None

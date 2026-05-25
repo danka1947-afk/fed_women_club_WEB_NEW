@@ -3201,12 +3201,23 @@ const renderPartnerProfileTab = () => {
 
           <section class="partner-section partner-section--compact partner-combined-section">
             ${renderPartnerSectionHeader('Контакты и график', 'Адрес, связь и время работы.')}
-            <div class="partner-profile-grid partner-contact-grid">
+            <div class="partner-profile-grid partner-contact-grid partner-form-grid">
               <label>Адрес<input class="${isRequiredProfileFieldEmpty(profile, 'address') ? 'partner-required-empty' : ''}" name="address" required value="${escapeHtml(profile.address || '')}" placeholder="Новосибирск, ул. Ленина, 15" /></label>
               <label>Телефон<input class="${isRequiredProfileFieldEmpty(profile, 'phone') ? 'partner-required-empty' : ''}" name="phone" autocomplete="tel" required value="${escapeHtml(profile.phone || '')}" placeholder="+7 999 123-45-67" /></label>
               <label>График работы<input class="${isRequiredProfileFieldEmpty(profile, 'working_hours') ? 'partner-required-empty' : ''}" name="working_hours" required value="${escapeHtml(profile.working_hours || '')}" placeholder="Пн–Пт 10:00–20:00, Сб 11:00–18:00" /></label>
+            </div>
+          </section>
+
+          <section class="partner-section partner-section--compact partner-combined-section">
+            ${renderPartnerSectionHeader('Ссылки и контакты', 'Описание — для текста о партнёре, ссылки лучше заполнять в отдельных полях ниже.')}
+            <div class="partner-profile-grid partner-contact-grid partner-form-grid">
               <label>Сайт<input name="website_url" value="${escapeHtml(profile.website_url || '')}" placeholder="https://example.ru" /></label>
-              <label>Ссылка на соцсеть / сайт<input name="social_url" value="${escapeHtml(profile.social_url || '')}" placeholder="https://vk.com/bloom_beauty" /></label>
+              <label>Instagram URL<input name="instagram_url" value="${escapeHtml(profile.instagram_url || '')}" placeholder="https://instagram.com/your_brand" /></label>
+              <label>VK URL<input name="vk_url" value="${escapeHtml(profile.vk_url || profile.social_url || '')}" placeholder="https://vk.com/your_brand" /></label>
+              <label>Telegram URL<input name="telegram_url" value="${escapeHtml(profile.telegram_url || '')}" placeholder="https://t.me/your_brand" /></label>
+              <label>WhatsApp URL / телефон<input name="whatsapp_url" value="${escapeHtml(profile.whatsapp_url || '')}" placeholder="https://wa.me/79991234567 или +7..." /></label>
+              <label>2GIS / Яндекс.Карты / маршрут<input name="map_url" value="${escapeHtml(profile.map_url || '')}" placeholder="https://yandex.ru/maps/..." /></label>
+              <label>Общая соцссылка (legacy)<input name="social_url" value="${escapeHtml(profile.social_url || '')}" placeholder="https://vk.com/bloom_beauty" /></label>
             </div>
           </section>
 
@@ -3255,7 +3266,7 @@ const renderPartnerProfileTab = () => {
         <section class="partner-section partner-section--compact partner-profile-save-section">
           ${renderPartnerSectionHeader('Сохранить изменения', 'Проверьте и сохраните.')}
           ${getPartnerSaveStatusLabel() ? `<div class="partner-save-status" role="status">${escapeHtml(getPartnerSaveStatusLabel())}</div>` : ''}
-          <button type="submit">Сохранить изменения</button>
+          <div class="ui-action-row ui-action-row--right ui-action-row--stack-mobile"><button class="ui-button ui-button--primary" type="submit">Сохранить изменения</button></div>
           <p class="form-message" data-partner-form-message="profile">${escapeHtml(partnerState.formMessages.profile || '')}</p>
         </section>
       </form>
@@ -3827,7 +3838,7 @@ const renderCityEditForm = () => {
       <label>Порядок сортировки<input name="sort_order" type="number" value="${escapeHtml(city.sort_order ?? 0)}" /></label>
       <label class="checkbox-row"><input name="is_active" type="checkbox" ${city.is_active ? 'checked' : ''} /> Активен</label>
       <div class="admin-form-actions">
-        <button type="submit">Сохранить изменения</button>
+        <div class="ui-action-row ui-action-row--right ui-action-row--stack-mobile"><button class="ui-button ui-button--primary" type="submit">Сохранить изменения</button></div>
         <button class="admin-inline-action ui-button ui-button--ghost" type="button" data-admin-city-edit-cancel>Отмена</button>
       </div>
       <p class="form-message" data-form-message="cityEdit">${escapeHtml(adminState.formMessages.cityEdit || '')}</p>
@@ -3896,7 +3907,7 @@ const renderCategoryEditForm = () => {
       <label>Порядок сортировки<input name="sort_order" type="number" value="${escapeHtml(category.sort_order ?? 0)}" /></label>
       <label class="checkbox-row"><input name="is_active" type="checkbox" ${category.is_active ? 'checked' : ''} /> Активна</label>
       <div class="admin-form-actions">
-        <button type="submit">Сохранить изменения</button>
+        <div class="ui-action-row ui-action-row--right ui-action-row--stack-mobile"><button class="ui-button ui-button--primary" type="submit">Сохранить изменения</button></div>
         <button class="admin-inline-action ui-button ui-button--ghost" type="button" data-admin-category-edit-cancel>Отмена</button>
       </div>
       <p class="form-message" data-form-message="categoryEdit">${escapeHtml(adminState.formMessages.categoryEdit || '')}</p>
@@ -4038,7 +4049,7 @@ const renderPartnerEditForm = () => {
                 <label>Обложка URL<input name="cover_url" value="${escapeHtml(partner.cover_url || '')}" /></label>
               </details>
               <div class="admin-partner-detail-actions admin-form-actions">
-                <button type="submit">Сохранить изменения</button>
+                <div class="ui-action-row ui-action-row--right ui-action-row--stack-mobile"><button class="ui-button ui-button--primary" type="submit">Сохранить изменения</button></div>
                 <button class="admin-inline-action ui-button ui-button--ghost" type="button" data-admin-partner-edit-cancel>Отмена</button>
               </div>
               <p class="form-message" data-form-message="partnerEdit">${escapeHtml(adminState.formMessages.partnerEdit || '')}</p>
@@ -4346,7 +4357,7 @@ const renderOfferEditForm = () => {
       <label class="checkbox-row"><input name="is_active" type="checkbox" ${offer.is_active ? 'checked' : ''} /> Активно</label>
       <label>Порядок сортировки<input name="sort_order" type="number" value="${escapeHtml(offer.sort_order || 0)}" /></label>
       <div class="admin-form-actions">
-        <button type="submit">Сохранить изменения</button>
+        <div class="ui-action-row ui-action-row--right ui-action-row--stack-mobile"><button class="ui-button ui-button--primary" type="submit">Сохранить изменения</button></div>
         <button class="admin-inline-action ui-button ui-button--ghost" type="button" data-admin-offer-edit-cancel>Отмена</button>
       </div>
       <p class="form-message" data-form-message="offerEdit">${escapeHtml(adminState.formMessages.offerEdit || '')}</p>
@@ -4518,7 +4529,7 @@ const renderQrEditForm = () => {
       <label>Deep-link payload<input name="deep_link_payload" value="${escapeHtml(link.deep_link_payload || '')}" /></label>
       <label class="checkbox-row"><input name="is_active" type="checkbox" ${link.is_active ? 'checked' : ''} /> Активна</label>
       <div class="admin-form-actions">
-        <button type="submit">Сохранить изменения</button>
+        <div class="ui-action-row ui-action-row--right ui-action-row--stack-mobile"><button class="ui-button ui-button--primary" type="submit">Сохранить изменения</button></div>
         <button class="admin-inline-action ui-button ui-button--ghost" type="button" data-admin-qr-edit-cancel>Отмена</button>
       </div>
       <p class="form-message" data-form-message="qrEdit">${escapeHtml(adminState.formMessages.qrEdit || '')}</p>
@@ -4950,6 +4961,11 @@ const submitPartnerProfile = async (form) => {
     phone: getOptionalText(formData, 'phone'),
     website_url: getOptionalText(formData, 'website_url'),
     social_url: getOptionalText(formData, 'social_url'),
+    instagram_url: getOptionalText(formData, 'instagram_url'),
+    vk_url: getOptionalText(formData, 'vk_url'),
+    telegram_url: getOptionalText(formData, 'telegram_url'),
+    whatsapp_url: getOptionalText(formData, 'whatsapp_url'),
+    map_url: getOptionalText(formData, 'map_url'),
     working_hours: getOptionalText(formData, 'working_hours'),
     logo_url: getOptionalText(formData, 'logo_url'),
     cover_url: getOptionalText(formData, 'cover_url'),
@@ -5288,6 +5304,11 @@ const submitPartner = async (form) => {
     phone: getOptionalText(formData, 'phone'),
     website_url: getOptionalText(formData, 'website_url'),
     social_url: getOptionalText(formData, 'social_url'),
+    instagram_url: getOptionalText(formData, 'instagram_url'),
+    vk_url: getOptionalText(formData, 'vk_url'),
+    telegram_url: getOptionalText(formData, 'telegram_url'),
+    whatsapp_url: getOptionalText(formData, 'whatsapp_url'),
+    map_url: getOptionalText(formData, 'map_url'),
     working_hours: getOptionalText(formData, 'working_hours'),
     logo_url: getOptionalText(formData, 'logo_url'),
     cover_url: getOptionalText(formData, 'cover_url'),

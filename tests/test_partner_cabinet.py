@@ -249,6 +249,11 @@ def test_partner_me_patch_updates_public_fields_and_strips_empty_to_null(partner
             "phone": "  +79991234567  ",
             "website_url": "",
             "social_url": "  https://social.example.com/new  ",
+            "instagram_url": "  https://instagram.com/new  ",
+            "vk_url": "  https://vk.com/new  ",
+            "telegram_url": "  https://t.me/new  ",
+            "whatsapp_url": "  +79991234567  ",
+            "map_url": "  https://yandex.ru/maps/test  ",
             "working_hours": "  11:00-19:00  ",
             "logo_url": "   ",
             "cover_url": "  https://example.com/new-cover.png  ",
@@ -262,6 +267,11 @@ def test_partner_me_patch_updates_public_fields_and_strips_empty_to_null(partner
     assert data["phone"] == "+79991234567"
     assert data["website_url"] is None
     assert data["social_url"] == "https://social.example.com/new"
+    assert data["instagram_url"] == "https://instagram.com/new"
+    assert data["vk_url"] == "https://vk.com/new"
+    assert data["telegram_url"] == "https://t.me/new"
+    assert data["whatsapp_url"] == "+79991234567"
+    assert data["map_url"] == "https://yandex.ru/maps/test"
     assert data["working_hours"] == "11:00-19:00"
     assert data["logo_url"] is None
     assert data["cover_url"] == "https://example.com/new-cover.png"
