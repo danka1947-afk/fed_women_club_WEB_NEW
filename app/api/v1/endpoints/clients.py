@@ -10,6 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from app.api.deps import require_client
+from app.core.categories import get_women_club_categories
 from app.db.session import get_db
 from app.models.city import City
 from app.models.category import Category
@@ -62,6 +63,7 @@ VERIFICATION_CODE_ALPHABET = string.digits
 VK_LINK_CODE_TTL_SECONDS = 10 * 60
 VK_LINK_CODE_LENGTH = 8
 VK_LINK_CODE_ALPHABET = string.ascii_uppercase + string.digits
+CATEGORY_DISPLAY_BY_SLUG = {item["slug"]: item["title"] for item in get_women_club_categories()}
 
 
 @router.get("/me", response_model=ClientProfileRead)
@@ -819,16 +821,26 @@ def _partner_to_catalog_item(
         {
             "id": partner.id,
             "city_id": partner.city_id,
-            "city_name": city_name,
+            "city_name": _humanize_display_text(city_name),
             "category_id": first.id if first is not None else None,
-            "category_name": first.name if first is not None else None,
+            "category_name": _display_category_name(
+                first.name if first is not None else None,
+                first.slug if first is not None else partner.category_slug,
+            ),
             "category_slug": first.slug if first is not None else partner.category_slug,
             "category": (
-                ClientPartnerCategoryRead(id=first.id, name=first.name, slug=first.slug)
+                ClientPartnerCategoryRead(
+                    id=first.id,
+                    name=_display_category_name(first.name, first.slug),
+                    slug=first.slug,
+                )
                 if first is not None
                 else None
             ),
-            "categories": [ClientPartnerCategoryRead(id=c.id, name=c.name, slug=c.slug) for c in active_categories],
+            "categories": [
+                ClientPartnerCategoryRead(id=c.id, name=_display_category_name(c.name, c.slug), slug=c.slug)
+                for c in active_categories
+            ],
             "category_ids": [c.id for c in active_categories],
             "category_slugs": [c.slug for c in active_categories],
             "name": partner.name,
@@ -866,6 +878,20 @@ def _active_photos_by_offer(db: Session, offer_ids: list[int]) -> dict[int, list
             {"id": photo.id, "url": photo.url, "alt_text": photo.alt_text, "sort_order": photo.sort_order}
         )
     return result
+
+
+def _humanize_display_text(value: str | None) -> str | None:
+    normalized = _normalize_optional_text(value)
+    if normalized is None:
+        return None
+    return normalized[0].upper() + normalized[1:] if normalized else normalized
+
+
+def _display_category_name(name: str | None, slug: str | None) -> str | None:
+    normalized_slug = _normalize_optional_text(slug)
+    if normalized_slug is not None and normalized_slug in CATEGORY_DISPLAY_BY_SLUG:
+        return CATEGORY_DISPLAY_BY_SLUG[normalized_slug]
+    return _humanize_display_text(name)
 
 
 def _partner_offer_to_read(offer: PartnerOffer, photos: list[dict[str, object]] | None = None) -> ClientPartnerOfferRead:
