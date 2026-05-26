@@ -732,6 +732,62 @@ def test_client_catalog_partners_returns_category_fields_for_active_and_inactive
     assert isinstance(data["Alpha Beauty"]["category_slugs"], list)
 
 
+def test_client_catalog_partners_humanizes_display_city_and_category_names(
+    client_cabinet_client: TestClient,
+    admin_token: str,
+) -> None:
+    token = _client_token(client_cabinet_client)
+
+    city_response = client_cabinet_client.post(
+        "/api/v1/admin/cities",
+        headers=_auth_headers(admin_token),
+        json={"name": "новосибирск", "slug": "novosibirsk", "is_active": True, "sort_order": 1},
+    )
+    assert city_response.status_code == 200
+    city_id = city_response.json()["id"]
+
+    category_response = client_cabinet_client.post(
+        "/api/v1/admin/categories",
+        headers=_auth_headers(admin_token),
+        json={"name": "красота", "slug": "krasota", "is_active": True, "sort_order": 1},
+    )
+    assert category_response.status_code == 200
+    category_id = category_response.json()["id"]
+
+    partner_response = client_cabinet_client.post(
+        "/api/v1/admin/partners",
+        headers=_auth_headers(admin_token),
+        json={
+            "city_id": city_id,
+            "name": "Lowercase Partner",
+            "is_active": True,
+            "is_verified": True,
+            "category_slug": "krasota",
+            "category_ids": [category_id],
+        },
+    )
+    assert partner_response.status_code == 200
+
+    response = client_cabinet_client.get(
+        "/api/v1/clients/catalog/partners?city_slug=novosibirsk&category_slug=krasota",
+        headers=_auth_headers(token),
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) == 1
+    partner = data[0]
+
+    assert partner["city_name"] == "Новосибирск"
+    assert partner["category_name"] == "Красота"
+    assert partner["category"]["name"] == "Красота"
+    assert partner["categories"][0]["name"] == "Красота"
+
+    assert partner["city_id"] == city_id
+    assert partner["category_slug"] == "krasota"
+    assert partner["category"]["slug"] == "krasota"
+    assert partner["category_slugs"] == ["krasota"]
+
+
 def test_client_catalog_partners_q_search_works(client_cabinet_client: TestClient) -> None:
     token = _client_token(client_cabinet_client)
 
