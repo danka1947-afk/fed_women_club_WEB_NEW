@@ -229,10 +229,17 @@ const renderPublicApp = () => {
             <a class="secondary-button" href="#landing-partners">Смотреть привилегии</a>
           </div>
           <div class="hero-proof-grid" aria-label="Показатели клуба">
-            <article class="hero-proof-card"><strong>327</strong><span>девушек уже внутри</span></article>
-            <article class="hero-proof-card"><strong>50+</strong><span>партнёров города</span></article>
-            <article class="hero-proof-card"><strong>183 000 ₽</strong><span>сэкономили участницы</span></article>
-            <article class="hero-proof-card"><strong>Dyson Airwrap</strong><span>розыгрыш месяца</span></article>
+            <article class="hero-proof-card"><strong>327</strong><span>девушек внутри</span></article>
+            <article class="hero-proof-card"><strong>50+</strong><span>партнёров</span></article>
+            <article class="hero-proof-card"><strong>183 000 ₽</strong><span>экономии</span></article>
+            <article class="hero-proof-card"><strong title="Dyson Airwrap" aria-label="Dyson Airwrap">Dyson</strong><span>розыгрыш месяца</span></article>
+          </div>
+          <div class="hero-lifestyle-chips" aria-label="Первые партнёры клуба">
+            <span class="hero-lifestyle-chip">первые партнёры клуба</span>
+            <span class="hero-lifestyle-chip">beauty</span>
+            <span class="hero-lifestyle-chip">spa</span>
+            <span class="hero-lifestyle-chip">café</span>
+            <span class="hero-lifestyle-chip">fitness</span>
           </div>
         </section>
 
@@ -245,6 +252,11 @@ const renderPublicApp = () => {
             <li>🌸 beauty-партнёры</li>
             <li>💌 закрытые предложения</li>
           </ul>
+          <div class="hero-draw-highlight" aria-label="Розыгрыш месяца: Dyson Airwrap, доступно участницам клуба">
+            <p class="hero-draw-highlight__title">Розыгрыш месяца</p>
+            <p class="hero-draw-highlight__name">Dyson Airwrap</p>
+            <p class="hero-draw-highlight__meta">доступно участницам клуба</p>
+          </div>
         </div>
       </div>
     </header>
@@ -303,6 +315,13 @@ const renderPublicApp = () => {
         <span class="landing-anchor" id="landing-join" aria-hidden="true"></span>
         <p class="section-kicker">Личный доступ</p>
         <h2 id="login-title">Вход в кабинет клуба</h2>
+        <div class="login-quick-access" aria-label="Быстрый вход">
+          <p class="login-quick-access__title">Уже есть доступ?</p>
+          <div class="login-quick-access__actions">
+            <button class="login-quick-access__button" type="button" data-login-mode="client">Войти в кабинет</button>
+            <button class="login-quick-access__button" type="button" data-login-mode="partner">Я партнёр</button>
+          </div>
+        </div>
         <div class="login-mode-switch" role="tablist" aria-label="Тип входа">
           <button class="login-mode-button is-active" type="button" data-login-mode="admin" role="tab" aria-selected="true">Администратор</button>
           <button class="login-mode-button" type="button" data-login-mode="partner" role="tab" aria-selected="false">Партнёр</button>
