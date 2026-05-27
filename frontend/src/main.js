@@ -72,19 +72,19 @@ const fallbackClientCategories = [
 const featureCards = [
   {
     title: 'Скидки у партнёров',
-    text: 'Скидки, подарки и специальные предложения у партнёров клуба.',
+    text: 'Салоны, кафе, SPA, фитнес и lifestyle-сервисы города.',
   },
   {
     title: 'Подарки и розыгрыши',
-    text: 'Нежные beauty-бонусы, сезонные подборки и вдохновение для себя.',
+    text: 'Каждый месяц — новые призы, beauty-боксы и сертификаты.',
   },
   {
-    title: 'QR-подтверждение у партнёра',
-    text: 'Аккуратная механика подтверждения привилегии без изменения backend-контрактов.',
+    title: 'QR-доступ',
+    text: 'Показывайте QR-код партнёру и активируйте привилегию.',
   },
   {
-    title: 'Выбор города',
-    text: 'Выберите город и откройте доступ к предложениям рядом.',
+    title: 'Ваш город',
+    text: 'Выбирайте город и открывайте актуальные предложения рядом.',
   },
 ];
 
@@ -218,23 +218,33 @@ const renderPublicApp = () => {
       <div class="hero-grid">
         <section class="hero-copy">
           <p class="eyebrow">Premium beauty / lifestyle</p>
-          <h1 id="hero-title">Женский клуб</h1>
-          <p class="subtitle">Федеральный клуб привилегий для девушек</p>
+          <h1 id="hero-title">Женский клуб привилегий</h1>
+          <p class="subtitle">Скидки, подарки и розыгрыши для девушек в вашем городе</p>
           <p class="hero-description">
-            Красота, забота, отдых и вдохновение рядом с вами. Открывайте
-            предложения партнёров клуба в своём городе и пользуйтесь
-            привилегиями в светлом, бережном пространстве.
+            Красота, уход, отдых и вдохновение рядом с вами. Получайте привилегии у партнёров клуба,
+            участвуйте в розыгрышах и открывайте новые места города.
           </p>
           <div class="hero-actions">
-            <a class="primary-button" href="#city-selector-title">Выберите город</a>
-            <a class="secondary-button" href="#categories-title">Смотреть категории</a>
+            <a class="primary-button" href="#landing-join">Стать участницей</a>
+            <a class="secondary-button" href="#landing-partners">Смотреть привилегии</a>
+          </div>
+          <div class="hero-proof-grid" aria-label="Показатели клуба">
+            <article class="hero-proof-card"><strong>327</strong><span>девушек уже внутри</span></article>
+            <article class="hero-proof-card"><strong>50+</strong><span>партнёров города</span></article>
+            <article class="hero-proof-card"><strong>183 000 ₽</strong><span>сэкономили участницы</span></article>
+            <article class="hero-proof-card"><strong>Dyson Airwrap</strong><span>розыгрыш месяца</span></article>
           </div>
         </section>
 
         <div class="hero-card">
-          <span class="pill">для себя</span>
-          <h2>Красота, забота и вдохновение</h2>
-          <p>Скидки, подарки и специальные предложения у партнёров клуба.</p>
+          <span class="pill">для участниц</span>
+          <h2>Внутри клуба</h2>
+          <p>Розыгрыши, подарки, закрытые предложения и бонусы от партнёров.</p>
+          <ul class="hero-card-list">
+            <li>🎁 розыгрыш месяца</li>
+            <li>🌸 beauty-партнёры</li>
+            <li>💌 закрытые предложения</li>
+          </ul>
         </div>
       </div>
     </header>
@@ -264,7 +274,11 @@ const renderPublicApp = () => {
             <div class="city-choice-grid" role="radiogroup" aria-labelledby="city-select-label">
               ${cities
                 .map(
-                  (city, index) => `
+                  (city, index) => {
+                    const cityMeta = city === 'Новосибирск'
+                      ? '50+ партнёров · первые участницы внутри'
+                      : 'скоро открытие · набор партнёров';
+                    return `
                     <button
                       class="city-choice${index === 0 ? ' is-active' : ''}"
                       type="button"
@@ -272,9 +286,11 @@ const renderPublicApp = () => {
                       aria-checked="${index === 0 ? 'true' : 'false'}"
                       data-city-choice
                     >
-                      ${city}
+                      <span class="city-choice-title">${city}</span>
+                      <span class="city-choice-meta">${cityMeta}</span>
                     </button>
-                  `,
+                  `;
+                  },
                 )
                 .join('')}
             </div>
