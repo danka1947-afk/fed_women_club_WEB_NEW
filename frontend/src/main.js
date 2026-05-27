@@ -218,11 +218,11 @@ const renderPublicApp = () => {
       <div class="hero-grid">
         <section class="hero-copy">
           <p class="eyebrow">Premium beauty / lifestyle</p>
+          <p class="pill">для себя</p>
           <h1 id="hero-title">Женский клуб привилегий</h1>
-          <p class="subtitle">Скидки, подарки и розыгрыши для девушек в вашем городе</p>
+          <p class="subtitle">Красота, забота и вдохновение</p>
           <p class="hero-description">
-            Красота, уход, отдых и вдохновение рядом с вами. Получайте привилегии у партнёров клуба,
-            участвуйте в розыгрышах и открывайте новые места города.
+            Скидки, подарки и специальные предложения у партнёров клуба.
           </p>
           <div class="hero-actions">
             <a class="primary-button" href="#landing-join">Стать участницей</a>
@@ -3311,12 +3311,12 @@ const renderPartnerContactsTab = () => {
     <div class="admin-section-heading text-stack"><p class="section-eyebrow section-kicker">Контакты</p><h4 class="section-title">Связь и ссылки</h4></div>
     <form class="admin-form partner-profile-form" data-partner-form="contacts">
       <section class="partner-section partner-section--compact partner-combined-section">
-        ${renderPartnerSectionHeader('Адрес и график работы', 'Контактные ссылки и каналы связи для клиенток.')}
+        ${renderPartnerSectionHeader('Контакты и график', 'Контактные ссылки и каналы связи для клиенток.')}
         <div class="partner-profile-grid partner-contact-grid partner-form-grid">
           <label>Адрес<input class="${isRequiredProfileFieldEmpty(profile, 'address') ? 'partner-required-empty' : ''}" name="address" required value="${escapeHtml(profile.address || '')}" placeholder="Новосибирск, ул. Ленина, 15" /></label>
           <label>График работы<input class="${isRequiredProfileFieldEmpty(profile, 'working_hours') ? 'partner-required-empty' : ''}" name="working_hours" required value="${escapeHtml(profile.working_hours || '')}" placeholder="Пн–Пт 10:00–20:00, Сб 11:00–18:00" /></label>
           <label>Телефон<input name="phone" autocomplete="tel" value="${escapeHtml(profile.phone || '')}" placeholder="+7 999 123-45-67" /></label>
-          <label>Сайт<input name="website_url" value="${escapeHtml(profile.website_url || '')}" placeholder="https://example.ru" /></label>
+          <label>Ссылка на соцсеть / сайт<input name="website_url" value="${escapeHtml(profile.website_url || '')}" placeholder="https://example.ru" /></label>
           <label>Instagram<input name="instagram_url" value="${escapeHtml(profile.instagram_url || '')}" placeholder="https://instagram.com/your_brand" /></label>
           <label>VK<input name="vk_url" value="${escapeHtml(profile.vk_url || profile.social_url || '')}" placeholder="https://vk.com/your_brand" /></label>
           <label>Telegram<input name="telegram_url" value="${escapeHtml(profile.telegram_url || '')}" placeholder="https://t.me/your_brand" /></label>
@@ -3407,7 +3407,7 @@ const renderPartnerOfferForm = () => {
 
 const renderPartnerOffersTab = () => `
   <div class="partner-cabinet-offers">
-    <div class="admin-section-heading text-stack"><p class="section-eyebrow section-kicker">Услуги</p><h4 class="section-title">Услуги и привилегии</h4><p class="section-description compact-copy">Добавляйте услуги, фото и условия без изменения логики цен.</p></div>
+    <div class="admin-section-heading text-stack"><p class="section-eyebrow section-kicker">Услуги</p><h4 class="section-title">Предложения и привилегии</h4><p class="section-description compact-copy">Короткая выгода и условия для клиенток</p></div>
     ${partnerState.offers.length ? `
     <div class="offer-card-grid">
       ${partnerState.offers.map((offer) => renderOfferMarketplaceCard(offer, {
