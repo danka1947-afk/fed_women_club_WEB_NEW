@@ -275,6 +275,18 @@ const renderPublicApp = () => {
         .join('')}
     </section>
 
+    <section class="how-it-works" aria-labelledby="landing-how-title">
+      <article class="how-it-works-card">
+        <p class="section-kicker">Как это работает</p>
+        <h2 id="landing-how-title">Три шага к привилегиям</h2>
+        <ol class="how-it-works-steps">
+          <li><span>1</span>Выберите город</li>
+          <li><span>2</span>Вступите в клуб</li>
+          <li><span>3</span>Получайте привилегии у партнёров</li>
+        </ol>
+      </article>
+    </section>
+
     <section class="content-grid" id="landing-partners">
       <section class="panel city-panel" id="landing-cities" aria-labelledby="city-selector-title">
         <p class="section-kicker">География клуба</p>
@@ -315,13 +327,15 @@ const renderPublicApp = () => {
         <span class="landing-anchor" id="landing-join" aria-hidden="true"></span>
         <p class="section-kicker">Личный доступ</p>
         <h2 id="login-title">Вход в кабинет клуба</h2>
-        <div class="login-quick-access" aria-label="Быстрый вход">
+        <div class="login-quick-access" aria-label="Быстрый вход" data-login-quick-card>
           <p class="login-quick-access__title">Уже есть доступ?</p>
+          <p class="login-quick-access__text">Войдите в кабинет участницы, партнёра или администратора.</p>
           <div class="login-quick-access__actions">
-            <button class="login-quick-access__button" type="button" data-login-mode="client">Войти в кабинет</button>
-            <button class="login-quick-access__button" type="button" data-login-mode="partner">Я партнёр</button>
+            <button class="login-quick-access__button" type="button" data-login-expand-mode="client">Войти</button>
+            <button class="login-quick-access__button" type="button" data-login-expand-mode="partner">Я партнёр</button>
           </div>
         </div>
+        <div class="login-details" data-login-details hidden>
         <div class="login-mode-switch" role="tablist" aria-label="Тип входа">
           <button class="login-mode-button is-active" type="button" data-login-mode="admin" role="tab" aria-selected="true">Администратор</button>
           <button class="login-mode-button" type="button" data-login-mode="partner" role="tab" aria-selected="false">Партнёр</button>
@@ -340,6 +354,7 @@ const renderPublicApp = () => {
           <button type="submit">Войти</button>
           <p class="login-message" data-login-message role="status" aria-live="polite"></p>
         </form>
+        </div>
         <div class="admin-dashboard" data-admin-dashboard hidden>
           <h3>Админ-панель</h3>
           <p>Вы вошли как: <strong data-admin-email></strong></p>
@@ -588,6 +603,7 @@ let loginMessage = null;
 let adminDashboard = null;
 let partnerDashboard = null;
 let clientDashboard = null;
+let isLoginExpanded = false;
 
 const bindPublicElements = () => {
   loginForm = document.querySelector('[data-login-form]');
@@ -596,7 +612,33 @@ const bindPublicElements = () => {
   adminDashboard = document.querySelector('[data-admin-dashboard]');
   partnerDashboard = document.querySelector('[data-partner-dashboard]');
   clientDashboard = document.querySelector('[data-client-dashboard]');
+  syncLoginPanelState();
   setLoginMode(activeLoginMode);
+};
+
+const setLoginExpanded = (expanded, mode = '') => {
+  isLoginExpanded = expanded;
+  const loginDetails = document.querySelector('[data-login-details]');
+  const quickCard = document.querySelector('[data-login-quick-card]');
+  const actionButtons = document.querySelectorAll('[data-login-expand-mode]');
+
+  if (loginDetails) {
+    loginDetails.hidden = !expanded;
+  }
+  if (quickCard) {
+    quickCard.classList.toggle('is-compact', expanded);
+  }
+  actionButtons.forEach((button) => {
+    if (!expanded) {
+      button.classList.remove('is-selected');
+      return;
+    }
+    button.classList.toggle('is-selected', mode && button.dataset.loginExpandMode === mode);
+  });
+};
+
+const syncLoginPanelState = () => {
+  setLoginExpanded(isLoginExpanded);
 };
 
 const bindDashboardElements = () => {
@@ -6009,6 +6051,13 @@ root.addEventListener('click', async (event) => {
 
   if (event.target.closest('[data-landing-modal-cta]')) {
     closeLandingPartnerModal();
+    return;
+  }
+
+  const loginExpandButton = event.target.closest('[data-login-expand-mode]');
+  if (loginExpandButton) {
+    setLoginExpanded(true, loginExpandButton.dataset.loginExpandMode || '');
+    setLoginMode(loginExpandButton.dataset.loginExpandMode || 'client');
     return;
   }
 
