@@ -209,6 +209,60 @@ def test_admin_partner_create_unknown_category_returns_400(admin_client: TestCli
     assert response.json()["detail"] == "Unknown category slug"
 
 
+def test_admin_partner_create_update_and_list_persists_admin_fields(admin_client: TestClient, admin_token: str) -> None:
+    create_response = admin_client.post(
+        "/api/v1/admin/partners",
+        headers=_auth_headers(admin_token),
+        json=_partner_payload(name="Regression Partner", owner_user_id=1, sort_order=77, is_verified=True),
+    )
+    assert create_response.status_code == 200
+    created = create_response.json()
+
+    partner_id = created["id"]
+    update_response = admin_client.patch(
+        f"/api/v1/admin/partners/{partner_id}",
+        headers=_auth_headers(admin_token),
+        json={
+            "name": "Regression Partner Updated",
+            "city_id": 2,
+            "owner_user_id": 1,
+            "sort_order": 99,
+            "is_active": False,
+            "is_verified": True,
+            "category_slug": "fitnes-yoga",
+            "phone": "+79991112233",
+            "website_url": "https://updated.example.com",
+            "social_url": "https://social.updated.example.com",
+            "description": "Updated description",
+            "address": "Updated address",
+            "working_hours": "09:00-21:00",
+            "logo_url": "https://updated.example.com/logo.png",
+            "cover_url": "https://updated.example.com/cover.png",
+        },
+    )
+    assert update_response.status_code == 200
+
+    get_response = admin_client.get(f"/api/v1/admin/partners/{partner_id}", headers=_auth_headers(admin_token))
+    assert get_response.status_code == 200
+    partner = get_response.json()
+    assert partner["name"] == "Regression Partner Updated"
+    assert partner["city_id"] == 2
+    assert partner["is_active"] is False
+    assert partner["is_verified"] is True
+    assert partner["sort_order"] == 99
+    assert partner["phone"] == "+79991112233"
+    assert partner["website_url"] == "https://updated.example.com"
+
+    list_response = admin_client.get("/api/v1/admin/partners", headers=_auth_headers(admin_token))
+    assert list_response.status_code == 200
+    saved = next(item for item in list_response.json() if item["id"] == partner_id)
+    assert saved["name"] == "Regression Partner Updated"
+    assert saved["city_id"] == 2
+    assert saved["sort_order"] == 99
+    assert saved["is_active"] is False
+    assert saved["is_verified"] is True
+
+
 def test_admin_partner_get_returns_partner_with_city_name(admin_client: TestClient, admin_token: str) -> None:
     response = admin_client.get("/api/v1/admin/partners/1", headers=_auth_headers(admin_token))
 
