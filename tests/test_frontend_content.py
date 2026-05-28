@@ -2299,38 +2299,33 @@ def test_admin_partner_wizard_markers_present() -> None:
         "contacts",
         "description",
         "media",
-        "review",
-        "Основное",
+                "Основное",
         "Категории",
         "Контакты",
         "Описание",
         "Медиа",
-        "Проверка",
-        "Далее",
-        "Назад",
-        "Сохранить партнёра",
-        "Укажите название партнёра.",
-        "Проверка перед сохранением",
-        "adminState.partnerFormOpen",
+                        "Назад",
+        "Сохранить",
+                        "adminState.partnerFormOpen",
         "category_ids",
         "Партнёр может отображаться сразу в нескольких категориях.",
-        "data-admin-partner-step-next",
-        "type=\"button\"",
+                "type=\"button\"",
         "data-admin-partner-wizard-form",
     ):
         assert marker in source
 
 
-def test_admin_partner_wizard_submit_only_review_and_enter_guard_markers() -> None:
+def test_admin_partner_wizard_uses_single_save_action_markers() -> None:
     source = _frontend_main()
 
     for marker in (
-        "const isReviewStep = currentStep === 'review';",
-        "!isReviewStep ? '<button class=\"ui-button ui-button--primary\" type=\"button\" data-admin-partner-step-next>Далее</button>' : '<button class=\"ui-button ui-button--primary\" type=\"submit\">Сохранить партнёра</button>'",
-        "if (event.key === 'Enter' && partnerWizardForm && adminState.partnerFormStep !== 'review')",
-        "event.preventDefault();",
+        '<button class="ui-button ui-button--primary" type="submit">Сохранить</button>',
+        'data-admin-partner-step-jump',
+        'adminState.partnerFormOpen = true;',
     ):
         assert marker in source
+
+    assert 'data-admin-partner-step-next' not in source
 
 
 def test_admin_partner_wizard_reset_and_category_review_normalization_markers() -> None:
@@ -2342,7 +2337,6 @@ def test_admin_partner_wizard_reset_and_category_review_normalization_markers() 
         "adminState.selectedPartnerIdForEdit = '';",
         "name=\"category_ids\"",
         "selectedCategoryIds.has(String(category.id)) ? 'checked' : ''",
-        "selectedCategories.map((c) => c.title).join(', ')",
     ):
         assert marker in source
 

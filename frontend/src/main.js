@@ -482,7 +482,6 @@ const adminPartnerWizardSteps = [
   { key: 'contacts', label: 'Контакты' },
   { key: 'description', label: 'Описание' },
   { key: 'media', label: 'Медиа' },
-  { key: 'review', label: 'Проверка' },
 ];
 
 const getPartnerWizardStepIndex = (key) => adminPartnerWizardSteps.findIndex((step) => step.key === key);
@@ -4257,7 +4256,6 @@ const renderPartnerForm = () => {
   );
   const currentStepIndex = Math.max(getPartnerWizardStepIndex(adminState.partnerFormStep), 0);
   const currentStep = adminPartnerWizardSteps[currentStepIndex]?.key || 'basic';
-  const isReviewStep = currentStep === 'review';
   const selectedCategories = activeCategories.filter((category) => selectedCategoryIds.has(String(category.id)));
   const hasDescription = Boolean(String(partner?.description || '').trim());
   const hasPhoto = Boolean(partner?.logo_url || partner?.cover_url || (adminState.partnerPhotosByPartner[adminState.selectedPartnerIdForEdit] || []).length);
@@ -4275,7 +4273,7 @@ const renderPartnerForm = () => {
       <div class="admin-partner-form-panel__header admin-partner-wizard">
         <div class="admin-partner-wizard__header">
           <h4>${isEditMode ? 'Редактировать партнёра' : 'Добавить партнёра'}</h4>
-          <p>${isEditMode ? 'Обновите данные партнёра по шагам.' : 'Заполните данные партнёра по шагам.'}</p>
+          <p>${isEditMode ? 'Обновите данные партнёра и сохраните изменения.' : 'Заполните данные партнёра и сохраните.'}</p>
         </div>
         <div class="admin-partner-stepper" role="tablist" aria-label="Шаги формы партнёра">
           ${adminPartnerWizardSteps.map((step, index) => `<button class="admin-partner-stepper__item ${index === currentStepIndex ? 'admin-partner-stepper__item--active' : ''} ${index < currentStepIndex ? 'admin-partner-stepper__item--done' : ''}" type="button" data-admin-partner-step-jump="${escapeHtml(step.key)}">${index + 1}. ${escapeHtml(step.label)}</button>`).join('')}
@@ -4301,17 +4299,8 @@ const renderPartnerForm = () => {
         </div></section>
         <section class="${renderStepClass('description')}"><h5 class="admin-form-section__title">Описание</h5><label>Описание<textarea name="description" rows="3">${escapeHtml(partner?.description || '')}</textarea></label></section>
         <section class="${renderStepClass('media')}"><h5 class="admin-form-section__title">Медиа</h5><div class="admin-form-grid"><label>Логотип URL<input name="logo_url" value="${escapeHtml(partner?.logo_url || '')}" /></label><label>Обложка URL<input name="cover_url" value="${escapeHtml(partner?.cover_url || '')}" /></label></div>${isEditMode && partner ? renderPartnerImageUploader(partner, 'admin') : ''}${isEditMode && partner ? renderPartnerGallery(partner, adminState.partnerPhotosByPartner[adminState.selectedPartnerIdForEdit] || [], 'admin') : ''}</section>
-        <section class="${renderStepClass('review')} admin-partner-review"><h5 class="admin-form-section__title">Проверка перед сохранением</h5>
-          <div class="admin-partner-review-grid">
-            <p><strong>Название:</strong> ${escapeHtml(partner?.name || '—')}</p><p><strong>Город:</strong> ${escapeHtml(partner?.city_name || '—')}</p>
-            <p><strong>Категории:</strong> ${escapeHtml(selectedCategories.map((c) => c.title).join(', ') || 'Не выбраны')}</p><p><strong>Активность:</strong> ${partner?.is_active ? 'Активен' : 'Не активен'}</p>
-            <p><strong>Описание:</strong> ${hasDescription ? 'Заполнено' : 'Не заполнено'}</p><p><strong>Фото:</strong> ${hasPhoto ? 'Добавлено' : 'Не добавлено'}</p>
-            <p><strong>Контакты:</strong> ${hasContacts ? 'Заполнены' : 'Не заполнены'}</p>
-          </div>
-        </section>
         <div class="ui-form-actions admin-partner-wizard-actions">
-          ${currentStepIndex > 0 ? '<button class="ui-button ui-button--ghost" type="button" data-admin-partner-step-prev>Назад</button>' : '<span></span>'}
-          ${!isReviewStep ? '<button class="ui-button ui-button--primary" type="button" data-admin-partner-step-next>Далее</button>' : '<button class="ui-button ui-button--primary" type="submit">Сохранить партнёра</button>'}
+          <button class="ui-button ui-button--primary" type="submit">Сохранить</button>
           <button class="admin-inline-action ui-button ui-button--ghost" type="button" data-admin-partner-edit-cancel>Отмена</button>
         </div>
         <p class="form-message" data-form-message="${isEditMode ? 'partnerEdit' : 'partner'}">${escapeHtml(adminState.formMessages[isEditMode ? 'partnerEdit' : 'partner'] || '')}</p>
@@ -5445,7 +5434,7 @@ const deleteUser = async (userId) => {
   renderAdminLayout();
 };
 
-const buildPartnerPayload = (formData) => ({
+const buildAdminPartnerPayload = (formData) => ({
   city_id: Number(formData.get('city_id')),
   category_slug: getOptionalText(formData, 'category_slug'),
   owner_user_id: formData.get('owner_user_id') ? Number(formData.get('owner_user_id')) : null,
@@ -5466,37 +5455,15 @@ const buildPartnerPayload = (formData) => ({
 
 const submitPartner = async (form) => {
   const formData = new FormData(form);
-  await postJson('/api/v1/admin/partners', {
-    city_id: Number(formData.get('city_id')),
-    category_slug: getOptionalText(formData, 'category_slug'),
-    name: getOptionalText(formData, 'name'),
-    description: getOptionalText(formData, 'description'),
-    address: getOptionalText(formData, 'address'),
-    phone: getOptionalText(formData, 'phone'),
-    website_url: getOptionalText(formData, 'website_url'),
-    social_url: getOptionalText(formData, 'social_url'),
-    instagram_url: getOptionalText(formData, 'instagram_url'),
-    vk_url: getOptionalText(formData, 'vk_url'),
-    telegram_url: getOptionalText(formData, 'telegram_url'),
-    whatsapp_url: getOptionalText(formData, 'whatsapp_url'),
-    map_url: getOptionalText(formData, 'map_url'),
-    working_hours: getOptionalText(formData, 'working_hours'),
-    logo_url: getOptionalText(formData, 'logo_url'),
-    cover_url: getOptionalText(formData, 'cover_url'),
-    owner_user_id: formData.get('owner_user_id') ? Number(formData.get('owner_user_id')) : null,
-    is_active: formData.has('is_active'),
-    is_verified: formData.has('is_verified'),
-    sort_order: Number(formData.get('sort_order') || 0),
-    category_ids: formData.getAll('category_ids').map((id) => Number(id)).filter((id) => Number.isFinite(id)),
-  });
-  form.reset();
+  const createdPartner = await postJson('/api/v1/admin/partners', buildAdminPartnerPayload(formData));
   await loadPartners();
+  return createdPartner;
 };
 
 const submitPartnerEdit = async (form) => {
   const partnerId = form.dataset.partnerId;
   const formData = new FormData(form);
-  await patchJson(`/api/v1/admin/partners/${partnerId}`, buildPartnerPayload(formData));
+  await patchJson(`/api/v1/admin/partners/${partnerId}`, buildAdminPartnerPayload(formData));
   await loadPartners();
 };
 
@@ -5746,9 +5713,12 @@ const handleAdminFormSubmit = async (form) => {
     }
     setFormMessage(formType, 'Сохранено.');
     if (formType === 'partner' || formType === 'partnerEdit') {
-      adminState.partnerFormOpen = false;
-      adminState.selectedPartnerIdForEdit = '';
-      adminState.partnerFormStep = 'basic';
+      if (formType === 'partner') {
+        const partnersByName = [...adminState.partners].reverse();
+        const justCreated = partnersByName.find((item) => item.name === getOptionalText(new FormData(form), 'name'));
+        if (justCreated?.id) adminState.selectedPartnerIdForEdit = String(justCreated.id);
+      }
+      adminState.partnerFormOpen = true;
       adminState.partnerFormInlineError = '';
     }
     setPanelMessage('Сохранено.', 'success');
@@ -6238,37 +6208,6 @@ root.addEventListener('click', async (event) => {
     const stepKey = partnerStepJump.dataset.adminPartnerStepJump;
     if (getPartnerWizardStepIndex(stepKey) >= 0) {
       adminState.partnerFormStep = stepKey;
-      adminState.partnerFormInlineError = '';
-      renderAdminLayout();
-    }
-    return;
-  }
-
-  const partnerStepPrev = event.target.closest('[data-admin-partner-step-prev]');
-  if (partnerStepPrev) {
-    const index = getPartnerWizardStepIndex(adminState.partnerFormStep);
-    if (index > 0) {
-      adminState.partnerFormStep = adminPartnerWizardSteps[index - 1].key;
-      adminState.partnerFormInlineError = '';
-      renderAdminLayout();
-    }
-    return;
-  }
-
-  const partnerStepNext = event.target.closest('[data-admin-partner-step-next]');
-  if (partnerStepNext) {
-    const form = event.target.closest('[data-admin-partner-wizard-form]');
-    const index = getPartnerWizardStepIndex(adminState.partnerFormStep);
-    if (adminState.partnerFormStep === 'basic') {
-      const nameInput = form?.querySelector('input[name="name"]');
-      if (!String(nameInput?.value || '').trim()) {
-        adminState.partnerFormInlineError = 'Укажите название партнёра.';
-        renderAdminLayout();
-        return;
-      }
-    }
-    if (index < adminPartnerWizardSteps.length - 1) {
-      adminState.partnerFormStep = adminPartnerWizardSteps[index + 1].key;
       adminState.partnerFormInlineError = '';
       renderAdminLayout();
     }
@@ -7097,11 +7036,6 @@ document.addEventListener('click', (event) => {
 
 document.addEventListener('keydown', (event) => {
   const partnerWizardForm = event.target.closest?.('[data-admin-partner-wizard-form]');
-  if (event.key === 'Enter' && partnerWizardForm && adminState.partnerFormStep !== 'review') {
-    event.preventDefault();
-    return;
-  }
-
   if (event.key === 'Escape' && clientState.selectedPartnerModalId) {
     event.preventDefault();
     resetClientPartnerModalState();
