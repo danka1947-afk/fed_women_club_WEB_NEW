@@ -5093,13 +5093,37 @@ const loadActiveClientTabData = async () => {
   renderClientLayout();
 };
 
+const buildPartnerProfilePayload = (formData, section = 'profile') => {
+  const payload = {};
+
+  if (section === 'profile') {
+    payload.description = getOptionalText(formData, 'description');
+  }
+
+  if (section === 'contacts') {
+    payload.address = getOptionalText(formData, 'address');
+    payload.phone = getOptionalText(formData, 'phone');
+    payload.website_url = getOptionalText(formData, 'website_url');
+    payload.social_url = getOptionalText(formData, 'social_url');
+    payload.instagram_url = getOptionalText(formData, 'instagram_url');
+    payload.vk_url = getOptionalText(formData, 'vk_url');
+    payload.telegram_url = getOptionalText(formData, 'telegram_url');
+    payload.whatsapp_url = getOptionalText(formData, 'whatsapp_url');
+    payload.map_url = getOptionalText(formData, 'map_url');
+    payload.working_hours = getOptionalText(formData, 'working_hours');
+  }
+
+  return payload;
+};
+
 const submitPartnerProfile = async (form) => {
   const formData = new FormData(form);
+  const payload = buildPartnerProfilePayload(formData, 'profile');
   partnerState.profileSaveStatus = 'saving';
   renderPartnerLayout();
-  const updatedProfile = await partnerPatchJson('/api/v1/partners/me', {
-    description: getOptionalText(formData, 'description'),
-  });
+  console.debug('[partner-profile] PATCH /api/v1/partners/me payload', payload);
+  const updatedProfile = await partnerPatchJson('/api/v1/partners/me', payload);
+  console.debug('[partner-profile] PATCH /api/v1/partners/me response', updatedProfile);
   partnerState.profile = mergePartnerProfilePreservingFilledFields(partnerState.profile, updatedProfile);
   await loadPartnerPhotos();
   partnerState.isProfileDirty = false;
@@ -5108,18 +5132,10 @@ const submitPartnerProfile = async (form) => {
 
 const submitPartnerContacts = async (form) => {
   const formData = new FormData(form);
-  const updatedProfile = await partnerPatchJson('/api/v1/partners/me', {
-    address: getOptionalText(formData, 'address'),
-    phone: getOptionalText(formData, 'phone'),
-    website_url: getOptionalText(formData, 'website_url'),
-    social_url: getOptionalText(formData, 'social_url'),
-    instagram_url: getOptionalText(formData, 'instagram_url'),
-    vk_url: getOptionalText(formData, 'vk_url'),
-    telegram_url: getOptionalText(formData, 'telegram_url'),
-    whatsapp_url: getOptionalText(formData, 'whatsapp_url'),
-    map_url: getOptionalText(formData, 'map_url'),
-    working_hours: getOptionalText(formData, 'working_hours'),
-  });
+  const payload = buildPartnerProfilePayload(formData, 'contacts');
+  console.debug('[partner-contacts] PATCH /api/v1/partners/me payload', payload);
+  const updatedProfile = await partnerPatchJson('/api/v1/partners/me', payload);
+  console.debug('[partner-contacts] PATCH /api/v1/partners/me response', updatedProfile);
   partnerState.profile = mergePartnerProfilePreservingFilledFields(partnerState.profile, updatedProfile);
 };
 

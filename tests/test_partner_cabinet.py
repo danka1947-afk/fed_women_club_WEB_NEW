@@ -346,6 +346,38 @@ def test_partner_me_patch_partial_updates_do_not_wipe_other_sections(partner_cli
     assert second_data["working_hours"] == "09:00-18:00"
 
 
+
+
+def test_partner_me_patch_persists_after_refetch(partner_client: TestClient) -> None:
+    token = _partner_token(partner_client)
+
+    payload = {
+        "description": "Persisted description",
+        "address": "Persisted address",
+        "phone": "+79990001122",
+        "working_hours": "08:00-21:00",
+        "website_url": "https://persisted.example.com",
+        "social_url": "https://vk.com/persisted",
+    }
+
+    patch_response = partner_client.patch(
+        "/api/v1/partners/me",
+        headers=_auth_headers(token),
+        json=payload,
+    )
+    assert patch_response.status_code == 200
+
+    read_response = partner_client.get("/api/v1/partners/me", headers=_auth_headers(token))
+    assert read_response.status_code == 200
+    data = read_response.json()
+
+    assert data["description"] == payload["description"]
+    assert data["address"] == payload["address"]
+    assert data["phone"] == payload["phone"]
+    assert data["working_hours"] == payload["working_hours"]
+    assert data["website_url"] == payload["website_url"]
+    assert data["social_url"] == payload["social_url"]
+
 def test_partner_offers_returns_only_own_offers_ordered(partner_client: TestClient) -> None:
     token = _partner_token(partner_client)
 
