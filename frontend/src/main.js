@@ -2271,7 +2271,21 @@ const clientPostJson = (path, payload = {}) => clientApiFetch(path, {
 });
 
 const requestPartnerUserMe = () => partnerApiFetch('/api/v1/auth/user-me');
-const loadPartnerProfile = async () => { partnerState.profile = await partnerApiFetch('/api/v1/partners/me'); };
+const mergePartnerProfilePreservingFilledFields = (currentProfile, incomingProfile) => {
+  const base = { ...(currentProfile || {}) };
+  const incoming = incomingProfile || {};
+  Object.entries(incoming).forEach(([key, value]) => {
+    if (value !== null && value !== undefined) {
+      base[key] = value;
+    }
+  });
+  return base;
+};
+
+const loadPartnerProfile = async () => {
+  const profile = await partnerApiFetch('/api/v1/partners/me');
+  partnerState.profile = mergePartnerProfilePreservingFilledFields(partnerState.profile, profile);
+};
 const loadPartnerPhotos = async () => { partnerState.photos = await partnerApiFetch('/api/v1/partners/me/photos'); };
 const loadPartnerOffers = async () => {
   partnerState.offers = await partnerApiFetch('/api/v1/partners/me/offers');
@@ -2822,7 +2836,7 @@ const renderClientProfileTab = () => {
         })}
       </label>
       <p class="helper-text form-message compact-copy">Город уточняет каталог.</p>
-      <button type="submit">Сохранить профиль</button>
+      <button type="submit">Сохранить</button>
       <p class="form-message" data-client-form-message="profile">${escapeHtml(clientState.formMessages.profile || '')}</p>
     </form>
   `;
@@ -3354,7 +3368,7 @@ const renderPartnerProfileTab = () => {
         <section class="partner-section partner-section--compact partner-profile-save-section">
           ${renderPartnerSectionHeader('Сохранить профиль', 'Проверьте и сохраните профильные поля.')}
           ${getPartnerSaveStatusLabel() ? `<div class="partner-save-status" role="status">${escapeHtml(getPartnerSaveStatusLabel())}</div>` : ''}
-          <div class="ui-action-row ui-action-row--right ui-action-row--stack-mobile"><button class="ui-button ui-button--primary" type="submit">Сохранить профиль</button></div>
+          <div class="ui-action-row ui-action-row--right ui-action-row--stack-mobile"><button class="ui-button ui-button--primary" type="submit">Сохранить</button></div>
           <p class="form-message" data-partner-form-message="profile">${escapeHtml(partnerState.formMessages.profile || '')}</p>
         </section>
       </form>
@@ -3386,7 +3400,7 @@ const renderPartnerContactsTab = () => {
           <label>Общая соцссылка (legacy)<input name="social_url" value="${escapeHtml(profile.social_url || '')}" placeholder="https://vk.com/bloom_beauty" /></label>
         </div>
       </section>
-      <div class="ui-action-row ui-action-row--right"><button class="ui-button ui-button--primary" type="submit">Сохранить контакты</button></div>
+      <div class="ui-action-row ui-action-row--right"><button class="ui-button ui-button--primary" type="submit">Сохранить</button></div>
       <p class="form-message" data-partner-form-message="contacts">${escapeHtml(partnerState.formMessages.contacts || '')}</p>
     </form>
   `;
@@ -5086,7 +5100,7 @@ const submitPartnerProfile = async (form) => {
   const updatedProfile = await partnerPatchJson('/api/v1/partners/me', {
     description: getOptionalText(formData, 'description'),
   });
-  partnerState.profile = { ...(partnerState.profile || {}), ...(updatedProfile || {}) };
+  partnerState.profile = mergePartnerProfilePreservingFilledFields(partnerState.profile, updatedProfile);
   await loadPartnerPhotos();
   partnerState.isProfileDirty = false;
   partnerState.profileSaveStatus = 'saved';
@@ -5106,7 +5120,7 @@ const submitPartnerContacts = async (form) => {
     map_url: getOptionalText(formData, 'map_url'),
     working_hours: getOptionalText(formData, 'working_hours'),
   });
-  partnerState.profile = { ...(partnerState.profile || {}), ...(updatedProfile || {}) };
+  partnerState.profile = mergePartnerProfilePreservingFilledFields(partnerState.profile, updatedProfile);
 };
 
 const buildPartnerOfferPayload = (formData) => ({
