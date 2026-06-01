@@ -16,6 +16,7 @@ from app.models.category import Category
 from app.models.city import City
 from app.models.client import ClientProfile
 from app.models.lead import LeadClick
+from app.models.landing import LandingSettings
 from app.models.partner import Partner, PartnerOffer, PartnerPhoto, PartnerQrLink
 from app.models.payment import PaymentRequest, PaymentRequestStatus, Subscription, SubscriptionStatus
 from app.models.user import AdminUser, User, UserRole
@@ -51,10 +52,12 @@ from app.schemas.admin import (
     PartnerUpdate,
 )
 from app.schemas.auth import AdminUserRead
+from app.schemas.landing import LandingSettingsRead, LandingSettingsUpdate
 from app.schemas.partner import PartnerAnalyticsRead
 from app.schemas.payment import AdminPaymentRequestRead, PaymentRequestApprove, PaymentRequestReject
 from app.services.activity_feed import build_admin_activity_feed
 from app.services.admin_user_delete_service import delete_user_with_relations
+from app.services.landing_settings import get_or_create_landing_settings, normalize_giveaway_items
 from app.services.image_uploads import save_partner_image_upload, save_partner_offer_image_upload, save_partner_photo_image_upload, validate_image_kind
 from app.services.partner_analytics import build_partner_analytics
 from app.services.privilege_verifications import (
@@ -92,6 +95,38 @@ PARTNER_TEXT_FIELDS = (
     "cover_url",
 )
 PARTNER_OFFER_TEXT_FIELDS = ("description", "benefit_text", "conditions", "image_url")
+
+
+@router.get("/landing-settings", response_model=LandingSettingsRead)
+def read_admin_landing_settings(
+    admin: AdminUser = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> LandingSettings:
+    _ = admin
+    return get_or_create_landing_settings(db)
+
+
+@router.patch("/landing-settings", response_model=LandingSettingsRead)
+def update_admin_landing_settings(
+    payload: LandingSettingsUpdate,
+    admin: AdminUser = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> LandingSettings:
+    _ = admin
+    settings = get_or_create_landing_settings(db)
+    update_data = payload.model_dump(exclude_unset=True)
+    for field in ("members_count_base", "partners_count_display", "savings_total"):
+        if field in update_data and update_data[field] is not None:
+            setattr(settings, field, int(update_data[field]))
+    for field in ("giveaway_title", "giveaway_current", "giveaway_subtitle"):
+        if field in update_data and update_data[field] is not None:
+            setattr(settings, field, str(update_data[field]).strip())
+    if "giveaway_items" in update_data and update_data["giveaway_items"] is not None:
+        settings.giveaway_items = normalize_giveaway_items(update_data["giveaway_items"])
+    db.add(settings)
+    db.commit()
+    db.refresh(settings)
+    return settings
 
 
 @router.get("/me", response_model=AdminUserRead)

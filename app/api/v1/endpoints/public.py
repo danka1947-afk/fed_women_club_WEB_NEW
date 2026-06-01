@@ -16,12 +16,15 @@ from app.models.category import Category
 from app.models.city import City
 from app.models.lead import LeadClick
 from app.models.partner import Partner, PartnerOffer, PartnerPhoto, PartnerQrLink
+from app.schemas.landing import PublicLandingStatsRead
 from app.schemas.partner import (
     PublicLandingPartnerCard,
     PublicLandingPartnerListResponse,
     PublicLandingPartnerOffer,
     PublicLandingPartnerPhoto,
 )
+
+from app.services.landing_settings import build_public_landing_stats
 
 router = APIRouter(tags=["public"])
 
@@ -149,6 +152,11 @@ def redirect_partner_qr_link(
 
     target_url = qr_link.target_url or qr_link.deep_link_payload or f"{settings.WEB_PUBLIC_URL.rstrip('/')}/"
     return RedirectResponse(url=target_url, status_code=status.HTTP_302_FOUND)
+
+
+@router.get("/api/v1/public/landing/stats", response_model=PublicLandingStatsRead)
+def read_public_landing_stats(db: Session = Depends(get_db)) -> PublicLandingStatsRead:
+    return build_public_landing_stats(db)
 
 
 @router.get("/api/v1/public/landing/partners", response_model=PublicLandingPartnerListResponse)

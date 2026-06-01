@@ -7294,3 +7294,39 @@ body.client-partner-modal-open {
 .city-choice.is-active .city-choice-meta {
   color: rgba(255, 250, 248, 0.84);
 }
+
+
+.admin-landing-settings {
+  margin: 16px 0;
+}
+
+.admin-side-drawer {
+  margin-top: 16px;
+  border: 1px solid var(--color-border, #e7dcda);
+  border-radius: 18px;
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 20px 50px rgba(120, 74, 74, 0.14);
+}
+
+.admin-giveaway-drawer .giveaway-prize-list {
+  display: grid;
+  gap: 12px;
+}
+
+.giveaway-prize-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(180px, 1fr) 110px auto auto;
+  gap: 10px;
+  align-items: end;
+  border: 1px solid var(--color-border, #eadfdd);
+  border-radius: 14px;
+  padding: 12px;
+  background: rgba(255, 250, 248, 0.76);
+}
+
+@media (max-width: 900px) {
+  .giveaway-prize-row {
+    grid-template-columns: 1fr;
+  }
+}
