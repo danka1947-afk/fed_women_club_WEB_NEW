@@ -1,0 +1,49 @@
+from __future__ import annotations
+
+from datetime import datetime
+
+from pydantic import BaseModel, Field
+
+
+class GiveawayItem(BaseModel):
+    title: str = ""
+    description: str | None = None
+    is_active: bool = True
+    sort_order: int = 0
+
+
+class LandingSettingsBase(BaseModel):
+    members_count_base: int = Field(default=125, ge=0)
+    partners_count_display: int = Field(default=18, ge=0)
+    savings_total: int = Field(default=53500, ge=0)
+    giveaway_title: str = "Розыгрыш месяца"
+    giveaway_current: str = "Приз месяца"
+    giveaway_subtitle: str = "доступно участницам клуба"
+    giveaway_items: list[GiveawayItem] = Field(default_factory=list)
+
+
+class LandingSettingsRead(LandingSettingsBase):
+    id: int
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class LandingSettingsUpdate(BaseModel):
+    members_count_base: int | None = Field(default=None, ge=0)
+    partners_count_display: int | None = Field(default=None, ge=0)
+    savings_total: int | None = Field(default=None, ge=0)
+    giveaway_title: str | None = None
+    giveaway_current: str | None = None
+    giveaway_subtitle: str | None = None
+    giveaway_items: list[GiveawayItem] | None = None
+
+
+class PublicLandingStatsRead(BaseModel):
+    members_count: int
+    partners_count: int
+    savings_total: int
+    giveaway_title: str
+    giveaway_current: str
+    giveaway_subtitle: str
+    giveaway_items: list[GiveawayItem]

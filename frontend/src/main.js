@@ -34,6 +34,25 @@ const landingMenuLinks = [
   { href: '#landing-cities', label: 'Города' },
 ];
 
+const landingStatsFallback = {
+  members_count: 125,
+  partners_count: 18,
+  savings_total: 53500,
+  giveaway_title: 'Розыгрыш месяца',
+  giveaway_current: 'Приз месяца',
+  giveaway_subtitle: 'доступно участницам клуба',
+  giveaway_items: [
+    { title: 'Приз месяца', is_active: true, sort_order: 0 },
+  ],
+};
+
+const landingStatsState = {
+  data: { ...landingStatsFallback },
+  loaded: false,
+  loading: false,
+  error: '',
+};
+
 const landingPartnerModalState = {
   isOpen: false,
   selectedLandingDirection: null,
@@ -184,7 +203,53 @@ const renderPasswordSetupApp = () => {
   `;
 };
 
+
+const normalizeLandingStats = (data = {}) => {
+  const items = Array.isArray(data.giveaway_items) ? data.giveaway_items : landingStatsFallback.giveaway_items;
+  return {
+    members_count: Number.isFinite(Number(data.members_count)) ? Number(data.members_count) : landingStatsFallback.members_count,
+    partners_count: Number.isFinite(Number(data.partners_count)) ? Number(data.partners_count) : landingStatsFallback.partners_count,
+    savings_total: Number.isFinite(Number(data.savings_total)) ? Number(data.savings_total) : landingStatsFallback.savings_total,
+    giveaway_title: String(data.giveaway_title || landingStatsFallback.giveaway_title).trim(),
+    giveaway_current: String(data.giveaway_current || landingStatsFallback.giveaway_current).trim(),
+    giveaway_subtitle: String(data.giveaway_subtitle || landingStatsFallback.giveaway_subtitle).trim(),
+    giveaway_items: items.map((item, index) => ({
+      title: String(item?.title || '').trim(),
+      description: String(item?.description || '').trim(),
+      is_active: item?.is_active !== false,
+      sort_order: Number.isFinite(Number(item?.sort_order)) ? Number(item.sort_order) : index,
+    })).filter((item) => item.title),
+  };
+};
+
+const getLandingStats = () => normalizeLandingStats(landingStatsState.data);
+
+const loadLandingStats = async () => {
+  if (landingStatsState.loading || landingStatsState.loaded) return;
+  landingStatsState.loading = true;
+  landingStatsState.error = '';
+  try {
+    const response = await fetch('/api/v1/public/landing/stats');
+    if (!response.ok) {
+      throw new Error(await buildErrorMessage(response));
+    }
+    landingStatsState.data = normalizeLandingStats(await response.json());
+    landingStatsState.loaded = true;
+  } catch (error) {
+    landingStatsState.data = { ...landingStatsFallback };
+    landingStatsState.loaded = true;
+    landingStatsState.error = error.message || 'Не удалось загрузить показатели.';
+  } finally {
+    landingStatsState.loading = false;
+    if (!adminState.user && !partnerState.user && !clientState.user && root.querySelector('.hero-proof-grid')) {
+      renderPublicApp();
+      applyClientLoginPrefill();
+    }
+  }
+};
+
 const renderPublicApp = () => {
+  const landingStats = getLandingStats();
   document.body.classList.remove('is-dashboard');
   root.innerHTML = `
   <div class="sakura-layer sakura-layer--landing" aria-hidden="true">
@@ -229,10 +294,10 @@ const renderPublicApp = () => {
             <a class="secondary-button" href="#landing-partners">Смотреть привилегии</a>
           </div>
           <div class="hero-proof-grid" aria-label="Показатели клуба">
-            <article class="hero-proof-card"><strong>327</strong><span>девушек внутри</span></article>
-            <article class="hero-proof-card"><strong>50+</strong><span>партнёров</span></article>
-            <article class="hero-proof-card"><strong>183 000 ₽</strong><span>экономии</span></article>
-            <article class="hero-proof-card"><strong title="Dyson Airwrap" aria-label="Dyson Airwrap">Dyson</strong><span>розыгрыш месяца</span></article>
+            <article class="hero-proof-card"><strong>${escapeHtml(landingStats.members_count)}</strong><span>девушек внутри</span></article>
+            <article class="hero-proof-card"><strong>${escapeHtml(landingStats.partners_count)}</strong><span>партнёров</span></article>
+            <article class="hero-proof-card"><strong>${escapeHtml(formatMoneyLabel(Number(landingStats.savings_total)))}</strong><span>экономии</span></article>
+            <article class="hero-proof-card"><strong title="${escapeHtml(landingStats.giveaway_current)}" aria-label="${escapeHtml(landingStats.giveaway_current)}">${escapeHtml(landingStats.giveaway_current)}</strong><span>розыгрыш месяца</span></article>
           </div>
           <div class="hero-lifestyle-chips" aria-label="Первые партнёры клуба">
             <span class="hero-lifestyle-chip">первые партнёры клуба</span>
@@ -252,10 +317,10 @@ const renderPublicApp = () => {
             <li>🌸 beauty-партнёры</li>
             <li>💌 закрытые предложения</li>
           </ul>
-          <div class="hero-draw-highlight" aria-label="Розыгрыш месяца: Dyson Airwrap, доступно участницам клуба">
-            <p class="hero-draw-highlight__title">Розыгрыш месяца</p>
-            <p class="hero-draw-highlight__name">Dyson Airwrap</p>
-            <p class="hero-draw-highlight__meta">доступно участницам клуба</p>
+          <div class="hero-draw-highlight" aria-label="${escapeHtml(`${landingStats.giveaway_title}: ${landingStats.giveaway_current}, ${landingStats.giveaway_subtitle}`)}">
+            <p class="hero-draw-highlight__title">${escapeHtml(landingStats.giveaway_title)}</p>
+            <p class="hero-draw-highlight__name">${escapeHtml(landingStats.giveaway_current)}</p>
+            <p class="hero-draw-highlight__meta">${escapeHtml(landingStats.giveaway_subtitle)}</p>
           </div>
         </div>
       </div>
@@ -300,7 +365,7 @@ const renderPublicApp = () => {
                 .map(
                   (city, index) => {
                     const cityMeta = city === 'Новосибирск'
-                      ? '50+ партнёров · первые участницы внутри'
+                      ? `${escapeHtml(landingStats.partners_count)} партнёров · первые участницы внутри`
                       : 'скоро открытие · набор партнёров';
                     return `
                     <button
@@ -474,6 +539,9 @@ const adminState = {
   activityError: '',
   activityEventType: '',
   selectedPartnerIdForActivity: '',
+  landingSettings: null,
+  giveawayDrawerOpen: false,
+  landingSettingsSaving: false,
 };
 
 const adminPartnerWizardSteps = [
@@ -3680,6 +3748,10 @@ const loadPartners = async () => {
   adminState.partners = await apiFetch('/api/v1/admin/partners');
 };
 
+const loadAdminLandingSettings = async () => {
+  adminState.landingSettings = await apiFetch('/api/v1/admin/landing-settings');
+};
+
 const loadAdminPartnerPhotos = async (partnerId) => {
   if (!partnerId) return;
   adminState.partnerPhotosByPartner[partnerId] = await apiFetch(`/api/v1/admin/partners/${partnerId}/photos`);
@@ -3831,6 +3903,83 @@ const renderAdminActivityTab = () => `
   ${renderActivityFeed(adminState.activityItems, { loading: adminState.activityLoading, error: adminState.activityError })}
 `;
 
+
+const getAdminLandingSettings = () => ({
+  members_count_base: 125,
+  partners_count_display: 18,
+  savings_total: 53500,
+  giveaway_title: 'Розыгрыш месяца',
+  giveaway_current: 'Приз месяца',
+  giveaway_subtitle: 'доступно участницам клуба',
+  giveaway_items: [{ title: 'Приз месяца', description: '', is_active: true, sort_order: 0 }],
+  ...(adminState.landingSettings || {}),
+});
+
+const renderAdminGiveawayItems = (items = []) => {
+  const list = Array.isArray(items) && items.length ? items : [{ title: '', description: '', is_active: true, sort_order: 0 }];
+  return list.map((item, index) => `
+    <article class="giveaway-prize-row" data-giveaway-prize-row>
+      <label>Приз<input name="giveaway_item_title" value="${escapeHtml(item.title || '')}" placeholder="Название приза" /></label>
+      <label>Описание<input name="giveaway_item_description" value="${escapeHtml(item.description || '')}" placeholder="Короткое описание" /></label>
+      <label>Порядок<input name="giveaway_item_sort_order" type="number" value="${escapeHtml(item.sort_order ?? index)}" /></label>
+      <label class="checkbox-row"><input name="giveaway_item_is_active_${index}" type="checkbox" ${item.is_active === false ? '' : 'checked'} /> Активен</label>
+      <button class="admin-inline-action ui-button ui-button--danger" type="button" data-admin-giveaway-remove-prize>Удалить</button>
+    </article>
+  `).join('');
+};
+
+const renderLandingSettingsCard = () => {
+  const settings = getAdminLandingSettings();
+  return `
+    <section class="quick-actions-panel admin-landing-settings" aria-labelledby="landing-settings-title">
+      <div class="admin-section-heading">
+        <h4 id="landing-settings-title">Настройки главной</h4>
+        <p>Управляйте публичными показателями hero mini-cards и розыгрышем месяца.</p>
+      </div>
+      <form class="admin-form admin-form--inline" data-admin-form="landingSettings">
+        <label>Базовое число девушек<input name="members_count_base" type="number" min="0" value="${escapeHtml(settings.members_count_base)}" required /></label>
+        <label>Число партнёров<input name="partners_count_display" type="number" min="0" value="${escapeHtml(settings.partners_count_display)}" required /></label>
+        <label>Сумма экономии<input name="savings_total" type="number" min="0" value="${escapeHtml(settings.savings_total)}" required /></label>
+        <div class="admin-form-actions">
+          <button class="ui-button ui-button--primary" type="submit">Сохранить показатели</button>
+          <button class="ui-button ui-button--secondary" type="button" data-admin-giveaway-open>Розыгрыш месяца</button>
+        </div>
+        <p class="form-message" data-form-message="landingSettings">${escapeHtml(adminState.formMessages.landingSettings || '')}</p>
+      </form>
+      <div class="summary-grid summary-grid--compact">
+        <article class="summary-card"><span>Девушек внутри</span><strong>${escapeHtml(settings.members_count_base)} + клиентки</strong><small>База плюс реальные client/member/customer</small></article>
+        <article class="summary-card"><span>Партнёров</span><strong>${escapeHtml(settings.partners_count_display)}</strong><small>Ручное значение на главной</small></article>
+        <article class="summary-card"><span>Экономия</span><strong>${escapeHtml(formatMoneyLabel(Number(settings.savings_total)))}</strong><small>Ручное значение на главной</small></article>
+        <article class="summary-card"><span>${escapeHtml(settings.giveaway_title)}</span><strong>${escapeHtml(settings.giveaway_current)}</strong><small>${escapeHtml(settings.giveaway_subtitle)}</small></article>
+      </div>
+      ${adminState.giveawayDrawerOpen ? renderGiveawayDrawer(settings) : ''}
+    </section>
+  `;
+};
+
+const renderGiveawayDrawer = (settings) => `
+  <aside class="admin-side-drawer admin-giveaway-drawer" aria-label="Розыгрыш месяца">
+    <form class="admin-form" data-admin-form="landingGiveaway">
+      <div class="admin-section-heading">
+        <h4>Розыгрыш месяца</h4>
+        <p>Первый активный приз с меньшим порядком сортировки показывается на главной.</p>
+      </div>
+      <label>Название блока<input name="giveaway_title" value="${escapeHtml(settings.giveaway_title || '')}" required /></label>
+      <label>Название текущего розыгрыша<input name="giveaway_current" value="${escapeHtml(settings.giveaway_current || '')}" required /></label>
+      <label>Описание<textarea name="giveaway_subtitle" rows="3" required>${escapeHtml(settings.giveaway_subtitle || '')}</textarea></label>
+      <div class="giveaway-prize-list" data-admin-giveaway-prize-list>
+        ${renderAdminGiveawayItems(settings.giveaway_items)}
+      </div>
+      <button class="admin-inline-action ui-button ui-button--secondary" type="button" data-admin-giveaway-add-prize>Добавить приз</button>
+      <div class="admin-form-actions">
+        <button class="ui-button ui-button--primary" type="submit">Сохранить</button>
+        <button class="ui-button ui-button--ghost" type="button" data-admin-giveaway-cancel>Отмена</button>
+      </div>
+      <p class="form-message" data-form-message="landingGiveaway">${escapeHtml(adminState.formMessages.landingGiveaway || (adminState.landingSettingsSaving ? 'Сохранение…' : ''))}</p>
+    </form>
+  </aside>
+`;
+
 const renderOverviewTab = () => {
   const cards = [
     ['Пользователи', adminState.users.length, 'Аккаунты всех ролей'],
@@ -3865,6 +4014,7 @@ const renderOverviewTab = () => {
         </article>
       `).join('')}
     </div>
+    ${renderLandingSettingsCard()}
     <section class="quick-actions-panel" aria-labelledby="quick-actions-title">
       <div class="admin-section-heading">
         <h4 id="quick-actions-title">Быстрые действия</h4>
@@ -4971,7 +5121,7 @@ const showClientDashboard = async (user) => {
 
 const loadOverview = async () => {
   adminState.overviewPartialError = false;
-  const tasks = [loadUsers, loadCities, loadCategories, loadPartners, loadVerifications, loadLeads];
+  const tasks = [loadUsers, loadCities, loadCategories, loadPartners, loadVerifications, loadLeads, loadAdminLandingSettings];
   const results = await Promise.allSettled(tasks.map((task) => task()));
   adminState.overviewPartialError = results.some((result) => result.status === 'rejected');
 };
@@ -5679,6 +5829,42 @@ const uploadPartnerOfferImage = async (offerId, file) => {
 };
 
 
+
+const buildLandingSettingsPayload = (formData) => ({
+  members_count_base: Number(formData.get('members_count_base') || 0),
+  partners_count_display: Number(formData.get('partners_count_display') || 0),
+  savings_total: Number(formData.get('savings_total') || 0),
+});
+
+const getGiveawayItemsFromForm = (form) => Array.from(form.querySelectorAll('[data-giveaway-prize-row]')).map((row, index) => ({
+  title: String(row.querySelector('[name="giveaway_item_title"]')?.value || '').trim(),
+  description: String(row.querySelector('[name="giveaway_item_description"]')?.value || '').trim(),
+  sort_order: Number(row.querySelector('[name="giveaway_item_sort_order"]')?.value || index),
+  is_active: row.querySelector('input[type="checkbox"]')?.checked !== false,
+})).filter((item) => item.title);
+
+const submitLandingSettings = async (form) => {
+  const formData = new FormData(form);
+  adminState.landingSettingsSaving = true;
+  adminState.landingSettings = await patchJson('/api/v1/admin/landing-settings', buildLandingSettingsPayload(formData));
+  adminState.landingSettingsSaving = false;
+};
+
+const submitLandingGiveaway = async (form) => {
+  const formData = new FormData(form);
+  adminState.landingSettingsSaving = true;
+  adminState.formMessages.landingGiveaway = 'Сохранение…';
+  renderAdminLayout();
+  adminState.landingSettings = await patchJson('/api/v1/admin/landing-settings', {
+    giveaway_title: getOptionalText(formData, 'giveaway_title'),
+    giveaway_current: getOptionalText(formData, 'giveaway_current'),
+    giveaway_subtitle: getOptionalText(formData, 'giveaway_subtitle'),
+    giveaway_items: getGiveawayItemsFromForm(form),
+  });
+  adminState.landingSettingsSaving = false;
+  adminState.formMessages.landingGiveaway = 'Сохранено.';
+};
+
 const handleAdminFormSubmit = async (form) => {
   const formType = form.dataset.adminForm;
   const message = form.querySelector(`[data-form-message="${formType}"]`);
@@ -5710,6 +5896,10 @@ const handleAdminFormSubmit = async (form) => {
       await submitQr(form);
     } else if (formType === 'qrEdit') {
       await submitQrEdit(form);
+    } else if (formType === 'landingSettings') {
+      await submitLandingSettings(form);
+    } else if (formType === 'landingGiveaway') {
+      await submitLandingGiveaway(form);
     }
     setFormMessage(formType, 'Сохранено.');
     if (formType === 'partner' || formType === 'partnerEdit') {
@@ -5908,6 +6098,44 @@ root.addEventListener('click', async (event) => {
   }
 
   if (event.target.closest('[data-custom-select]')) {
+    return;
+  }
+
+
+  const giveawayOpen = event.target.closest('[data-admin-giveaway-open]');
+  if (giveawayOpen) {
+    event.preventDefault();
+    adminState.giveawayDrawerOpen = true;
+    setFormMessage('landingGiveaway');
+    renderAdminLayout();
+    return;
+  }
+
+  const giveawayCancel = event.target.closest('[data-admin-giveaway-cancel]');
+  if (giveawayCancel) {
+    event.preventDefault();
+    adminState.giveawayDrawerOpen = false;
+    setFormMessage('landingGiveaway');
+    renderAdminLayout();
+    return;
+  }
+
+  const giveawayAddPrize = event.target.closest('[data-admin-giveaway-add-prize]');
+  if (giveawayAddPrize) {
+    event.preventDefault();
+    const list = root.querySelector('[data-admin-giveaway-prize-list]');
+    const index = list ? list.querySelectorAll('[data-giveaway-prize-row]').length : 0;
+    if (list) {
+      list.insertAdjacentHTML('beforeend', renderAdminGiveawayItems([{ title: '', description: '', is_active: true, sort_order: index }]));
+    }
+    return;
+  }
+
+  const giveawayRemovePrize = event.target.closest('[data-admin-giveaway-remove-prize]');
+  if (giveawayRemovePrize) {
+    event.preventDefault();
+    const row = giveawayRemovePrize.closest('[data-giveaway-prize-row]');
+    if (row) row.remove();
     return;
   }
 
