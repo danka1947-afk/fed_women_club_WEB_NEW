@@ -202,6 +202,13 @@ class PublicLandingPartnerPhoto(BaseModel):
     sort_order: int
 
 
+class PublicLandingPartnerCategory(BaseModel):
+    id: int | None = None
+    name: str
+    title: str
+    slug: str
+
+
 class PublicLandingPartnerCard(BaseModel):
     id: int
     name: str
@@ -210,6 +217,10 @@ class PublicLandingPartnerCard(BaseModel):
     city_slug: str
     category_title: str
     category_slug: str
+    category: PublicLandingPartnerCategory | None = None
+    categories: list[PublicLandingPartnerCategory] = Field(default_factory=list)
+    category_ids: list[int] = Field(default_factory=list)
+    category_slugs: list[str] = Field(default_factory=list)
     logo_url: str | None
     cover_url: str | None
     offers: list[PublicLandingPartnerOffer]

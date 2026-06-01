@@ -7,8 +7,8 @@ from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import RedirectResponse
-from sqlalchemy import select
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy import and_, or_, select
+from sqlalchemy.orm import Session, joinedload, selectinload
 
 from app.core.config import settings
 from app.db.session import get_db
@@ -22,6 +22,7 @@ from app.schemas.partner import (
     PublicLandingPartnerListResponse,
     PublicLandingPartnerOffer,
     PublicLandingPartnerPhoto,
+    PublicLandingPartnerCategory,
 )
 
 from app.services.landing_settings import build_public_landing_stats
@@ -93,21 +94,56 @@ def _public_landing_photo_to_read(photo: PartnerPhoto) -> PublicLandingPartnerPh
     )
 
 
+def _public_landing_category_to_read(category: Category) -> PublicLandingPartnerCategory:
+    return PublicLandingPartnerCategory(
+        id=category.id,
+        name=category.name,
+        title=category.title,
+        slug=category.slug,
+    )
+
+
 def _public_landing_partner_to_read(
     partner: Partner,
     city: City,
-    category: Category,
+    selected_category_slug: str | None,
+    legacy_categories_by_slug: dict[str, Category],
     offers: list[PartnerOffer],
     photos: list[PartnerPhoto],
 ) -> PublicLandingPartnerCard:
+    active_categories = sorted(
+        [category for category in partner.categories if category.is_active],
+        key=lambda c: (c.sort_order, c.name.lower(), c.id),
+    )
+    legacy_category = legacy_categories_by_slug.get(partner.category_slug or "")
+    if selected_category_slug is not None:
+        selected_category = next((category for category in active_categories if category.slug == selected_category_slug), None)
+        if selected_category is None and legacy_category is not None and legacy_category.slug == selected_category_slug:
+            selected_category = legacy_category
+    else:
+        selected_category = None
+    primary_category = selected_category or (active_categories[0] if active_categories else None)
+    display_category = primary_category or legacy_category
+    if display_category is None:
+        # The public endpoint only selects partners with an active related category or
+        # active backward-compatible category_slug, so this guard is for type safety.
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Category not found")
+    category_payloads = [_public_landing_category_to_read(category) for category in active_categories]
+    if not category_payloads and legacy_category is not None:
+        category_payloads = [_public_landing_category_to_read(legacy_category)]
+
     return PublicLandingPartnerCard(
         id=partner.id,
         name=partner.name,
         address=partner.address,
         city_name=city.name,
         city_slug=city.slug,
-        category_title=category.title,
-        category_slug=category.slug,
+        category_title=display_category.title,
+        category_slug=display_category.slug,
+        category=_public_landing_category_to_read(display_category),
+        categories=category_payloads,
+        category_ids=[category.id for category in active_categories] or ([legacy_category.id] if legacy_category else []),
+        category_slugs=[category.slug for category in active_categories] or ([legacy_category.slug] if legacy_category else []),
         logo_url=partner.logo_url,
         cover_url=partner.cover_url,
         offers=[_public_landing_offer_to_read(offer) for offer in offers],
@@ -190,27 +226,38 @@ def list_public_landing_partners(
         if city_exists is None:
             return PublicLandingPartnerListResponse(items=[])
 
+    active_category_condition = or_(
+        Partner.categories.any(Category.is_active.is_(True)),
+        Partner.category_slug.in_(select(Category.slug).where(Category.is_active.is_(True))),
+    )
     statement = (
-        select(Partner, City, Category)
+        select(Partner, City)
         .join(City, Partner.city_id == City.id)
-        .join(Category, Partner.category_slug == Category.slug)
+        .options(selectinload(Partner.categories))
         .where(
             Partner.is_active.is_(True),
             Partner.is_verified.is_(True),
             City.is_active.is_(True),
-            Category.is_active.is_(True),
+            active_category_condition,
         )
         .order_by(Partner.sort_order.asc(), Partner.id.asc())
         .limit(safe_limit)
     )
 
     if normalized_category_slug is not None:
-        statement = statement.where(Category.slug == normalized_category_slug)
+        statement = statement.where(
+            or_(
+                Partner.categories.any(
+                    and_(Category.slug == normalized_category_slug, Category.is_active.is_(True))
+                ),
+                Partner.category_slug == normalized_category_slug,
+            )
+        )
     if normalized_city_slug is not None:
         statement = statement.where(City.slug == normalized_city_slug)
 
     rows = db.execute(statement).all()
-    partner_ids = [partner.id for partner, _city, _category in rows]
+    partner_ids = [partner.id for partner, _city in rows]
     offers_by_partner: dict[int, list[PartnerOffer]] = {partner_id: [] for partner_id in partner_ids}
     photos_by_partner: dict[int, list[PartnerPhoto]] = {partner_id: [] for partner_id in partner_ids}
     if partner_ids:
@@ -235,15 +282,24 @@ def list_public_landing_partners(
         for photo in photos:
             photos_by_partner.setdefault(photo.partner_id, []).append(photo)
 
+    legacy_slugs = {partner.category_slug for partner, _city in rows if partner.category_slug}
+    legacy_categories_by_slug = {
+        category.slug: category
+        for category in db.execute(
+            select(Category).where(Category.slug.in_(legacy_slugs), Category.is_active.is_(True))
+        ).scalars().all()
+    } if legacy_slugs else {}
+
     return PublicLandingPartnerListResponse(
         items=[
             _public_landing_partner_to_read(
                 partner,
                 city,
-                category,
+                normalized_category_slug,
+                legacy_categories_by_slug,
                 offers_by_partner.get(partner.id, []),
                 photos_by_partner.get(partner.id, []),
             )
-            for partner, city, category in rows
+            for partner, city in rows
         ]
     )
