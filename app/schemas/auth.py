@@ -3,8 +3,6 @@ from __future__ import annotations
 from typing import Any, Literal, TypedDict
 
 from pydantic import BaseModel
-from pydantic import model_validator
-
 
 
 class AuthPayload(TypedDict, total=False):
@@ -52,13 +50,8 @@ class UnifiedTokenResponse(BaseModel):
 
 class VkMiniAppLoginRequest(BaseModel):
     launch_params: str | None = None
+    launchParams: str | None = None
     params: dict[str, str] | None = None
-
-    @model_validator(mode="after")
-    def validate_payload(self) -> "VkMiniAppLoginRequest":
-        if not self.launch_params and not self.params:
-            raise ValueError("Either launch_params or params must be provided")
-        return self
 
 
 class VkMiniAppLoginResponse(BaseModel):

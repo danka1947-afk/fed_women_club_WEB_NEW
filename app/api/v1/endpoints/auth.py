@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from typing import Any
+
+from fastapi import APIRouter, Body, Depends, HTTPException, status
 from fastapi.responses import JSONResponse
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, joinedload
@@ -26,7 +28,6 @@ from app.schemas.auth import (
     UnifiedTokenResponse,
     UnifiedUserRead,
     UserLoginRequest,
-    VkMiniAppLoginRequest,
     VkMiniAppLoginResponse,
 )
 from app.services.vk_miniapp_auth import (
@@ -39,6 +40,8 @@ from app.services.vk_miniapp_auth import (
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
+VK_MINIAPP_LOGIN_HANDLER = "vk-miniapp-login-v2"
+VK_MINIAPP_ENTRYPOINT = "fed_women_club_WEB"
 PASSWORD_SETUP_PURPOSE = "vk_onboarding_password_setup"
 
 
@@ -90,30 +93,92 @@ def user_login(payload: UserLoginRequest, db: Session = Depends(get_db)) -> Unif
     return UnifiedTokenResponse(access_token=token, user=user)
 
 
-@router.post("/vk-miniapp-login", response_model=VkMiniAppLoginResponse)
-def vk_miniapp_login(
-    payload: VkMiniAppLoginRequest,
-    db: Session = Depends(get_db),
-) -> VkMiniAppLoginResponse:
-    params = payload.params if payload.params is not None else parse_launch_params(payload.launch_params or "")
-    verify_vk_miniapp_signature(params)
-    validate_vk_ts_freshness(params)
-    vk_user_id = extract_vk_user_id(params)
+def _missing_launch_params_response() -> JSONResponse:
+    return JSONResponse(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        content={
+            "detail": "launch_params are required",
+            "handler": VK_MINIAPP_LOGIN_HANDLER,
+            "entrypoint": VK_MINIAPP_ENTRYPOINT,
+        },
+    )
 
+
+def _stringify_params(params: dict[str, Any]) -> dict[str, str]:
+    return {key: str(value) for key, value in params.items() if value is not None}
+
+
+def _extract_vk_miniapp_params(payload: Any) -> dict[str, str] | None:
+    if not isinstance(payload, dict) or not payload:
+        return None
+
+    launch_params = payload.get("launch_params") or payload.get("launchParams")
+    if isinstance(launch_params, str) and launch_params.strip():
+        return parse_launch_params(launch_params)
+
+    params = payload.get("params")
+    if isinstance(params, dict) and params:
+        return _stringify_params(params)
+
+    if "sign" in payload and any(key.startswith("vk_") for key in payload):
+        return _stringify_params(payload)
+
+    return None
+
+
+def _build_vk_miniapp_full_name(params: dict[str, str]) -> str | None:
+    parts = [
+        (params.get("vk_first_name") or params.get("first_name") or "").strip(),
+        (params.get("vk_last_name") or params.get("last_name") or "").strip(),
+    ]
+    full_name = " ".join(part for part in parts if part)
+    return full_name or None
+
+
+def _get_or_create_vk_client_profile(
+    db: Session,
+    vk_user_id: str,
+    params: dict[str, str],
+) -> ClientProfile:
     profile = db.execute(
         select(ClientProfile)
         .options(joinedload(ClientProfile.user))
         .where(ClientProfile.vk_user_id == vk_user_id)
     ).scalar_one_or_none()
-    if profile is None:
-        return JSONResponse(
-            status_code=status.HTTP_404_NOT_FOUND,
-            content={
-                "status": "join_via_bot_required",
-                "message": "Сначала присоединитесь к клубу через VK-бота.",
-            },
-        )
+    if profile is not None:
+        return profile
 
+    user = User(role=UserRole.CLIENT.value, is_active=True)
+    db.add(user)
+    db.flush()
+
+    profile = ClientProfile(
+        user_id=user.id,
+        vk_user_id=vk_user_id,
+        full_name=_build_vk_miniapp_full_name(params),
+        source="vk-miniapp",
+        is_active=True,
+    )
+    db.add(profile)
+    db.commit()
+    db.refresh(profile)
+    return profile
+
+
+@router.post("/vk-miniapp-login", response_model=VkMiniAppLoginResponse)
+def vk_miniapp_login(
+    payload: Any = Body(default=None),
+    db: Session = Depends(get_db),
+) -> VkMiniAppLoginResponse | JSONResponse:
+    params = _extract_vk_miniapp_params(payload)
+    if params is None:
+        return _missing_launch_params_response()
+
+    verify_vk_miniapp_signature(params)
+    validate_vk_ts_freshness(params)
+    vk_user_id = extract_vk_user_id(params)
+
+    profile = _get_or_create_vk_client_profile(db, vk_user_id, params)
     user = profile.user
     if user is None or not user.is_active or user.role != UserRole.CLIENT.value:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Client user is inactive or invalid")

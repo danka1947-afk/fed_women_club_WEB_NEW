@@ -146,13 +146,16 @@ def test_vk_miniapp_login_success(vk_miniapp_client: TestClient) -> None:
     assert body["client"]["vk_user_id"] == "123456789"
 
 
-def test_vk_miniapp_login_unknown_vk_user_returns_join_status(vk_miniapp_client: TestClient) -> None:
+def test_vk_miniapp_login_unknown_vk_user_creates_client(vk_miniapp_client: TestClient) -> None:
     response = vk_miniapp_client.post(
         "/api/v1/auth/vk-miniapp-login",
         json={"launch_params": _build_launch_params(vk_user_id="999000")},
     )
-    assert response.status_code == 404
-    assert response.json()["status"] == "join_via_bot_required"
+    assert response.status_code == 200
+    body = response.json()
+    assert body["client"]["vk_user_id"] == "999000"
+    assert body["client"]["source"] == "vk-miniapp"
+    assert body["user"]["role"] == UserRole.CLIENT.value
 
 
 def test_vk_miniapp_login_stale_vk_ts_returns_401(vk_miniapp_client: TestClient) -> None:
@@ -221,16 +224,45 @@ def test_vk_miniapp_login_missing_vk_app_secret_returns_500(vk_miniapp_client: T
     assert "access_token" not in response.json()
 
 
-def test_vk_miniapp_login_without_launch_params_and_params_returns_validation_error(
-    vk_miniapp_client: TestClient,
-) -> None:
+def test_vk_miniapp_login_without_body_returns_controlled_400(vk_miniapp_client: TestClient) -> None:
+    response = vk_miniapp_client.post("/api/v1/auth/vk-miniapp-login")
+    assert response.status_code == 400
+    assert response.json() == {
+        "detail": "launch_params are required",
+        "handler": "vk-miniapp-login-v2",
+        "entrypoint": "fed_women_club_WEB",
+    }
+
+
+def test_vk_miniapp_login_empty_json_returns_controlled_400(vk_miniapp_client: TestClient) -> None:
     response = vk_miniapp_client.post("/api/v1/auth/vk-miniapp-login", json={})
-    assert response.status_code == 422
+    assert response.status_code == 400
+    assert response.json() == {
+        "detail": "launch_params are required",
+        "handler": "vk-miniapp-login-v2",
+        "entrypoint": "fed_women_club_WEB",
+    }
 
 
 def test_vk_miniapp_login_params_object_path_works(vk_miniapp_client: TestClient) -> None:
     params = parse_launch_params(_build_launch_params())
     response = vk_miniapp_client.post("/api/v1/auth/vk-miniapp-login", json={"params": params})
+    assert response.status_code == 200
+    assert response.json()["client"]["vk_user_id"] == "123456789"
+
+
+def test_vk_miniapp_login_launch_params_camel_case_path_works(vk_miniapp_client: TestClient) -> None:
+    response = vk_miniapp_client.post(
+        "/api/v1/auth/vk-miniapp-login",
+        json={"launchParams": _build_launch_params()},
+    )
+    assert response.status_code == 200
+    assert response.json()["client"]["vk_user_id"] == "123456789"
+
+
+def test_vk_miniapp_login_raw_vk_object_path_works(vk_miniapp_client: TestClient) -> None:
+    params = parse_launch_params(_build_launch_params())
+    response = vk_miniapp_client.post("/api/v1/auth/vk-miniapp-login", json=params)
     assert response.status_code == 200
     assert response.json()["client"]["vk_user_id"] == "123456789"
 
@@ -291,3 +323,13 @@ def test_api_v1_auth_vk_miniapp_login_route_is_registered() -> None:
     target = "/api/v1/auth/vk-miniapp-login"
     post_routes = {route.path for route in app.router.routes if "POST" in getattr(route, "methods", set())}
     assert target in post_routes
+
+
+def test_runtime_info_returns_vk_miniapp_handler_marker(vk_miniapp_client: TestClient) -> None:
+    response = vk_miniapp_client.get("/api/v1/runtime-info")
+    assert response.status_code == 200
+    assert response.json() == {
+        "app": "fed_women_club_WEB",
+        "handler": "vk-miniapp-login-v2",
+        "endpoint": "/api/v1/auth/vk-miniapp-login",
+    }
