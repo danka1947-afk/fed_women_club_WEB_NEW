@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from collections.abc import Generator
+from datetime import datetime, timedelta, timezone
+from decimal import Decimal
 from pathlib import Path
 
 import pytest
@@ -14,7 +16,11 @@ from app.core.security import hash_password
 from app.db.base import Base
 from app.db.session import get_db
 from app.main import app
+from app.models.city import City
+from app.models.client import ClientProfile
+from app.models.partner import Partner
 from app.models.user import AdminUser, User, UserRole
+from app.models.verification import PrivilegeVerificationSession, PrivilegeVerificationStatus
 
 
 @pytest.fixture()
@@ -65,8 +71,14 @@ def test_public_landing_stats_returns_start_values(landing_client: TestClient) -
     assert response.status_code == 200
     data = response.json()
     assert data["members_count"] == 125
+    assert data["members_count_base"] == 125
+    assert data["members_count_real"] == 0
     assert data["partners_count"] == 18
+    assert data["partners_count_base"] == 18
+    assert data["partners_count_real"] == 0
     assert data["savings_total"] == 53500
+    assert data["savings_total_base"] == 53500
+    assert data["savings_total_real"] == 0
     assert data["giveaway_title"] == "Розыгрыш месяца"
 
 
@@ -78,7 +90,95 @@ def test_public_members_count_grows_when_client_user_appears(landing_client: Tes
     response = landing_client.get("/api/v1/public/landing/stats")
 
     assert response.status_code == 200
-    assert response.json()["members_count"] == 126
+    data = response.json()
+    assert data["members_count"] == 126
+    assert data["members_count_base"] == 125
+    assert data["members_count_real"] == 1
+
+
+def test_public_landing_stats_counts_base_plus_active_partners(landing_client: TestClient) -> None:
+    with next(app.dependency_overrides[get_db]()) as session:
+        city = City(name="Новосибирск", slug="novosibirsk", is_active=True)
+        session.add(city)
+        session.flush()
+        session.add_all(
+            [
+                Partner(city_id=city.id, name="Active partner 1", is_active=True),
+                Partner(city_id=city.id, name="Active partner 2", is_active=True),
+                Partner(city_id=city.id, name="Inactive partner", is_active=False),
+            ]
+        )
+        session.commit()
+
+    response = landing_client.get("/api/v1/public/landing/stats")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["partners_count"] == 20
+    assert data["partners_count_base"] == 18
+    assert data["partners_count_real"] == 2
+
+
+def test_public_landing_alias_returns_dynamic_stats(landing_client: TestClient) -> None:
+    response = landing_client.get("/api/v1/public/landing")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["partners_count_base"] == 18
+    assert data["savings_total_base"] == 53500
+
+
+def test_public_landing_stats_uses_real_savings_helper(landing_client: TestClient) -> None:
+    response = landing_client.get("/api/v1/public/landing/stats")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["savings_total"] == 53500
+    assert data["savings_total_base"] == 53500
+    assert data["savings_total_real"] == 0
+
+
+def test_public_landing_stats_adds_confirmed_real_savings(landing_client: TestClient) -> None:
+    with next(app.dependency_overrides[get_db]()) as session:
+        city = City(name="Омск", slug="omsk", is_active=True)
+        user = User(email="savings-client@example.com", role=UserRole.CLIENT.value, is_active=True)
+        session.add_all([city, user])
+        session.flush()
+        client = ClientProfile(user_id=user.id, selected_city_id=city.id, is_active=True)
+        partner = Partner(city_id=city.id, name="Savings partner", is_active=True)
+        session.add_all([client, partner])
+        session.flush()
+        expires_at = datetime.now(timezone.utc) + timedelta(hours=1)
+        session.add_all(
+            [
+                PrivilegeVerificationSession(
+                    client_id=client.id,
+                    partner_id=partner.id,
+                    code="SAVE01",
+                    status=PrivilegeVerificationStatus.confirmed.value,
+                    expires_at=expires_at,
+                    confirmed_at=datetime.now(timezone.utc),
+                    saving_amount=Decimal("1500.00"),
+                ),
+                PrivilegeVerificationSession(
+                    client_id=client.id,
+                    partner_id=partner.id,
+                    code="DRAFT1",
+                    status=PrivilegeVerificationStatus.active.value,
+                    expires_at=expires_at,
+                    saving_amount=Decimal("9000.00"),
+                ),
+            ]
+        )
+        session.commit()
+
+    response = landing_client.get("/api/v1/public/landing/stats")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["savings_total"] == 55000
+    assert data["savings_total_base"] == 53500
+    assert data["savings_total_real"] == 1500
 
 
 def test_admin_landing_settings_patch_saves_public_stats_and_giveaway(landing_client: TestClient) -> None:
@@ -104,6 +204,41 @@ def test_admin_landing_settings_patch_saves_public_stats_and_giveaway(landing_cl
     assert data["savings_total"] == 75000
     assert data["giveaway_current"] == "Сертификат в SPA"
     assert [item["title"] for item in data["giveaway_items"]] == ["Сертификат в SPA", "Beauty box"]
+
+
+def test_admin_landing_settings_patch_updates_bases_used_by_public_stats(landing_client: TestClient) -> None:
+    with next(app.dependency_overrides[get_db]()) as session:
+        city = City(name="Томск", slug="tomsk", is_active=True)
+        session.add(city)
+        session.flush()
+        session.add(Partner(city_id=city.id, name="Active partner", is_active=True))
+        session.commit()
+
+    response = landing_client.patch(
+        "/api/v1/admin/landing-settings",
+        headers=_auth_headers(landing_client),
+        json={"partners_count_base": 30, "savings_total_base": 90000},
+    )
+
+    assert response.status_code == 200
+    admin_data = response.json()
+    assert admin_data["partners_count_display"] == 30
+    assert admin_data["partners_count_base"] == 30
+    assert admin_data["partners_count"] == 31
+    assert admin_data["savings_total"] == 90000
+    assert admin_data["savings_total_base"] == 90000
+    assert admin_data["savings_total_display"] == 90000
+
+    public_response = landing_client.get("/api/v1/public/landing/stats")
+
+    assert public_response.status_code == 200
+    public_data = public_response.json()
+    assert public_data["partners_count"] == 31
+    assert public_data["partners_count_base"] == 30
+    assert public_data["partners_count_real"] == 1
+    assert public_data["savings_total"] == 90000
+    assert public_data["savings_total_base"] == 90000
+    assert public_data["savings_total_real"] == 0
 
 
 def test_public_landing_stats_returns_updated_giveaway(landing_client: TestClient) -> None:
@@ -136,3 +271,16 @@ def test_frontend_landing_hero_stats_do_not_use_legacy_hardcodes() -> None:
     assert "50+" not in text
     assert "183 000 ₽" not in text
     assert "Dyson" not in text
+
+
+def test_frontend_landing_settings_copy_marks_partner_and_savings_values_as_base() -> None:
+    text = Path("frontend/src/main.js").read_text(encoding="utf-8")
+
+    assert "Ручное значение на главной" not in text
+    for expected_text in (
+        "Базовое число партнёров",
+        "Базовая сумма экономии",
+        "База + активные партнёры",
+        "База + реальная экономия",
+    ):
+        assert expected_text in text

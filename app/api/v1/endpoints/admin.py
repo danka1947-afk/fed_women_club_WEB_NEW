@@ -57,7 +57,7 @@ from app.schemas.partner import PartnerAnalyticsRead
 from app.schemas.payment import AdminPaymentRequestRead, PaymentRequestApprove, PaymentRequestReject
 from app.services.activity_feed import build_admin_activity_feed
 from app.services.admin_user_delete_service import delete_user_with_relations
-from app.services.landing_settings import get_or_create_landing_settings, normalize_giveaway_items
+from app.services.landing_settings import build_admin_landing_settings_read, get_or_create_landing_settings, normalize_giveaway_items
 from app.services.image_uploads import save_partner_image_upload, save_partner_offer_image_upload, save_partner_photo_image_upload, validate_image_kind
 from app.services.partner_analytics import build_partner_analytics
 from app.services.privilege_verifications import (
@@ -101,9 +101,9 @@ PARTNER_OFFER_TEXT_FIELDS = ("description", "benefit_text", "conditions", "image
 def read_admin_landing_settings(
     admin: AdminUser = Depends(require_admin),
     db: Session = Depends(get_db),
-) -> LandingSettings:
+) -> LandingSettingsRead:
     _ = admin
-    return get_or_create_landing_settings(db)
+    return LandingSettingsRead.model_validate(build_admin_landing_settings_read(db))
 
 
 @router.patch("/landing-settings", response_model=LandingSettingsRead)
@@ -111,10 +111,14 @@ def update_admin_landing_settings(
     payload: LandingSettingsUpdate,
     admin: AdminUser = Depends(require_admin),
     db: Session = Depends(get_db),
-) -> LandingSettings:
+) -> LandingSettingsRead:
     _ = admin
     settings = get_or_create_landing_settings(db)
     update_data = payload.model_dump(exclude_unset=True)
+    if update_data.get("partners_count_base") is not None and update_data.get("partners_count_display") is None:
+        update_data["partners_count_display"] = update_data["partners_count_base"]
+    if update_data.get("savings_total_base") is not None and update_data.get("savings_total") is None:
+        update_data["savings_total"] = update_data["savings_total_base"]
     for field in ("members_count_base", "partners_count_display", "savings_total"):
         if field in update_data and update_data[field] is not None:
             setattr(settings, field, int(update_data[field]))
@@ -126,7 +130,7 @@ def update_admin_landing_settings(
     db.add(settings)
     db.commit()
     db.refresh(settings)
-    return settings
+    return LandingSettingsRead.model_validate(build_admin_landing_settings_read(db))
 
 
 @router.get("/me", response_model=AdminUserRead)

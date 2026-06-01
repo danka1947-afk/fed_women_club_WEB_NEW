@@ -3918,7 +3918,13 @@ const renderAdminActivityTab = () => `
 const getAdminLandingSettings = () => ({
   members_count_base: 125,
   partners_count_display: 18,
+  partners_count_base: 18,
+  partners_count: 18,
+  partners_count_real: 0,
   savings_total: 53500,
+  savings_total_base: 53500,
+  savings_total_display: 53500,
+  savings_total_real: 0,
   giveaway_title: 'Розыгрыш месяца',
   giveaway_current: 'Приз месяца',
   giveaway_subtitle: 'доступно участницам клуба',
@@ -3941,6 +3947,10 @@ const renderAdminGiveawayItems = (items = []) => {
 
 const renderLandingSettingsCard = () => {
   const settings = getAdminLandingSettings();
+  const partnersCountBase = Number(settings.partners_count_base ?? settings.partners_count_display ?? 0);
+  const partnersCountPreview = Number(settings.partners_count ?? partnersCountBase + Number(settings.partners_count_real || 0));
+  const savingsTotalBase = Number(settings.savings_total_base ?? settings.savings_total ?? 0);
+  const savingsTotalPreview = Number(settings.savings_total_display ?? savingsTotalBase + Number(settings.savings_total_real || 0));
   return `
     <section class="quick-actions-panel admin-landing-settings" aria-labelledby="landing-settings-title">
       <div class="admin-section-heading">
@@ -3949,8 +3959,8 @@ const renderLandingSettingsCard = () => {
       </div>
       <form class="admin-form admin-form--inline" data-admin-form="landingSettings">
         <label>Базовое число девушек<input name="members_count_base" type="number" min="0" value="${escapeHtml(settings.members_count_base)}" required /></label>
-        <label>Число партнёров<input name="partners_count_display" type="number" min="0" value="${escapeHtml(settings.partners_count_display)}" required /></label>
-        <label>Сумма экономии<input name="savings_total" type="number" min="0" value="${escapeHtml(settings.savings_total)}" required /></label>
+        <label>Базовое число партнёров<input name="partners_count_display" type="number" min="0" value="${escapeHtml(partnersCountBase)}" required /></label>
+        <label>Базовая сумма экономии<input name="savings_total" type="number" min="0" value="${escapeHtml(savingsTotalBase)}" required /></label>
         <div class="admin-form-actions">
           <button class="ui-button ui-button--primary" type="submit">Сохранить показатели</button>
           <button class="ui-button ui-button--secondary" type="button" data-admin-giveaway-open>Розыгрыш месяца</button>
@@ -3959,8 +3969,8 @@ const renderLandingSettingsCard = () => {
       </form>
       <div class="summary-grid summary-grid--compact">
         <article class="summary-card"><span>Девушек внутри</span><strong>${escapeHtml(settings.members_count_base)} + клиентки</strong><small>База плюс реальные client/member/customer</small></article>
-        <article class="summary-card"><span>Партнёров</span><strong>${escapeHtml(settings.partners_count_display)}</strong><small>Ручное значение на главной</small></article>
-        <article class="summary-card"><span>Экономия</span><strong>${escapeHtml(formatMoneyLabel(Number(settings.savings_total)))}</strong><small>Ручное значение на главной</small></article>
+        <article class="summary-card"><span>Партнёров</span><strong>${escapeHtml(partnersCountPreview)}</strong><small>База + активные партнёры</small></article>
+        <article class="summary-card"><span>Экономия</span><strong>${escapeHtml(formatMoneyLabel(savingsTotalPreview))}</strong><small>База + реальная экономия</small></article>
         <article class="summary-card"><span>${escapeHtml(settings.giveaway_title)}</span><strong>${escapeHtml(settings.giveaway_current)}</strong><small>${escapeHtml(settings.giveaway_subtitle)}</small></article>
       </div>
       ${adminState.giveawayDrawerOpen ? renderGiveawayDrawer(settings) : ''}
