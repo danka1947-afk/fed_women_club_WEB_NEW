@@ -190,6 +190,7 @@ def redirect_partner_qr_link(
     return RedirectResponse(url=target_url, status_code=status.HTTP_302_FOUND)
 
 
+@router.get("/api/v1/public/landing", response_model=PublicLandingStatsRead)
 @router.get("/api/v1/public/landing/stats", response_model=PublicLandingStatsRead)
 def read_public_landing_stats(db: Session = Depends(get_db)) -> PublicLandingStatsRead:
     return build_public_landing_stats(db)
