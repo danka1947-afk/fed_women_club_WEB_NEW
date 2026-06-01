@@ -2369,3 +2369,22 @@ def test_offer_pricing_helpers_and_copy_present() -> None:
         '.offer-pricing__fallback',
     ):
         assert css_marker in styles
+
+
+def test_landing_partner_filter_uses_categories_array_and_keeps_direction_markers() -> None:
+    source = _frontend_main()
+
+    for marker in (
+        "selectedLandingDirection",
+        "landingPartnerModalState",
+        "data-landing-category-slug",
+        "direction-card",
+        "landing-direction-button",
+        "/api/v1/public/landing/partners",
+    ):
+        assert marker in source
+
+    assert "partnerMatchesLandingCategory" in source
+    assert "Array.isArray(partner?.categories) ? partner.categories : []" in source
+    assert "categories.some((category)" in source
+    assert "partners.filter((partner) => partnerMatchesLandingCategory(partner, slug))" in source

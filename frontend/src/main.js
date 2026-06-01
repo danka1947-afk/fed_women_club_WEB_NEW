@@ -1345,6 +1345,16 @@ const getPartnerCategories = (partner = {}) => {
 };
 
 const formatPartnerCategory = (partner) => getPartnerCategories(partner).map((item) => item.name).join(', ') || '—';
+const partnerMatchesLandingCategory = (partner, categorySlug) => {
+  const normalizedCategorySlug = String(categorySlug || '').trim().toLowerCase();
+  if (!normalizedCategorySlug) return true;
+  const categories = Array.isArray(partner?.categories) ? partner.categories : [];
+  if (categories.some((category) => String(category?.slug || category).trim().toLowerCase() === normalizedCategorySlug)) {
+    return true;
+  }
+  return getPartnerCategories(partner).some((category) => String(category.slug || '').trim().toLowerCase() === normalizedCategorySlug);
+};
+
 
 const renderEmptyState = (title, text, icon = '♡') => `
   <article class="client-empty-state ui-empty-state">
@@ -2114,7 +2124,8 @@ const openLandingDirection = async (slug) => {
       throw new Error(await buildErrorMessage(response));
     }
     const data = await response.json();
-    landingPartnerModalState.cache[slug] = Array.isArray(data.items) ? data.items : [];
+    const partners = Array.isArray(data.items) ? data.items : [];
+    landingPartnerModalState.cache[slug] = partners.filter((partner) => partnerMatchesLandingCategory(partner, slug));
     landingPartnerModalState.partners = landingPartnerModalState.cache[slug];
   } catch (error) {
     landingPartnerModalState.error = 'Не удалось загрузить партнёров. Попробуйте позже.';

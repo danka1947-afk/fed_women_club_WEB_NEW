@@ -662,6 +662,7 @@ def list_admin_partners(
         select(Partner, City.name.label("city_name"), User.email.label("owner_email"))
         .join(City, Partner.city_id == City.id)
         .outerjoin(User, Partner.owner_user_id == User.id)
+        .options(selectinload(Partner.categories))
         .order_by(Partner.sort_order.asc(), Partner.id.asc())
     )
 
@@ -670,7 +671,13 @@ def list_admin_partners(
     if is_active is not None:
         statement = statement.where(Partner.is_active == is_active)
     if category_slug is not None:
-        statement = statement.where(Partner.category_slug == _normalize_category_slug(db, category_slug))
+        normalized_category_slug = _normalize_category_slug(db, category_slug)
+        statement = statement.where(
+            or_(
+                Partner.categories.any(Category.slug == normalized_category_slug),
+                Partner.category_slug == normalized_category_slug,
+            )
+        )
     if q is not None:
         search = q.strip()
         if search:

@@ -61,6 +61,8 @@ def public_client() -> Generator[TestClient, None, None]:
             Partner(city_id=active_city.id, category_slug="hidden-category", name="Hidden Category", is_active=True, is_verified=True),
             Partner(city_id=other_city.id, category_slug="fitnes-yoga", name="Yoga Active", is_active=True, is_verified=True),
         ]
+        partners[0].categories = [active_category]
+        partners[5].categories = [other_category]
         session.add_all(partners)
         session.flush()
         session.add_all(
@@ -149,6 +151,10 @@ def test_public_landing_partners_returns_only_safe_active_public_data(public_cli
         "city_slug": "novosibirsk",
         "category_title": "Красота",
         "category_slug": "krasota",
+        "category": {"id": item["category"]["id"], "name": "Красота", "title": "Красота", "slug": "krasota"},
+        "categories": [{"id": item["categories"][0]["id"], "name": "Красота", "title": "Красота", "slug": "krasota"}],
+        "category_ids": [item["categories"][0]["id"]],
+        "category_slugs": ["krasota"],
         "logo_url": "/assets/partners/sakura-logo.jpg",
         "cover_url": "/assets/partners/sakura-cover.jpg",
         "offers": [
@@ -250,3 +256,48 @@ def test_public_landing_limit_is_capped(public_client: TestClient) -> None:
 
     assert response.status_code == 200
     assert len(response.json()["items"]) <= 30
+
+
+def test_public_landing_partners_returns_multi_category_partner_in_each_category(public_client: TestClient) -> None:
+    response = public_client.get("/api/v1/public/landing/partners?category_slug=krasota")
+    assert response.status_code == 200
+    sakura = next(item for item in response.json()["items"] if item["name"] == "Beauty Studio Sakura")
+    partner_id = sakura["id"]
+
+    manicure = Category(name="Маникюр / педикюр", slug="manikyur-pedikyur", is_active=True, sort_order=2)
+    brows = Category(name="Брови / ресницы", slug="brovi-resnitsy", is_active=True, sort_order=4)
+    cosmetology = Category(name="Косметология", slug="kosmetologiya", is_active=True, sort_order=5)
+
+    session_gen = app.dependency_overrides[get_db]()
+    session = next(session_gen)
+    try:
+        partner = session.get(Partner, partner_id)
+        assert partner is not None
+        partner.categories.extend([manicure, brows, cosmetology])
+        session.add(partner)
+        session.commit()
+    finally:
+        session.close()
+        session_gen.close()
+
+    requested_slugs = ["krasota", "manikyur-pedikyur", "brovi-resnitsy", "kosmetologiya"]
+    expected_category_slugs = ["manikyur-pedikyur", "brovi-resnitsy", "kosmetologiya", "krasota"]
+    for slug in requested_slugs:
+        category_response = public_client.get(f"/api/v1/public/landing/partners?category_slug={slug}&limit=12")
+        assert category_response.status_code == 200
+        partner = next(item for item in category_response.json()["items"] if item["name"] == "Beauty Studio Sakura")
+        assert partner["category_slug"] == slug
+        assert isinstance(partner["categories"], list)
+        assert [category["slug"] for category in partner["categories"]] == expected_category_slugs
+        assert partner["category_slugs"] == expected_category_slugs
+        assert partner["category"]["slug"] == slug
+
+
+def test_public_landing_partners_unfiltered_response_contains_categories_array(public_client: TestClient) -> None:
+    response = public_client.get("/api/v1/public/landing/partners?limit=12")
+
+    assert response.status_code == 200
+    partner = next(item for item in response.json()["items"] if item["name"] == "Beauty Studio Sakura")
+    assert partner["category_slug"] == "krasota"
+    assert isinstance(partner["categories"], list)
+    assert [category["slug"] for category in partner["categories"]] == ["krasota"]

@@ -9,10 +9,12 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 import app.models  # noqa: F401 - register all SQLAlchemy models for test metadata
+from app.core.categories import get_women_club_categories
 from app.core.security import hash_password
 from app.db.base import Base
 from app.db.session import get_db
 from app.main import app
+from app.models.category import Category
 from app.models.city import City
 from app.models.partner import Partner
 from app.models.user import AdminUser, User, UserRole
@@ -42,6 +44,17 @@ def admin_client() -> Generator[TestClient, None, None]:
         partner_owner = User(email="owner@example.com", role=UserRole.PARTNER.value, is_active=True)
         client_owner = User(email="client@example.com", role=UserRole.CLIENT.value, is_active=True)
         session.add_all([city_one, city_two, partner_owner, client_owner])
+        session.add_all(
+            [
+                Category(
+                    name=category["title"],
+                    slug=category["slug"],
+                    is_active=category["is_active"],
+                    sort_order=category["sort_order"],
+                )
+                for category in get_women_club_categories()
+            ]
+        )
         session.flush()
         session.add_all(
             [
@@ -262,6 +275,70 @@ def test_admin_partner_create_update_and_list_persists_admin_fields(admin_client
     assert saved["is_active"] is False
     assert saved["is_verified"] is True
 
+
+
+def test_admin_partner_create_update_and_list_preserves_multiple_categories(
+    admin_client: TestClient,
+    admin_token: str,
+) -> None:
+    category_response = admin_client.get("/api/v1/admin/categories", headers=_auth_headers(admin_token))
+    assert category_response.status_code == 200
+    categories_by_slug = {category["slug"]: category for category in category_response.json()}
+    create_category_ids = [
+        categories_by_slug["krasota"]["id"],
+        categories_by_slug["manikyur-pedikyur"]["id"],
+        categories_by_slug["brovi-resnitsy"]["id"],
+        categories_by_slug["kosmetologiya"]["id"],
+    ]
+
+    create_response = admin_client.post(
+        "/api/v1/admin/partners",
+        headers=_auth_headers(admin_token),
+        json=_partner_payload(name="Multi Category Beauty", category_ids=create_category_ids),
+    )
+    assert create_response.status_code == 200
+    created = create_response.json()
+    partner_id = created["id"]
+    assert created["category_ids"] == create_category_ids
+    assert created["category_slugs"] == ["krasota", "manikyur-pedikyur", "brovi-resnitsy", "kosmetologiya"]
+    assert [category["slug"] for category in created["categories"]] == created["category_slugs"]
+
+    update_category_ids = [
+        categories_by_slug["manikyur-pedikyur"]["id"],
+        categories_by_slug["brovi-resnitsy"]["id"],
+        categories_by_slug["kosmetologiya"]["id"],
+    ]
+    update_response = admin_client.patch(
+        f"/api/v1/admin/partners/{partner_id}",
+        headers=_auth_headers(admin_token),
+        json={"category_ids": update_category_ids},
+    )
+    assert update_response.status_code == 200
+    assert update_response.json()["category_ids"] == update_category_ids
+
+    refetch_response = admin_client.get(f"/api/v1/admin/partners/{partner_id}", headers=_auth_headers(admin_token))
+    assert refetch_response.status_code == 200
+    refetched = refetch_response.json()
+    assert refetched["category_ids"] == update_category_ids
+    assert refetched["category_slugs"] == ["manikyur-pedikyur", "brovi-resnitsy", "kosmetologiya"]
+    assert [category["slug"] for category in refetched["categories"]] == refetched["category_slugs"]
+
+    list_response = admin_client.get("/api/v1/admin/partners", headers=_auth_headers(admin_token))
+    assert list_response.status_code == 200
+    listed = next(partner for partner in list_response.json() if partner["id"] == partner_id)
+    assert listed["category_ids"] == update_category_ids
+    assert [category["slug"] for category in listed["categories"]] == [
+        "manikyur-pedikyur",
+        "brovi-resnitsy",
+        "kosmetologiya",
+    ]
+
+    manicure_filter_response = admin_client.get(
+        "/api/v1/admin/partners?category_slug=manikyur-pedikyur",
+        headers=_auth_headers(admin_token),
+    )
+    assert manicure_filter_response.status_code == 200
+    assert "Multi Category Beauty" in [partner["name"] for partner in manicure_filter_response.json()]
 
 def test_admin_partner_get_returns_partner_with_city_name(admin_client: TestClient, admin_token: str) -> None:
     response = admin_client.get("/api/v1/admin/partners/1", headers=_auth_headers(admin_token))
