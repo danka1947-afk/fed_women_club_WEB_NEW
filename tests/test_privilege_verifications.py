@@ -216,6 +216,24 @@ def _create_verification(
         return verification.id
 
 
+def _assert_old_verify_qr_response(data: dict[str, object]) -> None:
+    assert data["id"]
+    assert data["session_id"] == data["id"]
+    assert data["code"]
+    assert data["display_code"] == data["code"]
+    assert data["token"]
+    assert data["qr_payload"] == f"bloomclub:privilege:{data['token']}"
+    assert data["expires_at"]
+
+
+def _assert_privilege_session_qr_response(data: dict[str, object]) -> None:
+    assert data["session_id"]
+    assert data["display_code"]
+    assert data["token"]
+    assert data["qr_payload"] == f"bloomclub:privilege:{data['token']}"
+    assert data["expires_at"]
+
+
 def test_client_post_verify_without_token_returns_401(verification_client: TestClient) -> None:
     response = verification_client.post("/api/v1/clients/partners/1/verify", json={})
 
@@ -321,63 +339,156 @@ def test_client_post_verify_with_inactive_or_missing_partner_returns_404(verific
     assert missing_response.status_code == 404
 
 
-def test_monthly_partner_privilege_rule_blocks_second_offer_same_month(verification_client: TestClient) -> None:
-    token = _client_token(verification_client)
-    first = verification_client.post(
-        "/api/v1/clients/partners/1/verify",
-        json={"offer_id": 1},
-        headers=_auth_headers(token),
+def test_confirmed_session_in_current_month_does_not_block_new_qr_session(verification_client: TestClient) -> None:
+    existing_id = _create_verification(
+        verification_client,
+        client_id=1,
+        partner_id=1,
+        offer_id=1,
+        status=PrivilegeVerificationStatus.confirmed.value,
     )
-    assert first.status_code == 200
-    second = verification_client.post(
-        "/api/v1/clients/partners/1/verify",
-        json={"offer_id": 2},
-        headers=_auth_headers(token),
-    )
-    assert second.status_code == 400
-    assert second.json()["detail"] == "Privilege for this partner is already used this month"
 
-
-def test_monthly_partner_privilege_rule_allows_other_partner_same_month(verification_client: TestClient) -> None:
-    token = _client_token(verification_client)
-    first = verification_client.post(
-        "/api/v1/clients/partners/1/verify",
-        json={"offer_id": 1},
-        headers=_auth_headers(token),
-    )
-    assert first.status_code == 200
-    second = verification_client.post(
-        "/api/v1/clients/partners/2/verify",
-        json={"offer_id": 4},
-        headers=_auth_headers(token),
-    )
-    assert second.status_code == 200
-
-
-def test_monthly_partner_privilege_rule_allows_next_month(verification_client: TestClient) -> None:
-    token = _client_token(verification_client)
-    with _session(verification_client) as session:
-        now = datetime.now(timezone.utc)
-        last_month = (now.replace(day=1) - timedelta(days=1)).replace(day=15)
-        session.add(
-            PrivilegeVerificationSession(
-                client_id=1,
-                partner_id=1,
-                offer_id=1,
-                code="654321",
-                status=PrivilegeVerificationStatus.expired.value,
-                source="test",
-                expires_at=last_month + timedelta(minutes=15),
-                created_at=last_month,
-            )
-        )
-        session.commit()
     response = verification_client.post(
         "/api/v1/clients/partners/1/verify",
         json={"offer_id": 1},
-        headers=_auth_headers(token),
+        headers=_auth_headers(_client_token(verification_client)),
     )
+
     assert response.status_code == 200
+    data = response.json()
+    _assert_old_verify_qr_response(data)
+    assert data["id"] != existing_id
+
+
+def test_expired_session_does_not_block_new_qr_session(verification_client: TestClient) -> None:
+    existing_id = _create_verification(
+        verification_client,
+        client_id=1,
+        partner_id=1,
+        offer_id=1,
+        status=PrivilegeVerificationStatus.expired.value,
+        expires_delta=timedelta(minutes=-1),
+    )
+
+    response = verification_client.post(
+        "/api/v1/clients/partners/1/verify",
+        json={"offer_id": 1},
+        headers=_auth_headers(_client_token(verification_client)),
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    _assert_old_verify_qr_response(data)
+    assert data["id"] != existing_id
+
+
+def test_pending_session_does_not_block_new_qr_session(verification_client: TestClient) -> None:
+    existing_id = _create_verification(
+        verification_client,
+        client_id=1,
+        partner_id=1,
+        offer_id=1,
+        status=PrivilegeVerificationStatus.pending.value,
+    )
+
+    response = verification_client.post(
+        "/api/v1/clients/partners/1/verify",
+        json={"offer_id": 1},
+        headers=_auth_headers(_client_token(verification_client)),
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    _assert_old_verify_qr_response(data)
+    assert data["id"] != existing_id
+
+
+def test_active_session_without_confirmed_at_does_not_block_new_qr_session(verification_client: TestClient) -> None:
+    existing_id = _create_verification(
+        verification_client,
+        client_id=1,
+        partner_id=1,
+        offer_id=1,
+        status=PrivilegeVerificationStatus.active.value,
+    )
+
+    response = verification_client.post(
+        "/api/v1/clients/partners/1/verify",
+        json={"offer_id": 1},
+        headers=_auth_headers(_client_token(verification_client)),
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    _assert_old_verify_qr_response(data)
+    assert data["id"] != existing_id
+
+
+def test_cancelled_session_does_not_block_new_qr_session(verification_client: TestClient) -> None:
+    existing_id = _create_verification(
+        verification_client,
+        client_id=1,
+        partner_id=1,
+        offer_id=1,
+        status=PrivilegeVerificationStatus.cancelled.value,
+    )
+
+    response = verification_client.post(
+        "/api/v1/clients/partners/1/verify",
+        json={"offer_id": 1},
+        headers=_auth_headers(_client_token(verification_client)),
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    _assert_old_verify_qr_response(data)
+    assert data["id"] != existing_id
+
+
+def test_multiple_qr_sessions_can_be_created_for_same_client_partner_and_offer(
+    verification_client: TestClient,
+) -> None:
+    token = _auth_headers(_client_token(verification_client))
+    responses = [
+        verification_client.post(
+            "/api/v1/clients/partners/1/verify",
+            json={"offer_id": 1},
+            headers=token,
+        )
+        for _ in range(3)
+    ]
+
+    assert [response.status_code for response in responses] == [200, 200, 200]
+    payloads = [response.json() for response in responses]
+    for data in payloads:
+        _assert_old_verify_qr_response(data)
+        assert data["partner_id"] == 1
+        assert data["offer_id"] == 1
+    assert len({data["id"] for data in payloads}) == 3
+    assert len({data["token"] for data in payloads}) == 3
+
+
+def test_old_verify_endpoint_allows_repeated_creation(verification_client: TestClient) -> None:
+    token = _auth_headers(_client_token(verification_client))
+    first = verification_client.post(
+        "/api/v1/clients/partners/1/verify",
+        json={"offer_id": 1},
+        headers=token,
+    )
+    second = verification_client.post(
+        "/api/v1/clients/partners/1/verify",
+        json={"offer_id": 2},
+        headers=token,
+    )
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+    first_data = first.json()
+    second_data = second.json()
+    _assert_old_verify_qr_response(first_data)
+    _assert_old_verify_qr_response(second_data)
+    assert second_data["id"] != first_data["id"]
+    assert second_data["token"] != first_data["token"]
 
 
 def test_client_post_verify_with_active_offer_creates_session_with_offer_info(verification_client: TestClient) -> None:
@@ -436,7 +547,9 @@ def test_client_post_verify_without_active_subscription_returns_400(verification
     assert response.json()["detail"] == "Active subscription required"
 
 
-def test_client_post_verify_reuses_existing_active_session(verification_client: TestClient) -> None:
+def test_client_post_verify_creates_new_active_session_instead_of_reusing_existing_one(
+    verification_client: TestClient,
+) -> None:
     token = _auth_headers(_client_token(verification_client))
     first = verification_client.post(
         "/api/v1/clients/partners/1/verify",
@@ -451,8 +564,8 @@ def test_client_post_verify_reuses_existing_active_session(verification_client: 
 
     assert first.status_code == 200
     assert second.status_code == 200
-    assert second.json()["id"] == first.json()["id"]
-    assert second.json()["code"] == first.json()["code"]
+    assert second.json()["id"] != first.json()["id"]
+    assert second.json()["code"] != first.json()["code"] or second.json()["token"] != first.json()["token"]
 
 
 def test_client_get_own_verifications_returns_only_own_sessions(verification_client: TestClient) -> None:
@@ -801,7 +914,7 @@ def test_privilege_session_qr_payload_does_not_include_personal_data(verificatio
     assert data["token"] != "1"
 
 
-def test_privilege_session_repeated_requests_create_different_tokens(verification_client: TestClient) -> None:
+def test_privilege_session_endpoint_allows_repeated_creation(verification_client: TestClient) -> None:
     token = _auth_headers(_client_token(verification_client))
     first = verification_client.post(
         "/api/v1/privileges/sessions",
@@ -816,8 +929,13 @@ def test_privilege_session_repeated_requests_create_different_tokens(verificatio
 
     assert first.status_code == 201
     assert second.status_code == 201
-    assert first.json()["token"] != second.json()["token"]
-    assert first.json()["qr_payload"] != second.json()["qr_payload"]
+    first_data = first.json()
+    second_data = second.json()
+    _assert_privilege_session_qr_response(first_data)
+    _assert_privilege_session_qr_response(second_data)
+    assert first_data["session_id"] != second_data["session_id"]
+    assert first_data["token"] != second_data["token"]
+    assert first_data["qr_payload"] != second_data["qr_payload"]
 
 
 def test_privilege_session_endpoint_returns_controlled_errors_for_missing_partner_or_offer(

@@ -58,7 +58,6 @@ CITY_NOT_FOUND_DETAIL = "City not found"
 PARTNER_NOT_FOUND_DETAIL = "Partner not found"
 OFFER_NOT_FOUND_DETAIL = "Offer not found"
 ACTIVE_SUBSCRIPTION_REQUIRED_DETAIL = "Active subscription required"
-PARTNER_MONTHLY_PRIVILEGE_ALREADY_USED_DETAIL = "Privilege for this partner is already used this month"
 VERIFICATION_CODE_ALPHABET = string.digits
 PRIVILEGE_QR_PAYLOAD_PREFIX = "bloomclub:privilege:"
 VK_LINK_CODE_TTL_SECONDS = 10 * 60
@@ -387,21 +386,6 @@ def create_client_partner_verification(
 
     normalize_expired_verifications(db, now=now, client_id=profile.id, partner_id=partner.id)
 
-    existing_session = _get_existing_active_verification(
-        db,
-        profile.id,
-        partner.id,
-        offer.id if offer is not None else None,
-        now,
-    )
-    if existing_session is not None:
-        return _client_verification_to_read(existing_session, partner.name, offer.title if offer is not None else None)
-    if _has_partner_monthly_verification(db, profile.id, partner.id, now):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=PARTNER_MONTHLY_PRIVILEGE_ALREADY_USED_DETAIL,
-        )
-
     session = PrivilegeVerificationSession(
         client_id=profile.id,
         partner_id=partner.id,
@@ -638,50 +622,6 @@ def _has_active_subscription(db: Session, client_id: int, now: datetime) -> bool
     ).scalar_one_or_none()
     return subscription is not None
 
-
-def _get_existing_active_verification(
-    db: Session,
-    client_id: int,
-    partner_id: int,
-    offer_id: int | None,
-    now: datetime,
-) -> PrivilegeVerificationSession | None:
-    statement = (
-        select(PrivilegeVerificationSession)
-        .where(
-            PrivilegeVerificationSession.client_id == client_id,
-            PrivilegeVerificationSession.partner_id == partner_id,
-            PrivilegeVerificationSession.status == PrivilegeVerificationStatus.active.value,
-            PrivilegeVerificationSession.expires_at >= now,
-        )
-        .order_by(PrivilegeVerificationSession.created_at.desc(), PrivilegeVerificationSession.id.desc())
-        .limit(1)
-    )
-    if offer_id is None:
-        statement = statement.where(PrivilegeVerificationSession.offer_id.is_(None))
-    else:
-        statement = statement.where(PrivilegeVerificationSession.offer_id == offer_id)
-    return db.execute(statement).scalar_one_or_none()
-
-
-def _has_partner_monthly_verification(db: Session, client_id: int, partner_id: int, now: datetime) -> bool:
-    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-    if month_start.month == 12:
-        next_month_start = month_start.replace(year=month_start.year + 1, month=1)
-    else:
-        next_month_start = month_start.replace(month=month_start.month + 1)
-    session_id = db.execute(
-        select(PrivilegeVerificationSession.id)
-        .where(
-            PrivilegeVerificationSession.client_id == client_id,
-            PrivilegeVerificationSession.partner_id == partner_id,
-            PrivilegeVerificationSession.status != PrivilegeVerificationStatus.cancelled.value,
-            PrivilegeVerificationSession.created_at >= month_start,
-            PrivilegeVerificationSession.created_at < next_month_start,
-        )
-        .limit(1)
-    ).scalar_one_or_none()
-    return session_id is not None
 
 def _get_active_city_or_404(db: Session, city_id: int) -> City:
     city = db.execute(select(City).where(City.id == city_id, City.is_active.is_(True))).scalar_one_or_none()
