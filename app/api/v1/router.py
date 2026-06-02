@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-from app.api.v1.endpoints import admin, auth, bot_vk, clients, partners
+from app.api.v1.endpoints import admin, auth, bot_vk, clients, partners, privileges
 
 api_router = APIRouter(prefix="/api/v1")
 
@@ -19,5 +19,6 @@ def runtime_info() -> dict[str, str]:
 api_router.include_router(auth.router)
 api_router.include_router(admin.router)
 api_router.include_router(partners.router)
+api_router.include_router(privileges.router)
 api_router.include_router(clients.router)
 api_router.include_router(bot_vk.router)
