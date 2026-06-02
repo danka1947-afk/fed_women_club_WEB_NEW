@@ -116,12 +116,16 @@ class ClientCreateVerificationRequest(BaseModel):
 
 class ClientVerificationRead(BaseModel):
     id: int
+    session_id: int | None = None
     client_id: int
     partner_id: int
     partner_name: str | None
     offer_id: int | None
     offer_title: str | None
     code: str
+    display_code: str | None = None
+    token: str | None = None
+    qr_payload: str | None = None
     status: str
     source: str | None
     expires_at: datetime

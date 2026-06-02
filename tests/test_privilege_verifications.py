@@ -734,3 +734,131 @@ def test_other_partner_can_confirm_only_own_session(verification_client: TestCli
 
     assert response.status_code == 200
     assert response.json()["status"] == "confirmed"
+
+
+def test_privilege_session_endpoint_active_subscription_creates_qr_session(verification_client: TestClient) -> None:
+    response = verification_client.post(
+        "/api/v1/privileges/sessions",
+        json={"partner_id": 1, "privilege_id": 1},
+        headers=_auth_headers(_client_token(verification_client)),
+    )
+
+    assert response.status_code == 201
+    data = response.json()
+    assert data["session_id"]
+    assert data["partner"] == {"id": 1, "name": "Alpha Beauty"}
+    assert data["privilege"] == {"id": 1, "title": "Active Discount"}
+    assert data["status"] == "pending"
+    assert data["display_code"]
+    assert data["token"]
+    assert data["token"] != "1"
+    assert data["qr_payload"] == f"bloomclub:privilege:{data['token']}"
+    assert data["qr_payload"].startswith("bloomclub:privilege:")
+    assert data["expires_at"]
+
+    with _session(verification_client) as session:
+        created = session.get(PrivilegeVerificationSession, data["session_id"])
+        assert created is not None
+        assert created.token == data["token"]
+        assert created.client_id == 1
+        assert created.partner_id == 1
+        assert created.offer_id == 1
+        assert created.status == PrivilegeVerificationStatus.pending.value
+        assert created.expires_at is not None
+
+
+def test_privilege_session_endpoint_without_active_subscription_returns_403(verification_client: TestClient) -> None:
+    response = verification_client.post(
+        "/api/v1/privileges/sessions",
+        json={"partner_id": 1, "privilege_id": 1},
+        headers=_auth_headers(_other_client_token(verification_client)),
+    )
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Active subscription required"
+
+    with _session(verification_client) as session:
+        other_client_sessions = session.execute(
+            select(PrivilegeVerificationSession).where(PrivilegeVerificationSession.client_id == 2)
+        ).scalars().all()
+        assert other_client_sessions == []
+
+
+def test_privilege_session_qr_payload_does_not_include_personal_data(verification_client: TestClient) -> None:
+    response = verification_client.post(
+        "/api/v1/privileges/sessions",
+        json={"partner_id": 1},
+        headers=_auth_headers(_client_token(verification_client)),
+    )
+
+    assert response.status_code == 201
+    data = response.json()
+    qr_payload = data["qr_payload"]
+    assert qr_payload.startswith("bloomclub:privilege:")
+    assert "client@example.com" not in qr_payload
+    assert "+79990000001" not in qr_payload
+    assert data["token"] != str(data["session_id"])
+    assert data["token"] != "1"
+
+
+def test_privilege_session_repeated_requests_create_different_tokens(verification_client: TestClient) -> None:
+    token = _auth_headers(_client_token(verification_client))
+    first = verification_client.post(
+        "/api/v1/privileges/sessions",
+        json={"partner_id": 1, "privilege_id": 1},
+        headers=token,
+    )
+    second = verification_client.post(
+        "/api/v1/privileges/sessions",
+        json={"partner_id": 1, "privilege_id": 1},
+        headers=token,
+    )
+
+    assert first.status_code == 201
+    assert second.status_code == 201
+    assert first.json()["token"] != second.json()["token"]
+    assert first.json()["qr_payload"] != second.json()["qr_payload"]
+
+
+def test_privilege_session_endpoint_returns_controlled_errors_for_missing_partner_or_offer(
+    verification_client: TestClient,
+) -> None:
+    token = _auth_headers(_client_token(verification_client))
+    missing_partner = verification_client.post(
+        "/api/v1/privileges/sessions",
+        json={"partner_id": 999, "privilege_id": 1},
+        headers=token,
+    )
+    missing_offer = verification_client.post(
+        "/api/v1/privileges/sessions",
+        json={"partner_id": 1, "privilege_id": 999},
+        headers=token,
+    )
+
+    assert missing_partner.status_code == 404
+    assert missing_partner.json()["detail"] == "Partner not found"
+    assert missing_offer.status_code == 404
+    assert missing_offer.json()["detail"] == "Offer not found"
+
+
+def test_old_verify_response_remains_backward_compatible_and_includes_qr_fields(
+    verification_client: TestClient,
+) -> None:
+    response = verification_client.post(
+        "/api/v1/clients/partners/1/verify",
+        json={"offer_id": 1},
+        headers=_auth_headers(_client_token(verification_client)),
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["id"]
+    assert data["session_id"] == data["id"]
+    assert data["code"]
+    assert data["display_code"] == data["code"]
+    assert data["status"] == "active"
+    assert data["token"]
+    assert data["token"] != str(data["id"])
+    assert data["token"] != str(data["client_id"])
+    assert data["qr_payload"] == f"bloomclub:privilege:{data['token']}"
+    assert data["expires_at"]

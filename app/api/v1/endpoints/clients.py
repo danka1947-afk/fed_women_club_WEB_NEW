@@ -60,6 +60,7 @@ OFFER_NOT_FOUND_DETAIL = "Offer not found"
 ACTIVE_SUBSCRIPTION_REQUIRED_DETAIL = "Active subscription required"
 PARTNER_MONTHLY_PRIVILEGE_ALREADY_USED_DETAIL = "Privilege for this partner is already used this month"
 VERIFICATION_CODE_ALPHABET = string.digits
+PRIVILEGE_QR_PAYLOAD_PREFIX = "bloomclub:privilege:"
 VK_LINK_CODE_TTL_SECONDS = 10 * 60
 VK_LINK_CODE_LENGTH = 8
 VK_LINK_CODE_ALPHABET = string.ascii_uppercase + string.digits
@@ -406,6 +407,7 @@ def create_client_partner_verification(
         partner_id=partner.id,
         offer_id=offer.id if offer is not None else None,
         code=_generate_verification_code(),
+        token=_generate_unique_privilege_session_token(db),
         status=PrivilegeVerificationStatus.active.value,
         source=_normalize_optional_text(request_payload.source) or "web",
         expires_at=now + timedelta(seconds=PRIVILEGE_VERIFICATION_TTL_SECONDS),
@@ -757,6 +759,26 @@ def _generate_verification_code(length: int = 6) -> str:
     return "".join(secrets.choice(VERIFICATION_CODE_ALPHABET) for _ in range(length))
 
 
+def _generate_unique_privilege_session_token(db: Session) -> str:
+    for _ in range(20):
+        token = secrets.token_urlsafe(32)
+        exists = db.execute(
+            select(PrivilegeVerificationSession.id).where(PrivilegeVerificationSession.token == token)
+        ).scalar_one_or_none()
+        if exists is None:
+            return token
+    raise HTTPException(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        detail="Could not generate privilege session token",
+    )
+
+
+def _privilege_qr_payload(token: str | None) -> str | None:
+    if not token:
+        return None
+    return f"{PRIVILEGE_QR_PAYLOAD_PREFIX}{token}"
+
+
 def _client_verification_to_read(
     session: PrivilegeVerificationSession,
     partner_name: str | None,
@@ -765,12 +787,16 @@ def _client_verification_to_read(
     return ClientVerificationRead.model_validate(
         {
             "id": session.id,
+            "session_id": session.id,
             "client_id": session.client_id,
             "partner_id": session.partner_id,
             "partner_name": partner_name,
             "offer_id": session.offer_id,
             "offer_title": offer_title,
             "code": session.code,
+            "display_code": session.code,
+            "token": session.token,
+            "qr_payload": _privilege_qr_payload(session.token),
             "status": session.status,
             "source": session.source,
             "expires_at": session.expires_at,

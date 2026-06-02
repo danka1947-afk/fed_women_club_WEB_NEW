@@ -38,13 +38,15 @@ def normalize_expired_verifications(
     client_id: int | None = None,
     partner_id: int | None = None,
 ) -> int:
-    """Mark active privilege verification sessions as expired once their 15-minute TTL is over."""
+    """Mark active/pending privilege verification sessions as expired once their 15-minute TTL is over."""
 
     current_time = now or datetime.now(timezone.utc)
     statement = (
         update(PrivilegeVerificationSession)
         .where(
-            PrivilegeVerificationSession.status == PrivilegeVerificationStatus.active.value,
+            PrivilegeVerificationSession.status.in_(
+                [PrivilegeVerificationStatus.active.value, PrivilegeVerificationStatus.pending.value]
+            ),
             PrivilegeVerificationSession.expires_at < current_time,
         )
         .values(status=PrivilegeVerificationStatus.expired.value)

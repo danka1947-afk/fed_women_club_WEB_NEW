@@ -12,6 +12,7 @@ from app.db.base import Base
 
 
 class PrivilegeVerificationStatus(str, Enum):
+    pending = "pending"
     active = "active"
     confirmed = "confirmed"
     expired = "expired"
@@ -26,6 +27,7 @@ class PrivilegeVerificationSession(Base):
     partner_id: Mapped[int] = mapped_column(ForeignKey("partners.id"), nullable=False, index=True)
     offer_id: Mapped[int | None] = mapped_column(ForeignKey("partner_offers.id"), nullable=True)
     code: Mapped[str] = mapped_column(String(12), nullable=False, index=True)
+    token: Mapped[str | None] = mapped_column(String(128), nullable=True, unique=True, index=True)
     status: Mapped[str] = mapped_column(String(32), nullable=False, default=PrivilegeVerificationStatus.active.value)
     source: Mapped[str | None] = mapped_column(String(64), nullable=True)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
