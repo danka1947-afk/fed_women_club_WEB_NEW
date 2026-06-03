@@ -30,6 +30,7 @@ from app.schemas.partner import (
     PartnerPrivilegeScanResponse,
     PartnerStats,
 )
+from app.services.offer_savings import calculate_offer_saving_snapshot
 from app.services.privilege_verifications import as_aware_utc, normalize_expired_verifications
 
 router = APIRouter(prefix="/partner", tags=["partner"])
@@ -123,10 +124,11 @@ def confirm_partner_privilege(
     session.status = PrivilegeVerificationStatus.confirmed.value
     session.confirmed_at = now
     session.confirmed_by_partner_id = partner.id
-    if payload.saving_amount is not None:
-        session.saving_amount = payload.saving_amount
-    elif session.saving_amount is None:
-        session.saving_amount = Decimal("0.00")
+    saving_snapshot = calculate_offer_saving_snapshot(session.offer)
+    session.saving_base_price = saving_snapshot.regular_price
+    session.saving_final_price = saving_snapshot.club_price
+    session.saving_discount_percent = saving_snapshot.discount_percent
+    session.saving_amount = saving_snapshot.saving_amount
     session.saving_partner_name = session.partner.name if session.partner is not None else partner.name
     session.saving_offer_title = session.offer.title if session.offer is not None else None
     session.saving_used_at = now
@@ -339,10 +341,14 @@ def _scan_response(
 ) -> PartnerPrivilegeScanResponse:
     client = session.client or db.get(ClientProfile, session.client_id)
     privilege = session.offer or (db.get(PartnerOffer, session.offer_id) if session.offer_id is not None else None)
+    saving_snapshot = calculate_offer_saving_snapshot(privilege)
     return PartnerPrivilegeScanResponse(
         session_id=session.id,
         status=session.status,
         can_confirm=True,
+        estimated_saving_amount=saving_snapshot.saving_amount,
+        regular_price=saving_snapshot.regular_price,
+        club_price=saving_snapshot.club_price,
         client=PartnerPrivilegeClientRead(
             display_name=(client.full_name if client is not None else None) or "Client",
             subscription_active=_has_active_subscription(db, session.client_id, now),

@@ -126,7 +126,14 @@ def verification_client() -> Generator[TestClient, None, None]:
         session.add_all([partner, other_partner, inactive_partner])
         session.flush()
 
-        offer = PartnerOffer(partner_id=partner.id, title="Active Discount", is_active=True, sort_order=10)
+        offer = PartnerOffer(
+            partner_id=partner.id,
+            title="Active Discount",
+            base_price=2000,
+            discount_percent=10,
+            is_active=True,
+            sort_order=10,
+        )
         second_offer = PartnerOffer(partner_id=partner.id, title="Second Active Discount", is_active=True, sort_order=15)
         inactive_offer = PartnerOffer(partner_id=partner.id, title="Inactive Discount", is_active=False, sort_order=20)
         other_offer = PartnerOffer(partner_id=other_partner.id, title="Other Discount", is_active=True, sort_order=10)
@@ -1080,7 +1087,7 @@ def test_partner_login_token_can_scan_and_confirm(verification_client: TestClien
         headers=_auth_headers(token),
     )
     assert confirm.status_code == 200
-    assert confirm.json()["saving_amount"] == "125.00"
+    assert confirm.json()["saving_amount"] == "200.00"
 
 
 def test_partner_scan_and_confirm_without_token_fail(verification_client: TestClient) -> None:
@@ -1167,6 +1174,9 @@ def test_partner_can_scan_own_valid_qr_by_payload_and_code(verification_client: 
     assert data["client"] == {"display_name": "Client One", "subscription_active": True}
     assert data["partner"] == {"id": 1, "name": "Alpha Beauty"}
     assert data["privilege"] == {"id": 1, "title": "Active Discount"}
+    assert data["estimated_saving_amount"] == "200.00"
+    assert data["regular_price"] == "2000.00"
+    assert data["club_price"] == "1800.00"
     assert data["expires_at"]
 
     by_code = verification_client.post(
@@ -1244,13 +1254,16 @@ def test_partner_can_confirm_own_qr_and_stats_update(verification_client: TestCl
     data = response.json()
     assert data["status"] == PrivilegeVerificationStatus.confirmed.value
     assert data["confirmed_at"] is not None
-    assert data["saving_amount"] == "500.00"
+    assert data["saving_amount"] == "200.00"
     with _session(verification_client) as session:
         stored = session.get(PrivilegeVerificationSession, verification_id)
         assert stored.status == PrivilegeVerificationStatus.confirmed.value
         assert stored.confirmed_at is not None
         assert stored.confirmed_by_partner_id == 1
-        assert stored.saving_amount == 500
+        assert stored.saving_amount == 200
+        assert stored.saving_base_price == 2000
+        assert stored.saving_final_price == 1800
+        assert stored.saving_discount_percent == 10
         assert stored.saving_used_at is not None
 
     stats = verification_client.get(
@@ -1258,7 +1271,84 @@ def test_partner_can_confirm_own_qr_and_stats_update(verification_client: TestCl
         headers=_auth_headers(_partner_token(verification_client)),
     )
     assert stats.status_code == 200
-    assert stats.json()["stats"] == {"confirmed_today": 1, "confirmed_month": 1, "savings_month": "500.00"}
+    assert stats.json()["stats"] == {"confirmed_today": 1, "confirmed_month": 1, "savings_month": "200.00"}
+
+
+def test_partner_confirm_missing_offer_prices_uses_zero_saving(verification_client: TestClient) -> None:
+    verification_id = _create_verification(
+        verification_client,
+        offer_id=2,
+        status=PrivilegeVerificationStatus.pending.value,
+        token="missing-price-token",
+    )
+
+    response = verification_client.post(
+        "/api/v1/partner/privileges/confirm",
+        json={"session_id": verification_id, "saving_amount": 777},
+        headers=_auth_headers(_partner_token(verification_client)),
+    )
+
+    assert response.status_code == 200
+    assert response.json()["saving_amount"] == "0.00"
+    with _session(verification_client) as session:
+        stored = session.get(PrivilegeVerificationSession, verification_id)
+        assert stored.saving_amount == 0
+        assert stored.saving_base_price is None
+        assert stored.saving_final_price is None
+        assert stored.saving_discount_percent is None
+
+
+def test_partner_confirm_negative_offer_saving_is_clamped_to_zero(verification_client: TestClient) -> None:
+    with _session(verification_client) as session:
+        offer = session.get(PartnerOffer, 1)
+        offer.discount_percent = -10
+        session.commit()
+    verification_id = _create_verification(
+        verification_client,
+        offer_id=1,
+        status=PrivilegeVerificationStatus.pending.value,
+        token="negative-saving-token",
+    )
+
+    response = verification_client.post(
+        "/api/v1/partner/privileges/confirm",
+        json={"session_id": verification_id},
+        headers=_auth_headers(_partner_token(verification_client)),
+    )
+
+    assert response.status_code == 200
+    assert response.json()["saving_amount"] == "0.00"
+    with _session(verification_client) as session:
+        stored = session.get(PrivilegeVerificationSession, verification_id)
+        assert stored.saving_amount == 0
+        assert stored.saving_final_price == 2000
+
+
+def test_client_savings_total_increases_by_calculated_offer_saving(verification_client: TestClient) -> None:
+    verification_id = _create_verification(
+        verification_client,
+        offer_id=1,
+        status=PrivilegeVerificationStatus.pending.value,
+        token="client-saving-token",
+    )
+    confirm = verification_client.post(
+        "/api/v1/partner/privileges/confirm",
+        json={"session_id": verification_id, "saving_amount": 1},
+        headers=_auth_headers(_partner_token(verification_client)),
+    )
+    assert confirm.status_code == 200
+
+    response = verification_client.get(
+        "/api/v1/clients/me/savings",
+        headers=_auth_headers(_client_token(verification_client)),
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["total_saving_amount"] == "200.00"
+    assert data["items"][0]["saving_amount"] == "200.00"
+    assert data["items"][0]["base_price"] == "2000.00"
+    assert data["items"][0]["final_price"] == "1800.00"
 
 
 def test_partner_confirm_controlled_errors(verification_client: TestClient) -> None:

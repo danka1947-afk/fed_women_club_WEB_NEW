@@ -44,6 +44,7 @@ from app.schemas.payment import (
 )
 from app.schemas.vk import VkLinkCodeRead
 from app.services.activity_feed import build_client_activity_feed
+from app.services.offer_savings import calculate_offer_saving_snapshot
 from app.services.privilege_verifications import (
     PRIVILEGE_VERIFICATION_TTL_SECONDS,
     apply_verification_status_filter,
@@ -548,17 +549,8 @@ def _get_or_create_client_profile(db: Session, user_id: int) -> ClientProfile:
 
 
 def _compute_saving_from_offer(offer: PartnerOffer | None) -> tuple[Decimal | None, Decimal | None, Decimal | None, Decimal]:
-    if offer is None or offer.base_price is None:
-        return None, None, offer.discount_percent if offer is not None else None, Decimal("0.00")
-    base_price = offer.base_price
-    discount_percent = offer.discount_percent
-    final_price: Decimal | None = None
-    if discount_percent is not None:
-        final_price = (base_price * (Decimal("1.00") - (discount_percent / Decimal("100.00")))).quantize(Decimal("0.01"))
-    if final_price is None:
-        return base_price, None, discount_percent, Decimal("0.00")
-    saving_amount = max((base_price - final_price).quantize(Decimal("0.01")), Decimal("0.00"))
-    return base_price, final_price, discount_percent, saving_amount
+    snapshot = calculate_offer_saving_snapshot(offer)
+    return snapshot.regular_price, snapshot.club_price, snapshot.discount_percent, snapshot.saving_amount
 
 
 def _client_profile_to_read(db: Session, profile: ClientProfile, user: User) -> ClientProfileRead:
