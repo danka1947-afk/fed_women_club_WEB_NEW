@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Literal, TypedDict
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class AuthPayload(TypedDict, total=False):
@@ -59,6 +59,9 @@ class VkMiniAppLoginResponse(BaseModel):
     token_type: str = "bearer"
     user: UnifiedUserRead
     client: "VkMiniAppClientRead"
+    generated_account: bool = False
+    profile_completed: bool = False
+    missing_fields: list[str] = Field(default_factory=list)
 
 
 class VkMiniAppClientRead(BaseModel):

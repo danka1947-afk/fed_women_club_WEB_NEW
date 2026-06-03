@@ -14,6 +14,7 @@ class Settings:
     ENV: str = _ENV
     DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./test.db")
     SECRET_KEY: str = os.getenv("SECRET_KEY", "change-me-test-secret")
+    SITE_CREDENTIALS_SECRET: str | None = os.getenv("SITE_CREDENTIALS_SECRET")
     JWT_SECRET_KEY: str = os.getenv("JWT_SECRET_KEY", _DEFAULT_JWT_SECRET)
     JWT_ALGORITHM: str = os.getenv("JWT_ALGORITHM", "HS256")
     ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "1440"))

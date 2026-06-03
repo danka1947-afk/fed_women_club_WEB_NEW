@@ -33,6 +33,9 @@ class User(Base):
     email: Mapped[str | None] = mapped_column(String(255), nullable=True, unique=True, index=True)
     phone: Mapped[str | None] = mapped_column(String(64), nullable=True, unique=True, index=True)
     password_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    site_login: Mapped[str | None] = mapped_column(String(255), nullable=True, unique=True, index=True)
+    encrypted_site_password: Mapped[str | None] = mapped_column(String(2048), nullable=True)
+    site_credentials_created_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     role: Mapped[str] = mapped_column(String(32), nullable=False, default=UserRole.CLIENT.value)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     created_at: Mapped[datetime] = mapped_column(
