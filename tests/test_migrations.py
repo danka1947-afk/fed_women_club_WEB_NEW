@@ -66,6 +66,26 @@ def test_migration_files_have_single_head_revision() -> None:
     assert heads == ["20260602_0017"]
 
 
+def test_20260602_0017_constraint_names_are_postgresql_safe() -> None:
+    path = Path("alembic/versions/20260602_0017_verification_confirmed_by_partner.py")
+    module = ast.parse(path.read_text())
+    constraint_names: list[str] = []
+
+    for node in ast.walk(module):
+        if not isinstance(node, ast.Call):
+            continue
+        if not isinstance(node.func, ast.Attribute):
+            continue
+        if node.func.attr not in {"create_foreign_key", "drop_constraint"}:
+            continue
+        if not node.args:
+            continue
+        constraint_names.append(ast.literal_eval(node.args[0]))
+
+    assert constraint_names == ["fk_pvs_confirmed_by_partner", "fk_pvs_confirmed_by_partner"]
+    assert all(len(name) <= 63 for name in constraint_names)
+
+
 def test_base_metadata_includes_domain_foundation_tables() -> None:
     assert {
         "users",

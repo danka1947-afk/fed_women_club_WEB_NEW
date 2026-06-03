@@ -25,7 +25,7 @@ def upgrade() -> None:
         ["confirmed_by_partner_id"],
     )
     op.create_foreign_key(
-        "fk_privilege_verification_sessions_confirmed_by_partner_id_partners",
+        "fk_pvs_confirmed_by_partner",
         "privilege_verification_sessions",
         "partners",
         ["confirmed_by_partner_id"],
@@ -35,7 +35,7 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     op.drop_constraint(
-        "fk_privilege_verification_sessions_confirmed_by_partner_id_partners",
+        "fk_pvs_confirmed_by_partner",
         "privilege_verification_sessions",
         type_="foreignkey",
     )
