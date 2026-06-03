@@ -286,6 +286,9 @@ class PartnerPrivilegeScanResponse(BaseModel):
     session_id: int
     status: str
     can_confirm: bool
+    estimated_saving_amount: Decimal | None = None
+    regular_price: Decimal | None = None
+    club_price: Decimal | None = None
     client: PartnerPrivilegeClientRead
     partner: PartnerPrivilegePartnerRead
     privilege: PartnerPrivilegeRead | None
