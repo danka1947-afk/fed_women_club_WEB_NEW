@@ -289,4 +289,4 @@ def test_expired_event_includes_active_sessions_past_expires_at() -> None:
 def test_no_migrations_required_alembic_heads_unchanged() -> None:
     result = subprocess.run(["alembic", "heads"], check=True, capture_output=True, text=True)
 
-    assert "20260602_0016" in result.stdout
+    assert "20260602_0017" in result.stdout

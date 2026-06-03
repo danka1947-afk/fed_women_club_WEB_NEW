@@ -32,6 +32,7 @@ class PrivilegeVerificationSession(Base):
     source: Mapped[str | None] = mapped_column(String(64), nullable=True)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    confirmed_by_partner_id: Mapped[int | None] = mapped_column(ForeignKey("partners.id"), nullable=True, index=True)
     saving_base_price: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
     saving_final_price: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
     saving_discount_percent: Mapped[Decimal | None] = mapped_column(Numeric(5, 2), nullable=True)
@@ -46,5 +47,6 @@ class PrivilegeVerificationSession(Base):
     )
 
     client: Mapped["ClientProfile"] = relationship("ClientProfile", back_populates="verification_sessions")
-    partner: Mapped["Partner"] = relationship("Partner", back_populates="verification_sessions")
+    partner: Mapped["Partner"] = relationship("Partner", back_populates="verification_sessions", foreign_keys=[partner_id])
     offer: Mapped["PartnerOffer | None"] = relationship("PartnerOffer", back_populates="verification_sessions")
+    confirmed_by_partner: Mapped["Partner | None"] = relationship("Partner", foreign_keys=[confirmed_by_partner_id])
