@@ -4,10 +4,12 @@ from datetime import datetime, time, timezone
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import func, select
+from fastapi.security import HTTPAuthorizationCredentials
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
-from app.api.deps import get_current_user
+from app.api.deps import bearer_scheme
+from app.core.security import create_access_token, decode_access_token, verify_password
 from app.db.session import get_db
 from app.models.client import ClientProfile
 from app.models.partner import Partner, PartnerOffer
@@ -15,6 +17,8 @@ from app.models.payment import Subscription, SubscriptionStatus
 from app.models.user import User, UserRole
 from app.models.verification import PrivilegeVerificationSession, PrivilegeVerificationStatus
 from app.schemas.partner import (
+    PartnerLoginRequest,
+    PartnerLoginResponse,
     PartnerMePartnerRead,
     PartnerMeResponse,
     PartnerPrivilegeClientRead,
@@ -32,6 +36,9 @@ router = APIRouter(prefix="/partner", tags=["partner"])
 
 PRIVILEGE_QR_PAYLOAD_PREFIX = "bloomclub:privilege:"
 PARTNER_ACCESS_REQUIRED_DETAIL = "Partner access required"
+INVALID_PARTNER_CREDENTIALS_DETAIL = "Invalid partner credentials"
+PARTNER_INACTIVE_DETAIL = "Partner is inactive"
+PARTNER_ACCESS_TOKEN_TYPE = "partner_access"
 QR_NOT_FOUND_DETAIL = "QR not found"
 QR_EXPIRED_DETAIL = "QR expired"
 QR_ALREADY_CONFIRMED_DETAIL = "QR already confirmed"
@@ -44,12 +51,32 @@ CONFIRMABLE_STATUSES = {
 }
 
 
+@router.post("/login", response_model=PartnerLoginResponse)
+def partner_login(payload: PartnerLoginRequest, db: Session = Depends(get_db)) -> PartnerLoginResponse:
+    user = _authenticate_partner_user(db, payload)
+    partner = _get_partner_by_owner_user_id(db, user.id, active_only=False)
+    if user.role != UserRole.PARTNER.value or partner is None:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=PARTNER_ACCESS_REQUIRED_DETAIL)
+    if not partner.is_active:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=PARTNER_INACTIVE_DETAIL)
+
+    token = create_access_token(
+        f"user:{user.id}",
+        additional_claims={
+            "typ": PARTNER_ACCESS_TOKEN_TYPE,
+            "role": UserRole.PARTNER.value,
+            "partner_id": partner.id,
+        },
+    )
+    return PartnerLoginResponse(access_token=token, partner=_partner_me_read(partner), stats=_partner_stats(db, partner.id))
+
+
 @router.get("/me", response_model=PartnerMeResponse)
 def read_partner_dashboard_me(
-    current_user: User = Depends(get_current_user),
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
     db: Session = Depends(get_db),
 ) -> PartnerMeResponse:
-    partner = _get_current_partner(db, current_user)
+    partner = _resolve_partner_from_credentials(db, credentials, allow_non_partner=True)
     if partner is None:
         return PartnerMeResponse(is_partner=False, partner=None, stats=None)
     return PartnerMeResponse(
@@ -62,10 +89,10 @@ def read_partner_dashboard_me(
 @router.post("/privileges/scan", response_model=PartnerPrivilegeScanResponse)
 def scan_partner_privilege(
     payload: PartnerPrivilegeScanRequest,
-    current_user: User = Depends(get_current_user),
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
     db: Session = Depends(get_db),
 ) -> PartnerPrivilegeScanResponse:
-    partner = _require_current_partner(db, current_user)
+    partner = _require_partner_from_credentials(db, credentials)
     now = datetime.now(timezone.utc)
     normalize_expired_verifications(db, now=now)
     session = _find_session_for_scan(db, payload)
@@ -76,10 +103,10 @@ def scan_partner_privilege(
 @router.post("/privileges/confirm", response_model=PartnerPrivilegeConfirmResponse)
 def confirm_partner_privilege(
     payload: PartnerPrivilegeConfirmRequest,
-    current_user: User = Depends(get_current_user),
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
     db: Session = Depends(get_db),
 ) -> PartnerPrivilegeConfirmResponse:
-    partner = _require_current_partner(db, current_user)
+    partner = _require_partner_from_credentials(db, credentials)
     now = datetime.now(timezone.utc)
     normalize_expired_verifications(db, now=now)
     session = db.execute(
@@ -112,19 +139,89 @@ def confirm_partner_privilege(
     )
 
 
-def _get_current_partner(db: Session, current_user: User) -> Partner | None:
-    if current_user.role != UserRole.PARTNER.value:
-        return None
-    return db.execute(
-        select(Partner).where(
-            Partner.owner_user_id == current_user.id,
-            Partner.is_active.is_(True),
+def _authenticate_partner_user(db: Session, payload: PartnerLoginRequest) -> User:
+    login_value = payload.login.strip()
+    email_value = login_value.lower()
+    unauthorized = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail=INVALID_PARTNER_CREDENTIALS_DETAIL,
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    user = db.execute(
+        select(User).where(
+            or_(
+                func.lower(User.email) == email_value,
+                User.phone == login_value,
+            )
         )
     ).scalars().first()
+    if user is None or not user.is_active or not user.password_hash:
+        raise unauthorized
+    if not verify_password(payload.password, user.password_hash):
+        raise unauthorized
+    return user
 
 
-def _require_current_partner(db: Session, current_user: User) -> Partner:
-    partner = _get_current_partner(db, current_user)
+def _get_partner_by_owner_user_id(db: Session, owner_user_id: int, *, active_only: bool = True) -> Partner | None:
+    conditions = [Partner.owner_user_id == owner_user_id]
+    if active_only:
+        conditions.append(Partner.is_active.is_(True))
+    return db.execute(select(Partner).where(*conditions)).scalars().first()
+
+
+def _get_partner_by_token_id(db: Session, partner_id: int) -> Partner:
+    partner = db.get(Partner, partner_id)
+    if partner is None:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=PARTNER_ACCESS_REQUIRED_DETAIL)
+    if not partner.is_active:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=PARTNER_INACTIVE_DETAIL)
+    return partner
+
+
+def _resolve_partner_from_credentials(
+    db: Session,
+    credentials: HTTPAuthorizationCredentials | None,
+    *,
+    allow_non_partner: bool = False,
+) -> Partner | None:
+    unauthorized = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Not authenticated",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    if credentials is None or credentials.scheme.lower() != "bearer":
+        raise unauthorized
+    try:
+        payload = decode_access_token(credentials.credentials)
+    except (TypeError, ValueError):
+        raise unauthorized from None
+
+    if payload.get("typ") == PARTNER_ACCESS_TOKEN_TYPE:
+        try:
+            partner_id = int(payload.get("partner_id"))
+        except (TypeError, ValueError):
+            raise unauthorized from None
+        return _get_partner_by_token_id(db, partner_id)
+
+    subject = payload.get("sub")
+    if not isinstance(subject, str) or not subject.startswith("user:"):
+        raise unauthorized
+    try:
+        user_id = int(subject.removeprefix("user:"))
+    except ValueError:
+        raise unauthorized from None
+    user = db.get(User, user_id)
+    if user is None or not user.is_active:
+        raise unauthorized
+    if user.role != UserRole.PARTNER.value:
+        if allow_non_partner:
+            return None
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=PARTNER_ACCESS_REQUIRED_DETAIL)
+    return _get_partner_by_owner_user_id(db, user.id)
+
+
+def _require_partner_from_credentials(db: Session, credentials: HTTPAuthorizationCredentials | None) -> Partner:
+    partner = _resolve_partner_from_credentials(db, credentials)
     if partner is None:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=PARTNER_ACCESS_REQUIRED_DETAIL)
     return partner
