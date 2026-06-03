@@ -197,6 +197,8 @@ def _create_verification(
     offer_id: int | None = None,
     status: str = PrivilegeVerificationStatus.active.value,
     expires_delta: timedelta = timedelta(minutes=15),
+    token: str | None = None,
+    code: str = "123456",
 ) -> int:
     now = datetime.now(timezone.utc)
     with _session(client) as session:
@@ -204,7 +206,8 @@ def _create_verification(
             client_id=client_id,
             partner_id=partner_id,
             offer_id=offer_id,
-            code="123456",
+            code=code,
+            token=token,
             status=status,
             source="test",
             expires_at=now + expires_delta,
@@ -980,3 +983,210 @@ def test_old_verify_response_remains_backward_compatible_and_includes_qr_fields(
     assert data["token"] != str(data["client_id"])
     assert data["qr_payload"] == f"bloomclub:privilege:{data['token']}"
     assert data["expires_at"]
+
+
+def test_partner_singular_me_non_partner_returns_false(verification_client: TestClient) -> None:
+    response = verification_client.get(
+        "/api/v1/partner/me",
+        headers=_auth_headers(_client_token(verification_client)),
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {"is_partner": False, "partner": None, "stats": None}
+
+
+def test_partner_singular_me_partner_returns_partner_and_stats(verification_client: TestClient) -> None:
+    response = verification_client.get(
+        "/api/v1/partner/me",
+        headers=_auth_headers(_partner_token(verification_client)),
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["is_partner"] is True
+    assert data["partner"] == {"id": 1, "name": "Alpha Beauty", "display_name": "Alpha Beauty", "is_active": True}
+    assert data["stats"] == {"confirmed_today": 0, "confirmed_month": 0, "savings_month": "0.00"}
+
+
+def test_non_partner_cannot_scan_or_confirm_singular_partner_qr(verification_client: TestClient) -> None:
+    response = verification_client.post(
+        "/api/v1/partner/privileges/scan",
+        json={"qr_payload": "bloomclub:privilege:nope"},
+        headers=_auth_headers(_client_token(verification_client)),
+    )
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Partner access required"
+
+    response = verification_client.post(
+        "/api/v1/partner/privileges/confirm",
+        json={"session_id": 1},
+        headers=_auth_headers(_client_token(verification_client)),
+    )
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Partner access required"
+
+
+def test_partner_can_scan_own_valid_qr_by_payload_and_code(verification_client: TestClient) -> None:
+    verification_id = _create_verification(
+        verification_client,
+        offer_id=1,
+        status=PrivilegeVerificationStatus.pending.value,
+        token="scan-token",
+        code="771772",
+    )
+
+    by_payload = verification_client.post(
+        "/api/v1/partner/privileges/scan",
+        json={"qr_payload": "bloomclub:privilege:scan-token"},
+        headers=_auth_headers(_partner_token(verification_client)),
+    )
+    assert by_payload.status_code == 200
+    data = by_payload.json()
+    assert data["session_id"] == verification_id
+    assert data["status"] == PrivilegeVerificationStatus.pending.value
+    assert data["can_confirm"] is True
+    assert data["client"] == {"display_name": "Client One", "subscription_active": True}
+    assert data["partner"] == {"id": 1, "name": "Alpha Beauty"}
+    assert data["privilege"] == {"id": 1, "title": "Active Discount"}
+    assert data["expires_at"]
+
+    by_code = verification_client.post(
+        "/api/v1/partner/privileges/scan",
+        json={"code": "771772"},
+        headers=_auth_headers(_partner_token(verification_client)),
+    )
+    assert by_code.status_code == 200
+    assert by_code.json()["session_id"] == verification_id
+
+
+def test_partner_scan_controlled_errors(verification_client: TestClient) -> None:
+    not_found = verification_client.post(
+        "/api/v1/partner/privileges/scan",
+        json={"qr_payload": "bloomclub:privilege:missing"},
+        headers=_auth_headers(_partner_token(verification_client)),
+    )
+    assert not_found.status_code == 404
+    assert not_found.json()["detail"] == "QR not found"
+
+    expired_id = _create_verification(
+        verification_client,
+        token="expired-token",
+        expires_delta=timedelta(minutes=-1),
+    )
+    expired = verification_client.post(
+        "/api/v1/partner/privileges/scan",
+        json={"qr_payload": "bloomclub:privilege:expired-token"},
+        headers=_auth_headers(_partner_token(verification_client)),
+    )
+    assert expired.status_code == 400
+    assert expired.json()["detail"] == "QR expired"
+    with _session(verification_client) as session:
+        assert session.get(PrivilegeVerificationSession, expired_id).status == PrivilegeVerificationStatus.expired.value
+
+    confirmed = _create_verification(
+        verification_client,
+        token="confirmed-token",
+        status=PrivilegeVerificationStatus.confirmed.value,
+    )
+    response = verification_client.post(
+        "/api/v1/partner/privileges/scan",
+        json={"qr_payload": "bloomclub:privilege:confirmed-token"},
+        headers=_auth_headers(_partner_token(verification_client)),
+    )
+    assert confirmed
+    assert response.status_code == 400
+    assert response.json()["detail"] == "QR already confirmed"
+
+    _create_verification(verification_client, partner_id=2, token="other-partner-token")
+    another_partner = verification_client.post(
+        "/api/v1/partner/privileges/scan",
+        json={"qr_payload": "bloomclub:privilege:other-partner-token"},
+        headers=_auth_headers(_partner_token(verification_client)),
+    )
+    assert another_partner.status_code == 403
+    assert another_partner.json()["detail"] == "QR belongs to another partner"
+
+
+def test_partner_can_confirm_own_qr_and_stats_update(verification_client: TestClient) -> None:
+    verification_id = _create_verification(
+        verification_client,
+        offer_id=1,
+        status=PrivilegeVerificationStatus.pending.value,
+        token="confirm-token",
+    )
+
+    response = verification_client.post(
+        "/api/v1/partner/privileges/confirm",
+        json={"session_id": verification_id, "saving_amount": 500, "comment": "ok"},
+        headers=_auth_headers(_partner_token(verification_client)),
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == PrivilegeVerificationStatus.confirmed.value
+    assert data["confirmed_at"] is not None
+    assert data["saving_amount"] == "500.00"
+    with _session(verification_client) as session:
+        stored = session.get(PrivilegeVerificationSession, verification_id)
+        assert stored.status == PrivilegeVerificationStatus.confirmed.value
+        assert stored.confirmed_at is not None
+        assert stored.confirmed_by_partner_id == 1
+        assert stored.saving_amount == 500
+        assert stored.saving_used_at is not None
+
+    stats = verification_client.get(
+        "/api/v1/partner/me",
+        headers=_auth_headers(_partner_token(verification_client)),
+    )
+    assert stats.status_code == 200
+    assert stats.json()["stats"] == {"confirmed_today": 1, "confirmed_month": 1, "savings_month": "500.00"}
+
+
+def test_partner_confirm_controlled_errors(verification_client: TestClient) -> None:
+    confirmed_id = _create_verification(
+        verification_client,
+        status=PrivilegeVerificationStatus.confirmed.value,
+        token="already-confirmed",
+    )
+    response = verification_client.post(
+        "/api/v1/partner/privileges/confirm",
+        json={"session_id": confirmed_id},
+        headers=_auth_headers(_partner_token(verification_client)),
+    )
+    assert response.status_code == 400
+    assert response.json()["detail"] == "QR already confirmed"
+
+    other_partner_id = _create_verification(verification_client, partner_id=2, token="confirm-other-partner")
+    response = verification_client.post(
+        "/api/v1/partner/privileges/confirm",
+        json={"session_id": other_partner_id},
+        headers=_auth_headers(_partner_token(verification_client)),
+    )
+    assert response.status_code == 403
+    assert response.json()["detail"] == "QR belongs to another partner"
+
+    expired_id = _create_verification(verification_client, token="confirm-expired", expires_delta=timedelta(minutes=-1))
+    response = verification_client.post(
+        "/api/v1/partner/privileges/confirm",
+        json={"session_id": expired_id},
+        headers=_auth_headers(_partner_token(verification_client)),
+    )
+    assert response.status_code == 400
+    assert response.json()["detail"] == "QR expired"
+
+
+def test_partner_confirm_requires_active_client_subscription(verification_client: TestClient) -> None:
+    verification_id = _create_verification(
+        verification_client,
+        client_id=2,
+        token="inactive-subscription-client",
+    )
+
+    response = verification_client.post(
+        "/api/v1/partner/privileges/confirm",
+        json={"session_id": verification_id},
+        headers=_auth_headers(_partner_token(verification_client)),
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Active subscription required"

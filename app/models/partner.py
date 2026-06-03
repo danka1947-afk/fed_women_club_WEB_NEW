@@ -57,6 +57,7 @@ class Partner(Base):
     verification_sessions: Mapped[list["PrivilegeVerificationSession"]] = relationship(
         "PrivilegeVerificationSession",
         back_populates="partner",
+        foreign_keys="PrivilegeVerificationSession.partner_id",
     )
     categories: Mapped[list["Category"]] = relationship(
         "Category",

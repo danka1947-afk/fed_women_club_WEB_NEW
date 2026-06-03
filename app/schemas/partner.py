@@ -229,3 +229,64 @@ class PublicLandingPartnerCard(BaseModel):
 
 class PublicLandingPartnerListResponse(BaseModel):
     items: list[PublicLandingPartnerCard]
+
+
+class PartnerStats(BaseModel):
+    confirmed_today: int
+    confirmed_month: int
+    savings_month: Decimal
+
+
+class PartnerMePartnerRead(BaseModel):
+    id: int
+    name: str
+    display_name: str
+    is_active: bool
+
+
+class PartnerMeResponse(BaseModel):
+    is_partner: bool
+    partner: PartnerMePartnerRead | None
+    stats: PartnerStats | None
+
+
+class PartnerPrivilegeScanRequest(BaseModel):
+    qr_payload: str | None = None
+    code: str | None = None
+
+
+class PartnerPrivilegeClientRead(BaseModel):
+    display_name: str | None
+    subscription_active: bool
+
+
+class PartnerPrivilegePartnerRead(BaseModel):
+    id: int
+    name: str
+
+
+class PartnerPrivilegeRead(BaseModel):
+    id: int
+    title: str
+
+
+class PartnerPrivilegeScanResponse(BaseModel):
+    session_id: int
+    status: str
+    can_confirm: bool
+    client: PartnerPrivilegeClientRead
+    partner: PartnerPrivilegePartnerRead
+    privilege: PartnerPrivilegeRead | None
+    expires_at: datetime
+
+
+class PartnerPrivilegeConfirmRequest(BaseModel):
+    session_id: int
+    saving_amount: Decimal | None = Field(default=None, ge=0)
+    comment: str | None = None
+
+
+class PartnerPrivilegeConfirmResponse(BaseModel):
+    status: str
+    confirmed_at: datetime | None
+    saving_amount: Decimal | None
