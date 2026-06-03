@@ -250,6 +250,18 @@ class PartnerMeResponse(BaseModel):
     stats: PartnerStats | None
 
 
+class PartnerLoginRequest(BaseModel):
+    login: str
+    password: str
+
+
+class PartnerLoginResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    partner: PartnerMePartnerRead
+    stats: PartnerStats
+
+
 class PartnerPrivilegeScanRequest(BaseModel):
     qr_payload: str | None = None
     code: str | None = None

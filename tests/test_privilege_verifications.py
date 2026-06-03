@@ -67,7 +67,14 @@ def verification_client() -> Generator[TestClient, None, None]:
             role=UserRole.PARTNER.value,
             is_active=True,
         )
-        session.add_all([admin, client_user, other_client_user, partner_user, other_partner_user])
+        inactive_partner_user = User(
+            email="inactive-partner@example.com",
+            phone="+79990000005",
+            password_hash=hash_password("InactivePartnerPassword123"),
+            role=UserRole.PARTNER.value,
+            is_active=True,
+        )
+        session.add_all([admin, client_user, other_client_user, partner_user, other_partner_user, inactive_partner_user])
         session.flush()
 
         city = City(name="Москва", slug="moscow", is_active=True, sort_order=10)
@@ -110,6 +117,7 @@ def verification_client() -> Generator[TestClient, None, None]:
         )
         inactive_partner = Partner(
             city_id=city.id,
+            owner_user_id=inactive_partner_user.id,
             name="Hidden Partner",
             is_active=False,
             is_verified=False,
@@ -183,6 +191,12 @@ def _partner_token(client: TestClient) -> str:
 
 def _other_partner_token(client: TestClient) -> str:
     return _user_login(client, "other-partner@example.com", "OtherPartnerPassword123")
+
+
+def _partner_miniapp_token(client: TestClient, login: str = "partner@example.com", password: str = "PartnerPassword123") -> str:
+    response = client.post("/api/v1/partner/login", json={"login": login, "password": password})
+    assert response.status_code == 200
+    return str(response.json()["access_token"])
 
 
 def _session(client: TestClient) -> Session:
@@ -983,6 +997,111 @@ def test_old_verify_response_remains_backward_compatible_and_includes_qr_fields(
     assert data["token"] != str(data["client_id"])
     assert data["qr_payload"] == f"bloomclub:privilege:{data['token']}"
     assert data["expires_at"]
+
+
+def test_partner_login_valid_credentials_returns_partner_access_token(verification_client: TestClient) -> None:
+    response = verification_client.post(
+        "/api/v1/partner/login",
+        json={"login": "partner@example.com", "password": "PartnerPassword123"},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["access_token"]
+    assert data["token_type"] == "bearer"
+    assert data["partner"] == {"id": 1, "name": "Alpha Beauty", "display_name": "Alpha Beauty", "is_active": True}
+    assert data["stats"] == {"confirmed_today": 0, "confirmed_month": 0, "savings_month": "0.00"}
+    assert "password" not in str(data).lower()
+    assert "password_hash" not in str(data).lower()
+
+
+def test_partner_login_invalid_password_returns_controlled_401(verification_client: TestClient) -> None:
+    response = verification_client.post(
+        "/api/v1/partner/login",
+        json={"login": "partner@example.com", "password": "WrongPassword123"},
+    )
+
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Invalid partner credentials"
+
+
+def test_partner_login_non_partner_user_returns_403(verification_client: TestClient) -> None:
+    response = verification_client.post(
+        "/api/v1/partner/login",
+        json={"login": "client@example.com", "password": "ClientPassword123"},
+    )
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Partner access required"
+
+
+def test_partner_login_inactive_partner_returns_403(verification_client: TestClient) -> None:
+    response = verification_client.post(
+        "/api/v1/partner/login",
+        json={"login": "inactive-partner@example.com", "password": "InactivePartnerPassword123"},
+    )
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Partner is inactive"
+
+
+def test_partner_login_token_can_call_partner_me(verification_client: TestClient) -> None:
+    response = verification_client.get(
+        "/api/v1/partner/me",
+        headers=_auth_headers(_partner_miniapp_token(verification_client)),
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["is_partner"] is True
+    assert data["partner"]["id"] == 1
+
+
+def test_partner_login_token_can_scan_and_confirm(verification_client: TestClient) -> None:
+    token = _partner_miniapp_token(verification_client)
+    verification_id = _create_verification(
+        verification_client,
+        offer_id=1,
+        status=PrivilegeVerificationStatus.pending.value,
+        token="miniapp-token",
+    )
+
+    scan = verification_client.post(
+        "/api/v1/partner/privileges/scan",
+        json={"qr_payload": "bloomclub:privilege:miniapp-token"},
+        headers=_auth_headers(token),
+    )
+    assert scan.status_code == 200
+    assert scan.json()["session_id"] == verification_id
+
+    confirm = verification_client.post(
+        "/api/v1/partner/privileges/confirm",
+        json={"session_id": verification_id, "saving_amount": 125},
+        headers=_auth_headers(token),
+    )
+    assert confirm.status_code == 200
+    assert confirm.json()["saving_amount"] == "125.00"
+
+
+def test_partner_scan_and_confirm_without_token_fail(verification_client: TestClient) -> None:
+    scan = verification_client.post("/api/v1/partner/privileges/scan", json={"qr_payload": "bloomclub:privilege:nope"})
+    assert scan.status_code == 401
+
+    confirm = verification_client.post("/api/v1/partner/privileges/confirm", json={"session_id": 1})
+    assert confirm.status_code == 401
+
+
+def test_partner_access_token_cannot_confirm_another_partner_qr(verification_client: TestClient) -> None:
+    verification_id = _create_verification(verification_client, partner_id=2, token="another-partner-qr")
+
+    response = verification_client.post(
+        "/api/v1/partner/privileges/confirm",
+        json={"session_id": verification_id},
+        headers=_auth_headers(_partner_miniapp_token(verification_client)),
+    )
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "QR belongs to another partner"
 
 
 def test_partner_singular_me_non_partner_returns_false(verification_client: TestClient) -> None:

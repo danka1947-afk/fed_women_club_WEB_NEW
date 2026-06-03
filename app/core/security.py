@@ -146,11 +146,17 @@ def hash_password_setup_token(token: str) -> str:
     ).hexdigest()
 
 
-def create_access_token(subject: str, expires_delta: timedelta | None = None) -> str:
+def create_access_token(
+    subject: str,
+    expires_delta: timedelta | None = None,
+    additional_claims: dict[str, Any] | None = None,
+) -> str:
     expire = datetime.now(timezone.utc) + (
         expires_delta or timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     )
     payload: dict[str, Any] = {"sub": subject, "exp": int(expire.timestamp())}
+    if additional_claims is not None:
+        payload.update(additional_claims)
     if importlib.util.find_spec("jose") is not None:
         from jose import jwt
 
