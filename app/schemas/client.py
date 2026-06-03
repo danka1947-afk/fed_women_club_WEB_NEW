@@ -19,10 +19,18 @@ class ClientProfileRead(BaseModel):
     custom_city: str | None = None
     city_name: str | None = None
     vk_user_id: str | None
+    site_login: str | None = None
+    site_password_masked: str | None = None
+    site_password_available: bool = False
     source: str | None
     is_active: bool
 
     model_config = {"from_attributes": True}
+
+
+class ClientSiteCredentialsRead(BaseModel):
+    site_login: str
+    site_password: str
 
 
 class ClientProfileUpdate(BaseModel):

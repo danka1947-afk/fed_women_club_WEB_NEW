@@ -15,12 +15,13 @@ from sqlalchemy.pool import StaticPool
 
 import app.models  # noqa: F401
 from app.core.config import settings
-from app.core.security import hash_password
+from app.core.security import decode_access_token, hash_password, verify_password
 from app.db.base import Base
 from app.db.session import get_db
 from app.main import app
 from app.models.client import ClientProfile
 from app.models.user import User, UserRole
+from app.services.site_credentials import decrypt_site_password
 from app.services.vk_miniapp_auth import (
     extract_vk_user_id,
     parse_launch_params,
@@ -333,3 +334,177 @@ def test_runtime_info_returns_vk_miniapp_handler_marker(vk_miniapp_client: TestC
         "handler": "vk-miniapp-login-v2",
         "endpoint": "/api/v1/auth/vk-miniapp-login",
     }
+
+
+
+def test_vk_miniapp_first_login_creates_site_credentials(vk_miniapp_client: TestClient) -> None:
+    response = vk_miniapp_client.post(
+        "/api/v1/auth/vk-miniapp-login",
+        json={"launch_params": _build_launch_params(vk_user_id="555001")},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["generated_account"] is True
+    assert body["client"]["vk_user_id"] == "555001"
+    assert "site_password" not in body
+    assert "site_password" not in body["user"]
+    assert body["access_token"]
+
+    payload = decode_access_token(body["access_token"])
+    assert "site_password" not in payload
+
+    session_gen = app.dependency_overrides[get_db]()
+    session = next(session_gen)
+    try:
+        profile = session.execute(select(ClientProfile).where(ClientProfile.vk_user_id == "555001")).scalar_one()
+        user = session.get(User, profile.user_id)
+        assert user is not None
+        assert user.site_login == "bloom_vk_555001"
+        assert user.password_hash is not None
+        assert user.encrypted_site_password is not None
+        assert user.site_credentials_created_at is not None
+        plain_password = decrypt_site_password(user.encrypted_site_password)
+        assert plain_password != user.password_hash
+        assert verify_password(plain_password, user.password_hash)
+    finally:
+        session_gen.close()
+
+
+def test_vk_miniapp_repeated_login_reuses_same_account_and_credentials(vk_miniapp_client: TestClient) -> None:
+    launch_params = _build_launch_params(vk_user_id="555002")
+    first = vk_miniapp_client.post("/api/v1/auth/vk-miniapp-login", json={"launch_params": launch_params})
+    assert first.status_code == 200
+
+    session_gen = app.dependency_overrides[get_db]()
+    session = next(session_gen)
+    try:
+        profile = session.execute(select(ClientProfile).where(ClientProfile.vk_user_id == "555002")).scalar_one()
+        user = session.get(User, profile.user_id)
+        first_user_id = user.id
+        first_profile_id = profile.id
+        first_site_login = user.site_login
+        first_password_hash = user.password_hash
+        first_encrypted_password = user.encrypted_site_password
+    finally:
+        session_gen.close()
+
+    second = vk_miniapp_client.post("/api/v1/auth/vk-miniapp-login", json={"launch_params": launch_params})
+    assert second.status_code == 200
+    assert second.json()["generated_account"] is False
+
+    session_gen = app.dependency_overrides[get_db]()
+    session = next(session_gen)
+    try:
+        profiles = session.execute(select(ClientProfile).where(ClientProfile.vk_user_id == "555002")).scalars().all()
+        assert len(profiles) == 1
+        user_count = session.query(User).count()
+        assert user_count == 2
+        profile = profiles[0]
+        user = session.get(User, profile.user_id)
+        assert profile.id == first_profile_id
+        assert user.id == first_user_id
+        assert user.site_login == first_site_login
+        assert user.password_hash == first_password_hash
+        assert user.encrypted_site_password == first_encrypted_password
+    finally:
+        session_gen.close()
+
+
+def test_vk_miniapp_generated_site_login_works_for_user_login(vk_miniapp_client: TestClient) -> None:
+    login_response = vk_miniapp_client.post(
+        "/api/v1/auth/vk-miniapp-login",
+        json={"launch_params": _build_launch_params(vk_user_id="555003")},
+    )
+    token = login_response.json()["access_token"]
+    credentials_response = vk_miniapp_client.get(
+        "/api/v1/clients/me/site-credentials",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert credentials_response.status_code == 200
+    credentials = credentials_response.json()
+
+    response = vk_miniapp_client.post(
+        "/api/v1/auth/user-login",
+        json={"login": credentials["site_login"], "password": credentials["site_password"]},
+    )
+    assert response.status_code == 200
+    assert response.json()["user"]["role"] == UserRole.CLIENT.value
+
+
+def test_client_profile_exposes_masked_site_credentials_only(vk_miniapp_client: TestClient) -> None:
+    login_response = vk_miniapp_client.post(
+        "/api/v1/auth/vk-miniapp-login",
+        json={"launch_params": _build_launch_params(vk_user_id="555004")},
+    )
+    token = login_response.json()["access_token"]
+
+    response = vk_miniapp_client.get("/api/v1/clients/me", headers={"Authorization": f"Bearer {token}"})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["site_login"] == "bloom_vk_555004"
+    assert body["site_password_masked"] == "*****"
+    assert body["site_password_available"] is True
+    assert "site_password" not in body
+
+
+def test_site_credentials_endpoint_requires_auth(vk_miniapp_client: TestClient) -> None:
+    response = vk_miniapp_client.get("/api/v1/clients/me/site-credentials")
+
+    assert response.status_code == 401
+
+
+def test_site_credentials_endpoint_returns_only_current_client_credentials(vk_miniapp_client: TestClient) -> None:
+    first = vk_miniapp_client.post(
+        "/api/v1/auth/vk-miniapp-login",
+        json={"launch_params": _build_launch_params(vk_user_id="555005")},
+    ).json()
+    second = vk_miniapp_client.post(
+        "/api/v1/auth/vk-miniapp-login",
+        json={"launch_params": _build_launch_params(vk_user_id="555006")},
+    ).json()
+
+    first_credentials = vk_miniapp_client.get(
+        "/api/v1/clients/me/site-credentials",
+        headers={"Authorization": f"Bearer {first['access_token']}"},
+    ).json()
+    second_credentials = vk_miniapp_client.get(
+        "/api/v1/clients/me/site-credentials",
+        headers={"Authorization": f"Bearer {second['access_token']}"},
+    ).json()
+
+    assert first_credentials["site_login"] == "bloom_vk_555005"
+    assert second_credentials["site_login"] == "bloom_vk_555006"
+    assert first_credentials["site_password"] != second_credentials["site_password"]
+
+
+def test_client_profile_patch_updates_profile_fields_without_changing_credentials(vk_miniapp_client: TestClient) -> None:
+    login_response = vk_miniapp_client.post(
+        "/api/v1/auth/vk-miniapp-login",
+        json={"launch_params": _build_launch_params(vk_user_id="555007")},
+    )
+    token = login_response.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+    before = vk_miniapp_client.get("/api/v1/clients/me/site-credentials", headers=headers).json()
+
+    response = vk_miniapp_client.patch(
+        "/api/v1/clients/me",
+        headers=headers,
+        json={
+            "name": "Анна Клиент",
+            "phone": "+79995550707",
+            "email": "anna.client@example.com",
+            "city": "Новосибирск",
+        },
+    )
+
+    assert response.status_code == 200
+    profile = response.json()
+    assert profile["full_name"] == "Анна Клиент"
+    assert profile["phone"] == "+79995550707"
+    assert profile["email"] == "anna.client@example.com"
+    assert profile["contact_email"] == "anna.client@example.com"
+    assert profile["city"] == "Новосибирск"
+    after = vk_miniapp_client.get("/api/v1/clients/me/site-credentials", headers=headers).json()
+    assert after == before

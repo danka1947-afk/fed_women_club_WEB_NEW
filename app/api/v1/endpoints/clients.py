@@ -6,7 +6,7 @@ import secrets
 import string
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.api.deps import require_client
@@ -21,6 +21,7 @@ from app.models.verification import PrivilegeVerificationSession, PrivilegeVerif
 from app.models.user import User
 from app.schemas.activity import ActivityFeedRead
 from app.schemas.client import (
+    ClientSiteCredentialsRead,
     ClientCityResponse,
     ClientCreateVerificationRequest,
     ClientPartnerCatalogItem,
@@ -45,6 +46,10 @@ from app.schemas.payment import (
 from app.schemas.vk import VkLinkCodeRead
 from app.services.activity_feed import build_client_activity_feed
 from app.services.offer_savings import calculate_offer_saving_snapshot
+from app.services.site_credentials import (
+    decrypt_site_password,
+    ensure_client_site_credentials,
+)
 from app.services.privilege_verifications import (
     PRIVILEGE_VERIFICATION_TTL_SECONDS,
     apply_verification_status_filter,
@@ -74,6 +79,27 @@ def read_client_me(
 ) -> ClientProfileRead:
     profile = _get_or_create_client_profile(db, current_user.id)
     return _client_profile_to_read(db, profile, current_user)
+
+
+
+
+@router.get("/me/site-credentials", response_model=ClientSiteCredentialsRead)
+def read_client_site_credentials(
+    current_user: User = Depends(require_client),
+    db: Session = Depends(get_db),
+) -> ClientSiteCredentialsRead:
+    _get_or_create_client_profile(db, current_user.id)
+    generated_credentials, plain_password = ensure_client_site_credentials(db, current_user)
+    if generated_credentials:
+        db.commit()
+        db.refresh(current_user)
+    if not current_user.site_login or (plain_password is None and not current_user.encrypted_site_password):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Site credentials are not available",
+        )
+    site_password = plain_password or decrypt_site_password(current_user.encrypted_site_password)
+    return ClientSiteCredentialsRead(site_login=current_user.site_login, site_password=site_password)
 
 
 @router.get("/cities", response_model=list[ClientCityResponse])
@@ -127,12 +153,17 @@ def update_client_me(
         profile.custom_city = None
 
     if "phone" in update_data:
-        current_user.phone = _normalize_phone(update_data["phone"])
+        normalized_phone = _normalize_phone(update_data["phone"])
+        _ensure_unique_user_phone(db, normalized_phone, current_user.id)
+        current_user.phone = normalized_phone
 
     if "contact_email" in update_data:
         profile.contact_email = _normalize_email(update_data["contact_email"])
     elif "email" in update_data:
-        profile.contact_email = _normalize_email(update_data["email"])
+        normalized_email = _normalize_email(update_data["email"])
+        _ensure_unique_user_email(db, normalized_email, current_user.id)
+        profile.contact_email = normalized_email
+        current_user.email = normalized_email
 
     db.commit()
     db.refresh(profile)
@@ -572,10 +603,31 @@ def _client_profile_to_read(db: Session, profile: ClientProfile, user: User) -> 
             "custom_city": profile.custom_city,
             "city_name": city_name,
             "vk_user_id": profile.vk_user_id,
+            "site_login": user.site_login,
+            "site_password_masked": "*****" if user.encrypted_site_password else None,
+            "site_password_available": bool(user.encrypted_site_password),
             "source": profile.source,
             "is_active": profile.is_active,
         }
     )
+
+
+def _ensure_unique_user_phone(db: Session, phone: str | None, current_user_id: int) -> None:
+    if phone is None:
+        return
+    existing_id = db.execute(select(User.id).where(User.phone == phone, User.id != current_user_id)).scalar_one_or_none()
+    if existing_id is not None:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Phone is already used")
+
+
+def _ensure_unique_user_email(db: Session, email: str | None, current_user_id: int) -> None:
+    if email is None:
+        return
+    existing_id = db.execute(
+        select(User.id).where(func.lower(User.email) == email.lower(), User.id != current_user_id)
+    ).scalar_one_or_none()
+    if existing_id is not None:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email is already used")
 
 
 def _generate_vk_link_code(db: Session) -> str:

@@ -63,7 +63,7 @@ def test_migration_files_have_single_head_revision() -> None:
     assert missing_references == []
 
     heads = sorted(set(revisions) - referenced_revisions)
-    assert heads == ["20260602_0017"]
+    assert heads == ["20260603_0018"]
 
 
 def test_20260602_0017_constraint_names_are_postgresql_safe() -> None:
@@ -84,6 +84,26 @@ def test_20260602_0017_constraint_names_are_postgresql_safe() -> None:
 
     assert constraint_names == ["fk_pvs_confirmed_by_partner", "fk_pvs_confirmed_by_partner"]
     assert all(len(name) <= 63 for name in constraint_names)
+
+
+def test_20260603_0018_index_names_are_postgresql_safe() -> None:
+    path = Path("alembic/versions/20260603_0018_site_credentials.py")
+    module = ast.parse(path.read_text())
+    index_names: list[str] = []
+
+    for node in ast.walk(module):
+        if not isinstance(node, ast.Call):
+            continue
+        if not isinstance(node.func, ast.Attribute):
+            continue
+        if node.func.attr not in {"create_index", "drop_index"}:
+            continue
+        if not node.args:
+            continue
+        index_names.append(ast.literal_eval(node.args[0]))
+
+    assert index_names == ["ix_users_site_login", "ix_users_site_login"]
+    assert all(len(name) <= 63 for name in index_names)
 
 
 def test_base_metadata_includes_domain_foundation_tables() -> None:

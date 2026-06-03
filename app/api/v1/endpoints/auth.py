@@ -20,6 +20,7 @@ from app.db.session import get_db
 from app.models.client import ClientPasswordSetupToken
 from app.models.client import ClientProfile
 from app.models.user import AdminUser, User, UserRole
+from app.services.site_credentials import ensure_vk_site_credentials
 from app.schemas.auth import (
     LoginRequest,
     LoginResponse,
@@ -79,6 +80,7 @@ def user_login(payload: UserLoginRequest, db: Session = Depends(get_db)) -> Unif
             or_(
                 func.lower(User.email) == email_value,
                 User.phone == login_value,
+                func.lower(User.site_login) == email_value,
             )
         )
     )
@@ -139,14 +141,20 @@ def _get_or_create_vk_client_profile(
     db: Session,
     vk_user_id: str,
     params: dict[str, str],
-) -> ClientProfile:
+) -> tuple[ClientProfile, bool, bool]:
     profile = db.execute(
         select(ClientProfile)
         .options(joinedload(ClientProfile.user))
         .where(ClientProfile.vk_user_id == vk_user_id)
     ).scalar_one_or_none()
     if profile is not None:
-        return profile
+        if profile.user is None:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Client user is inactive or invalid")
+        generated_credentials, _ = ensure_vk_site_credentials(db, profile.user, vk_user_id)
+        if generated_credentials:
+            db.commit()
+            db.refresh(profile)
+        return profile, False, generated_credentials
 
     user = User(role=UserRole.CLIENT.value, is_active=True)
     db.add(user)
@@ -160,9 +168,10 @@ def _get_or_create_vk_client_profile(
         is_active=True,
     )
     db.add(profile)
+    generated_credentials, _ = ensure_vk_site_credentials(db, user, vk_user_id)
     db.commit()
     db.refresh(profile)
-    return profile
+    return profile, True, generated_credentials
 
 
 @router.post("/vk-miniapp-login", response_model=VkMiniAppLoginResponse)
@@ -178,7 +187,7 @@ def vk_miniapp_login(
     validate_vk_ts_freshness(params)
     vk_user_id = extract_vk_user_id(params)
 
-    profile = _get_or_create_vk_client_profile(db, vk_user_id, params)
+    profile, created_profile, generated_credentials = _get_or_create_vk_client_profile(db, vk_user_id, params)
     user = profile.user
     if user is None or not user.is_active or user.role != UserRole.CLIENT.value:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Client user is inactive or invalid")
@@ -187,6 +196,9 @@ def vk_miniapp_login(
         access_token=create_access_token(f"user:{user.id}"),
         user=UnifiedUserRead.model_validate(user),
         client=profile,
+        generated_account=created_profile or generated_credentials,
+        profile_completed=_is_vk_profile_completed(profile, user),
+        missing_fields=_vk_profile_missing_fields(profile, user),
     )
 
 
@@ -237,7 +249,7 @@ def complete_password_setup(
 
     return PasswordSetupCompleteResponse(
         ok=True,
-        login=user.email or user.phone,
+        login=user.site_login or user.email or user.phone,
         message="Password has been set",
     )
 
@@ -251,3 +263,20 @@ def _ensure_aware_utc(value: datetime) -> datetime:
     if value.tzinfo is None:
         return value.replace(tzinfo=timezone.utc)
     return value.astimezone(timezone.utc)
+
+
+def _vk_profile_missing_fields(profile: ClientProfile, user: User) -> list[str]:
+    missing: list[str] = []
+    if not profile.full_name:
+        missing.append("name")
+    if not user.phone:
+        missing.append("phone")
+    if not (profile.contact_email or user.email):
+        missing.append("email")
+    if profile.selected_city_id is None and not profile.custom_city:
+        missing.append("city")
+    return missing
+
+
+def _is_vk_profile_completed(profile: ClientProfile, user: User) -> bool:
+    return not _vk_profile_missing_fields(profile, user)
