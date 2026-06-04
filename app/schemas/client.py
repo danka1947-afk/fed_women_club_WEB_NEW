@@ -141,6 +141,12 @@ class ClientVerificationRead(BaseModel):
     confirmed_at: datetime | None
     created_at: datetime
     ttl_seconds: int | None
+    regular_price: Decimal | None = None
+    club_price: Decimal | None = None
+    base_price: Decimal | None = None
+    final_price: Decimal | None = None
+    discount_percent: Decimal | None = None
+    saving_amount: Decimal | None = None
     subscription_required: bool = False
 
 
