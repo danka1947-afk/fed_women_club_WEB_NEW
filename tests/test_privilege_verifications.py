@@ -678,6 +678,106 @@ def test_client_verification_status_filters_normalize_expired_and_support_all_us
         assert stored.status == PrivilegeVerificationStatus.expired.value
 
 
+
+def test_client_get_confirmed_verification_returns_saved_price_snapshot(verification_client: TestClient) -> None:
+    verification_id = _create_verification(
+        verification_client,
+        client_id=1,
+        partner_id=1,
+        offer_id=1,
+        status=PrivilegeVerificationStatus.confirmed.value,
+    )
+    with _session(verification_client) as session:
+        stored = session.get(PrivilegeVerificationSession, verification_id)
+        assert stored is not None
+        stored.saving_base_price = 3000
+        stored.saving_final_price = 2100
+        stored.saving_discount_percent = 30
+        stored.saving_amount = 900
+        stored.saving_partner_name = "Snapshot Partner"
+        stored.saving_offer_title = "Snapshot Privilege"
+        session.commit()
+
+    response = verification_client.get(
+        "/api/v1/clients/me/verifications?status=confirmed",
+        headers=_auth_headers(_client_token(verification_client)),
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) == 1
+    item = data[0]
+    assert item["id"] == verification_id
+    assert item["partner_name"] == "Snapshot Partner"
+    assert item["offer_title"] == "Snapshot Privilege"
+    assert item["regular_price"] == "3000.00"
+    assert item["club_price"] == "2100.00"
+    assert item["base_price"] == "3000.00"
+    assert item["final_price"] == "2100.00"
+    assert item["discount_percent"] == "30.00"
+    assert item["saving_amount"] == "900.00"
+
+
+def test_client_get_active_verification_with_offer_returns_price_preview(verification_client: TestClient) -> None:
+    verification_id = _create_verification(
+        verification_client,
+        client_id=1,
+        partner_id=1,
+        offer_id=5,
+        status=PrivilegeVerificationStatus.active.value,
+    )
+
+    response = verification_client.get(
+        "/api/v1/clients/me/verifications?status=active",
+        headers=_auth_headers(_client_token(verification_client)),
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) == 1
+    item = data[0]
+    assert item["id"] == verification_id
+    assert item["partner_name"] == "Alpha Beauty"
+    assert item["offer_title"] == "Selected Spa"
+    assert item["regular_price"] == "5000.00"
+    assert item["club_price"] == "4500.00"
+    assert item["base_price"] == "5000.00"
+    assert item["final_price"] == "4500.00"
+    assert item["discount_percent"] == "10.00"
+    assert item["saving_amount"] == "500.00"
+
+
+def test_client_get_no_offer_verification_does_not_return_random_partner_offer_prices(
+    verification_client: TestClient,
+) -> None:
+    verification_id = _create_verification(
+        verification_client,
+        client_id=1,
+        partner_id=1,
+        offer_id=None,
+        status=PrivilegeVerificationStatus.active.value,
+    )
+
+    response = verification_client.get(
+        "/api/v1/clients/me/verifications?status=active",
+        headers=_auth_headers(_client_token(verification_client)),
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) == 1
+    item = data[0]
+    assert item["id"] == verification_id
+    assert item["partner_name"] == "Alpha Beauty"
+    assert item["offer_id"] is None
+    assert item["offer_title"] is None
+    assert item["regular_price"] is None
+    assert item["club_price"] is None
+    assert item["base_price"] is None
+    assert item["final_price"] is None
+    assert item["discount_percent"] is None
+    assert item["saving_amount"] == "0.00"
+
 def test_partner_get_own_verifications_returns_only_own_partner_sessions(verification_client: TestClient) -> None:
     own_id = _create_verification(verification_client, client_id=1, partner_id=1)
     _create_verification(verification_client, client_id=1, partner_id=2)

@@ -433,7 +433,7 @@ def create_client_partner_verification(
     db.add(session)
     db.commit()
     db.refresh(session)
-    return _client_verification_to_read(session, partner.name, offer.title if offer is not None else None)
+    return _client_verification_to_read(session, partner.name, offer)
 
 
 @router.get("/me/verifications", response_model=list[ClientVerificationRead])
@@ -446,7 +446,7 @@ def list_client_verifications(
     now = datetime.now(timezone.utc)
     normalize_expired_verifications(db, now=now, client_id=profile.id)
     statement = (
-        select(PrivilegeVerificationSession, Partner.name.label("partner_name"), PartnerOffer.title.label("offer_title"))
+        select(PrivilegeVerificationSession, Partner.name.label("partner_name"), PartnerOffer)
         .join(Partner, PrivilegeVerificationSession.partner_id == Partner.id)
         .outerjoin(PartnerOffer, PrivilegeVerificationSession.offer_id == PartnerOffer.id)
         .where(PrivilegeVerificationSession.client_id == profile.id)
@@ -455,8 +455,8 @@ def list_client_verifications(
     statement = apply_verification_status_filter(statement, status, now=now)
 
     return [
-        _client_verification_to_read(session, partner_name, offer_title)
-        for session, partner_name, offer_title in db.execute(statement).all()
+        _client_verification_to_read(session, partner_name, offer)
+        for session, partner_name, offer in db.execute(statement).all()
     ]
 
 
@@ -770,8 +770,14 @@ def _privilege_qr_payload(token: str | None) -> str | None:
 def _client_verification_to_read(
     session: PrivilegeVerificationSession,
     partner_name: str | None,
-    offer_title: str | None,
+    offer: PartnerOffer | str | None,
 ) -> ClientVerificationRead:
+    offer_title = offer.title if isinstance(offer, PartnerOffer) else offer
+    base_price, final_price, discount_percent, saving_amount = _client_verification_prices(session, offer)
+    if session.status == PrivilegeVerificationStatus.confirmed.value:
+        partner_name = session.saving_partner_name or partner_name
+        offer_title = session.saving_offer_title or offer_title
+
     return ClientVerificationRead.model_validate(
         {
             "id": session.id,
@@ -791,9 +797,37 @@ def _client_verification_to_read(
             "confirmed_at": session.confirmed_at,
             "created_at": session.created_at,
             "ttl_seconds": ttl_seconds(session.expires_at),
+            "regular_price": base_price,
+            "club_price": final_price,
+            "base_price": base_price,
+            "final_price": final_price,
+            "discount_percent": discount_percent,
+            "saving_amount": saving_amount,
             "subscription_required": False,
         }
     )
+
+
+def _client_verification_prices(
+    session: PrivilegeVerificationSession,
+    offer: PartnerOffer | str | None,
+) -> tuple[Decimal | None, Decimal | None, Decimal | None, Decimal | None]:
+    if session.status == PrivilegeVerificationStatus.confirmed.value:
+        base_price = session.saving_base_price
+        final_price = session.saving_final_price
+        discount_percent = session.saving_discount_percent
+        saving_amount = session.saving_amount
+        if saving_amount is not None:
+            return base_price, final_price, discount_percent, saving_amount
+
+    if isinstance(offer, PartnerOffer):
+        base_price, final_price, discount_percent, saving_amount = _compute_saving_from_offer(offer)
+        return base_price, final_price, discount_percent, saving_amount
+
+    if session.status == PrivilegeVerificationStatus.confirmed.value and session.saving_amount is not None:
+        return session.saving_base_price, session.saving_final_price, session.saving_discount_percent, session.saving_amount
+
+    return None, None, None, Decimal("0.00") if session.offer_id is None else None
 
 
 def _active_photos_by_partner(db: Session, partner_ids: list[int]) -> dict[int, list[ClientPartnerPhotoRead]]:
