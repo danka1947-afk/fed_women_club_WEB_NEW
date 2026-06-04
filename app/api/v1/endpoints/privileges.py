@@ -29,6 +29,7 @@ router = APIRouter(prefix="/privileges", tags=["privileges"])
 ACTIVE_SUBSCRIPTION_REQUIRED_DETAIL = "Active subscription required"
 PARTNER_NOT_FOUND_DETAIL = "Partner not found"
 OFFER_NOT_FOUND_DETAIL = "Offer not found"
+OFFER_ID_CONFLICT_DETAIL = "offer_id and privilege_id must match"
 PRIVILEGE_QR_PAYLOAD_PREFIX = "bloomclub:privilege:"
 VERIFICATION_CODE_ALPHABET = string.digits
 
@@ -48,7 +49,7 @@ def create_privilege_qr_session(
         )
 
     partner = _get_active_partner_or_404(db, payload.partner_id)
-    privilege = _resolve_partner_privilege(db, partner.id, payload.privilege_id)
+    privilege = _resolve_partner_privilege(db, partner.id, payload.offer_id, payload.privilege_id)
 
     normalize_expired_verifications(db, now=now, client_id=profile.id, partner_id=partner.id)
 
@@ -108,12 +109,18 @@ def _get_active_partner_or_404(db: Session, partner_id: int) -> Partner:
     return partner
 
 
-def _resolve_partner_privilege(db: Session, partner_id: int, privilege_id: int | None) -> PartnerOffer | None:
-    if privilege_id is None:
+def _resolve_partner_privilege(
+    db: Session,
+    partner_id: int,
+    offer_id: int | None,
+    privilege_id: int | None,
+) -> PartnerOffer | None:
+    selected_offer_id = _selected_offer_id(offer_id, privilege_id)
+    if selected_offer_id is None:
         return None
     privilege = db.execute(
         select(PartnerOffer).where(
-            PartnerOffer.id == privilege_id,
+            PartnerOffer.id == selected_offer_id,
             PartnerOffer.partner_id == partner_id,
             PartnerOffer.is_active.is_(True),
         )
@@ -121,6 +128,12 @@ def _resolve_partner_privilege(db: Session, partner_id: int, privilege_id: int |
     if privilege is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=OFFER_NOT_FOUND_DETAIL)
     return privilege
+
+
+def _selected_offer_id(offer_id: int | None, privilege_id: int | None) -> int | None:
+    if offer_id is not None and privilege_id is not None and offer_id != privilege_id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=OFFER_ID_CONFLICT_DETAIL)
+    return offer_id if offer_id is not None else privilege_id
 
 
 def _generate_display_code(length: int = 6) -> str:

@@ -63,6 +63,7 @@ router = APIRouter(prefix="/clients", tags=["clients"])
 CITY_NOT_FOUND_DETAIL = "City not found"
 PARTNER_NOT_FOUND_DETAIL = "Partner not found"
 OFFER_NOT_FOUND_DETAIL = "Offer not found"
+OFFER_ID_CONFLICT_DETAIL = "offer_id and privilege_id must match"
 ACTIVE_SUBSCRIPTION_REQUIRED_DETAIL = "Active subscription required"
 VERIFICATION_CODE_ALPHABET = string.digits
 PRIVILEGE_QR_PAYLOAD_PREFIX = "bloomclub:privilege:"
@@ -407,7 +408,7 @@ def create_client_partner_verification(
     profile = _get_or_create_client_profile(db, current_user.id)
     partner, _city_name = _get_active_partner_row_or_404(db, partner_id)
     request_payload = payload or ClientCreateVerificationRequest()
-    offer = _resolve_partner_offer_for_verification(db, partner.id, request_payload.offer_id)
+    offer = _resolve_partner_offer_for_verification(db, partner.id, request_payload.offer_id, request_payload.privilege_id)
 
     now = datetime.now(timezone.utc)
     if not _has_active_subscription(db, profile.id, now):
@@ -724,19 +725,22 @@ def _get_active_partner_offer_or_404(db: Session, partner_id: int, offer_id: int
     return offer
 
 
-def _get_first_active_partner_offer(db: Session, partner_id: int) -> PartnerOffer | None:
-    return db.execute(
-        select(PartnerOffer)
-        .where(PartnerOffer.partner_id == partner_id, PartnerOffer.is_active.is_(True))
-        .order_by(PartnerOffer.sort_order.asc(), PartnerOffer.id.asc())
-        .limit(1)
-    ).scalar_one_or_none()
+def _resolve_partner_offer_for_verification(
+    db: Session,
+    partner_id: int,
+    offer_id: int | None,
+    privilege_id: int | None,
+) -> PartnerOffer | None:
+    selected_offer_id = _selected_offer_id(offer_id, privilege_id)
+    if selected_offer_id is not None:
+        return _get_active_partner_offer_or_404(db, partner_id, selected_offer_id)
+    return None
 
 
-def _resolve_partner_offer_for_verification(db: Session, partner_id: int, offer_id: int | None) -> PartnerOffer | None:
-    if offer_id is not None:
-        return _get_active_partner_offer_or_404(db, partner_id, offer_id)
-    return _get_first_active_partner_offer(db, partner_id)
+def _selected_offer_id(offer_id: int | None, privilege_id: int | None) -> int | None:
+    if offer_id is not None and privilege_id is not None and offer_id != privilege_id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=OFFER_ID_CONFLICT_DETAIL)
+    return offer_id if offer_id is not None else privilege_id
 
 
 def _generate_verification_code(length: int = 6) -> str:

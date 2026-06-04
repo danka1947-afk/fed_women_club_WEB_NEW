@@ -7,6 +7,7 @@ from pydantic import BaseModel
 
 class PrivilegeSessionCreateRequest(BaseModel):
     partner_id: int
+    offer_id: int | None = None
     privilege_id: int | None = None
 
 

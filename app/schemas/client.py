@@ -119,6 +119,7 @@ class ClientPartnerCategoryRead(BaseModel):
 
 class ClientCreateVerificationRequest(BaseModel):
     offer_id: int | None = None
+    privilege_id: int | None = None
     source: str | None = "web"
 
 
