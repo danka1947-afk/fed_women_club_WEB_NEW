@@ -122,7 +122,7 @@ def update_admin_landing_settings(
     for field in ("members_count_base", "partners_count_display", "savings_total"):
         if field in update_data and update_data[field] is not None:
             setattr(settings, field, int(update_data[field]))
-    for field in ("giveaway_title", "giveaway_current", "giveaway_subtitle"):
+    for field in ("giveaway_title", "giveaway_current", "giveaway_subtitle", "giveaway_empty_text"):
         if field in update_data and update_data[field] is not None:
             setattr(settings, field, str(update_data[field]).strip())
     if "giveaway_items" in update_data and update_data["giveaway_items"] is not None:

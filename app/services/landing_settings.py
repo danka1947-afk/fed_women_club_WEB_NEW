@@ -5,7 +5,7 @@ from decimal import Decimal
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.models.landing import DEFAULT_GIVEAWAY_ITEMS, LandingSettings
+from app.models.landing import DEFAULT_GIVEAWAY_EMPTY_TEXT, LandingSettings
 from app.models.partner import Partner
 from app.models.user import User, UserRole
 from app.models.verification import PrivilegeVerificationSession, PrivilegeVerificationStatus
@@ -32,7 +32,7 @@ def normalize_giveaway_items(items: list[dict] | None) -> list[dict]:
                 "sort_order": int(item.get("sort_order") or index),
             }
         )
-    return normalized or [item.copy() for item in DEFAULT_GIVEAWAY_ITEMS]
+    return normalized
 
 
 def get_or_create_landing_settings(db: Session) -> LandingSettings:
@@ -42,8 +42,6 @@ def get_or_create_landing_settings(db: Session) -> LandingSettings:
         db.add(settings)
         db.commit()
         db.refresh(settings)
-    if not settings.giveaway_items:
-        settings.giveaway_items = [item.copy() for item in DEFAULT_GIVEAWAY_ITEMS]
     return settings
 
 
@@ -81,10 +79,16 @@ def calculate_real_savings_total(db: Session) -> int:
     return int(real_savings_total or 0)
 
 
-def get_primary_giveaway_title(items: list[dict], fallback: str) -> str:
+def get_giveaway_empty_text(value: str | None) -> str:
+    return str(value or "").strip() or DEFAULT_GIVEAWAY_EMPTY_TEXT
+
+
+def get_primary_giveaway_title(items: list[dict], fallback: str = "") -> str:
     active_items = [item for item in normalize_giveaway_items(items) if item.get("is_active", True)]
     active_items.sort(key=lambda item: (int(item.get("sort_order") or 0), str(item.get("title") or "")))
-    return str(active_items[0].get("title") or fallback).strip() or fallback
+    if not active_items:
+        return ""
+    return str(active_items[0].get("title") or fallback).strip()
 
 
 def build_public_landing_stats(db: Session) -> PublicLandingStatsRead:
@@ -110,6 +114,7 @@ def build_public_landing_stats(db: Session) -> PublicLandingStatsRead:
         giveaway_title=settings.giveaway_title or "Розыгрыш месяца",
         giveaway_current=current,
         giveaway_subtitle=settings.giveaway_subtitle or "доступно участницам клуба",
+        giveaway_empty_text=get_giveaway_empty_text(settings.giveaway_empty_text),
         giveaway_items=[GiveawayItem(**item) for item in giveaway_items],
     )
 
@@ -127,6 +132,7 @@ def build_admin_landing_settings_read(db: Session) -> dict:
         "giveaway_title": settings.giveaway_title,
         "giveaway_current": settings.giveaway_current,
         "giveaway_subtitle": settings.giveaway_subtitle,
+        "giveaway_empty_text": get_giveaway_empty_text(settings.giveaway_empty_text),
         "giveaway_items": [GiveawayItem(**item) for item in normalize_giveaway_items(settings.giveaway_items)],
         "updated_at": settings.updated_at,
         "members_count": public_stats.members_count,

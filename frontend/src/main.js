@@ -41,6 +41,7 @@ const landingStatsFallback = {
   giveaway_title: 'Розыгрыш месяца',
   giveaway_current: 'Приз месяца',
   giveaway_subtitle: 'доступно участницам клуба',
+  giveaway_empty_text: 'Информация о призах появится после настройки розыгрыша.',
   giveaway_items: [
     { title: 'Приз месяца', is_active: true, sort_order: 0 },
   ],
@@ -213,6 +214,7 @@ const normalizeLandingStats = (data = {}) => {
     giveaway_title: String(data.giveaway_title || landingStatsFallback.giveaway_title).trim(),
     giveaway_current: String(data.giveaway_current || landingStatsFallback.giveaway_current).trim(),
     giveaway_subtitle: String(data.giveaway_subtitle || landingStatsFallback.giveaway_subtitle).trim(),
+    giveaway_empty_text: String(data.giveaway_empty_text || landingStatsFallback.giveaway_empty_text).trim(),
     giveaway_items: items.map((item, index) => ({
       title: String(item?.title || '').trim(),
       description: String(item?.description || '').trim(),
@@ -3928,6 +3930,7 @@ const getAdminLandingSettings = () => ({
   giveaway_title: 'Розыгрыш месяца',
   giveaway_current: 'Приз месяца',
   giveaway_subtitle: 'доступно участницам клуба',
+  giveaway_empty_text: 'Информация о призах появится после настройки розыгрыша.',
   giveaway_items: [{ title: 'Приз месяца', description: '', is_active: true, sort_order: 0 }],
   ...(adminState.landingSettings || {}),
 });
@@ -3988,6 +3991,7 @@ const renderGiveawayDrawer = (settings) => `
       <label>Название блока<input name="giveaway_title" value="${escapeHtml(settings.giveaway_title || '')}" required /></label>
       <label>Название текущего розыгрыша<input name="giveaway_current" value="${escapeHtml(settings.giveaway_current || '')}" required /></label>
       <label>Описание<textarea name="giveaway_subtitle" rows="3" required>${escapeHtml(settings.giveaway_subtitle || '')}</textarea></label>
+      <label>Текст, если призы ещё не заполнены<textarea name="giveaway_empty_text" rows="3">${escapeHtml(settings.giveaway_empty_text || '')}</textarea><small>Показывается на главной, когда призы розыгрыша ещё не настроены.</small></label>
       <div class="giveaway-prize-list" data-admin-giveaway-prize-list>
         ${renderAdminGiveawayItems(settings.giveaway_items)}
       </div>
@@ -5880,6 +5884,7 @@ const submitLandingGiveaway = async (form) => {
     giveaway_title: getOptionalText(formData, 'giveaway_title'),
     giveaway_current: getOptionalText(formData, 'giveaway_current'),
     giveaway_subtitle: getOptionalText(formData, 'giveaway_subtitle'),
+    giveaway_empty_text: getOptionalText(formData, 'giveaway_empty_text'),
     giveaway_items: getGiveawayItemsFromForm(form),
   });
   adminState.landingSettingsSaving = false;
