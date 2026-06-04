@@ -70,6 +70,10 @@ PRIVILEGE_QR_PAYLOAD_PREFIX = "bloomclub:privilege:"
 VK_LINK_CODE_TTL_SECONDS = 10 * 60
 VK_LINK_CODE_LENGTH = 8
 VK_LINK_CODE_ALPHABET = string.ascii_uppercase + string.digits
+TRIAL_SUBSCRIPTION_DAYS = 15
+TRIAL_PROMO_DEADLINE = date(2026, 6, 15)
+TRIAL_SOURCE = "trial"
+PAID_SOURCE = "paid"
 CATEGORY_DISPLAY_BY_SLUG = {item["slug"]: item["title"] for item in get_women_club_categories()}
 
 
@@ -217,38 +221,48 @@ def read_client_subscription(
 ) -> SubscriptionRead:
     profile = _get_or_create_client_profile(db, current_user.id)
     now = datetime.now(timezone.utc)
-    subscription = db.execute(
-        select(Subscription)
-        .where(
-            Subscription.client_id == profile.id,
-            Subscription.status == SubscriptionStatus.active.value,
-            Subscription.starts_at <= now,
-            Subscription.ends_at > now,
+    subscription = _get_current_active_subscription(db, profile.id, now)
+    return _subscription_to_read(subscription, profile, now)
+
+
+@router.post("/me/trial-subscription", response_model=SubscriptionRead)
+def activate_client_trial_subscription(
+    current_user: User = Depends(require_client),
+    db: Session = Depends(get_db),
+) -> SubscriptionRead:
+    profile = _get_or_create_client_profile(db, current_user.id)
+    now = datetime.now(timezone.utc)
+
+    if not _is_trial_promo_available(now):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Trial subscription promo is no longer available",
         )
-        .order_by(Subscription.ends_at.desc(), Subscription.id.desc())
-        .limit(1)
-    ).scalar_one_or_none()
-    if subscription is None:
-        return SubscriptionRead(
-            status="inactive",
-            is_active=False,
-            expires_at=None,
-            end_date=None,
-            amount=Decimal("349.00"),
+    if profile.trial_subscription_used_at is not None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Trial subscription already activated",
         )
 
-    return SubscriptionRead(
-        id=subscription.id,
-        client_id=subscription.client_id,
-        status=SubscriptionStatus.active.value,
-        starts_at=subscription.starts_at,
-        ends_at=subscription.ends_at,
-        source_payment_request_id=subscription.source_payment_request_id,
-        is_active=True,
-        expires_at=subscription.ends_at,
-        end_date=subscription.ends_at,
-        amount=Decimal("349.00"),
-    )
+    trial_ends_at = now + timedelta(days=TRIAL_SUBSCRIPTION_DAYS)
+    current_subscription = _get_current_active_subscription(db, profile.id, now)
+    profile.trial_subscription_used_at = now
+
+    if current_subscription is None or as_aware_utc(current_subscription.ends_at) < trial_ends_at:
+        db.add(
+            Subscription(
+                client_id=profile.id,
+                status=SubscriptionStatus.active.value,
+                starts_at=now,
+                ends_at=trial_ends_at,
+                source=TRIAL_SOURCE,
+            )
+        )
+
+    db.commit()
+    db.refresh(profile)
+    subscription = _get_current_active_subscription(db, profile.id, now)
+    return _subscription_to_read(subscription, profile, now)
 
 
 @router.post("/me/payment-requests", response_model=PaymentRequestRead, status_code=status.HTTP_201_CREATED)
@@ -651,6 +665,75 @@ def _vk_link_code_to_read(link_code: VkLinkCode) -> VkLinkCodeRead:
         status=link_code.status,
         expires_at=expires_at,
         ttl_seconds=ttl_seconds,
+    )
+
+
+def _get_current_active_subscription(db: Session, client_id: int, now: datetime) -> Subscription | None:
+    return db.execute(
+        select(Subscription)
+        .where(
+            Subscription.client_id == client_id,
+            Subscription.status == SubscriptionStatus.active.value,
+            Subscription.starts_at <= now,
+            Subscription.ends_at > now,
+        )
+        .order_by(Subscription.ends_at.desc(), Subscription.id.desc())
+        .limit(1)
+    ).scalar_one_or_none()
+
+
+def _subscription_source(subscription: Subscription | None) -> str | None:
+    if subscription is None:
+        return None
+    if subscription.source:
+        return subscription.source
+    if subscription.source_payment_request_id is not None:
+        return PAID_SOURCE
+    return None
+
+
+def _is_trial_promo_available(now: datetime) -> bool:
+    return as_aware_utc(now).date() <= TRIAL_PROMO_DEADLINE
+
+
+def _subscription_to_read(
+    subscription: Subscription | None,
+    profile: ClientProfile,
+    now: datetime,
+) -> SubscriptionRead:
+    trial_used = profile.trial_subscription_used_at is not None
+    trial_available = not trial_used and _is_trial_promo_available(now)
+    if subscription is None:
+        return SubscriptionRead(
+            status="inactive",
+            is_active=False,
+            subscription_active=False,
+            expires_at=None,
+            end_date=None,
+            subscription_until=None,
+            trial_available=trial_available,
+            trial_used=trial_used,
+            amount=Decimal("349.00"),
+        )
+
+    subscription_source = _subscription_source(subscription)
+    return SubscriptionRead(
+        id=subscription.id,
+        client_id=subscription.client_id,
+        status=SubscriptionStatus.active.value,
+        starts_at=subscription.starts_at,
+        ends_at=subscription.ends_at,
+        source_payment_request_id=subscription.source_payment_request_id,
+        source=subscription_source,
+        type=subscription_source,
+        is_active=True,
+        subscription_active=True,
+        expires_at=subscription.ends_at,
+        end_date=subscription.ends_at,
+        subscription_until=subscription.ends_at,
+        trial_available=trial_available,
+        trial_used=trial_used,
+        amount=Decimal("349.00"),
     )
 
 

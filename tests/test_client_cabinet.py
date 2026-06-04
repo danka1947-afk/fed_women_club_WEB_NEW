@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 import app.models  # noqa: F401 - register all SQLAlchemy models for test metadata
+import app.api.v1.endpoints.clients as clients_endpoint
 from app.core.security import hash_password
 from app.db.base import Base
 from app.db.session import get_db
@@ -253,6 +254,13 @@ def _partner_token(client: TestClient) -> str:
 
 def _unified_admin_token(client: TestClient) -> str:
     return _user_login(client, "unified-admin@example.com", "UnifiedAdminPassword123")
+
+
+def _parse_api_datetime(value: str) -> datetime:
+    parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=timezone.utc)
+    return parsed
 
 
 def test_client_me_without_token_returns_401(client_cabinet_client: TestClient) -> None:
@@ -509,6 +517,145 @@ def test_client_me_subscription_returns_current_active_not_latest_invalid(client
     assert data["status"] == SubscriptionStatus.active.value
     assert data["client_id"] == profile_id
     assert data["source_payment_request_id"] is None
+
+
+def test_client_can_activate_trial_subscription_for_15_days(client_cabinet_client: TestClient) -> None:
+    token = _client_token(client_cabinet_client)
+    before = datetime.now(timezone.utc)
+
+    response = client_cabinet_client.post("/api/v1/clients/me/trial-subscription", headers=_auth_headers(token))
+    after = datetime.now(timezone.utc)
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["is_active"] is True
+    assert data["subscription_active"] is True
+    assert data["status"] == SubscriptionStatus.active.value
+    assert data["source"] == "trial"
+    assert data["type"] == "trial"
+    assert data["trial_used"] is True
+    assert data["trial_available"] is False
+    expires_at = _parse_api_datetime(data["expires_at"])
+    assert before + timedelta(days=15) <= expires_at <= after + timedelta(days=15)
+    assert data["subscription_until"] == data["expires_at"]
+
+    subscription_response = client_cabinet_client.get("/api/v1/clients/me/subscription", headers=_auth_headers(token))
+    assert subscription_response.status_code == 200
+    assert subscription_response.json()["source"] == "trial"
+
+
+def test_client_trial_subscription_repeated_activation_is_blocked(client_cabinet_client: TestClient) -> None:
+    token = _client_token(client_cabinet_client)
+    first_response = client_cabinet_client.post("/api/v1/clients/me/trial-subscription", headers=_auth_headers(token))
+    assert first_response.status_code == 200
+    first_expires_at = first_response.json()["expires_at"]
+
+    second_response = client_cabinet_client.post("/api/v1/clients/me/trial-subscription", headers=_auth_headers(token))
+
+    assert second_response.status_code == 400
+    assert second_response.json()["detail"] == "Trial subscription already activated"
+    subscription_response = client_cabinet_client.get("/api/v1/clients/me/subscription", headers=_auth_headers(token))
+    assert subscription_response.status_code == 200
+    assert subscription_response.json()["expires_at"] == first_expires_at
+
+
+def test_client_trial_subscription_does_not_shorten_later_paid_subscription(client_cabinet_client: TestClient) -> None:
+    token = _client_token(client_cabinet_client)
+    profile_response = client_cabinet_client.get("/api/v1/clients/me", headers=_auth_headers(token))
+    profile_id = profile_response.json()["id"]
+    now = datetime.now(timezone.utc)
+    paid_until = now + timedelta(days=45)
+
+    with next(app.dependency_overrides[get_db]()) as session:
+        session.add(
+            Subscription(
+                client_id=profile_id,
+                status=SubscriptionStatus.active.value,
+                starts_at=now - timedelta(days=1),
+                ends_at=paid_until,
+                source="paid",
+            )
+        )
+        session.commit()
+
+    response = client_cabinet_client.post("/api/v1/clients/me/trial-subscription", headers=_auth_headers(token))
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["source"] == "paid"
+    assert _parse_api_datetime(data["expires_at"]) == paid_until
+    assert data["trial_used"] is True
+
+
+def test_client_trial_subscription_makes_expired_subscription_active(client_cabinet_client: TestClient) -> None:
+    token = _client_token(client_cabinet_client)
+    profile_response = client_cabinet_client.get("/api/v1/clients/me", headers=_auth_headers(token))
+    profile_id = profile_response.json()["id"]
+    now = datetime.now(timezone.utc)
+
+    with next(app.dependency_overrides[get_db]()) as session:
+        session.add(
+            Subscription(
+                client_id=profile_id,
+                status=SubscriptionStatus.expired.value,
+                starts_at=now - timedelta(days=45),
+                ends_at=now - timedelta(days=15),
+                source="paid",
+            )
+        )
+        session.commit()
+
+    response = client_cabinet_client.post("/api/v1/clients/me/trial-subscription", headers=_auth_headers(token))
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["is_active"] is True
+    assert data["source"] == "trial"
+    assert _parse_api_datetime(data["expires_at"]) > now
+
+
+def test_client_trial_subscription_unavailable_after_promo_deadline(
+    client_cabinet_client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class AfterPromoDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):  # type: ignore[no-untyped-def]
+            fixed = datetime(2026, 6, 16, 0, 0, tzinfo=timezone.utc)
+            return fixed if tz is None else fixed.astimezone(tz)
+
+    monkeypatch.setattr(clients_endpoint, "datetime", AfterPromoDateTime)
+    token = _client_token(client_cabinet_client)
+
+    response = client_cabinet_client.post("/api/v1/clients/me/trial-subscription", headers=_auth_headers(token))
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Trial subscription promo is no longer available"
+
+
+def test_client_trial_subscription_without_token_returns_401(client_cabinet_client: TestClient) -> None:
+    response = client_cabinet_client.post("/api/v1/clients/me/trial-subscription", json={})
+
+    assert response.status_code == 401
+
+
+def test_client_trial_subscription_with_partner_or_admin_user_token_returns_403(
+    client_cabinet_client: TestClient,
+) -> None:
+    partner_token = _partner_token(client_cabinet_client)
+    admin_user_token = _unified_admin_token(client_cabinet_client)
+
+    partner_response = client_cabinet_client.post(
+        "/api/v1/clients/me/trial-subscription",
+        headers=_auth_headers(partner_token),
+    )
+    admin_response = client_cabinet_client.post(
+        "/api/v1/clients/me/trial-subscription",
+        headers=_auth_headers(admin_user_token),
+    )
+
+    assert partner_response.status_code == 403
+    assert admin_response.status_code == 403
 
 
 def test_client_catalog_partners_returns_only_active_partners(client_cabinet_client: TestClient) -> None:

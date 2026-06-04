@@ -27,6 +27,7 @@ class ClientProfile(Base):
     custom_city: Mapped[str | None] = mapped_column(String(255), nullable=True)
     vk_user_id: Mapped[str | None] = mapped_column(String(255), nullable=True, unique=True, index=True)
     source: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    trial_subscription_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

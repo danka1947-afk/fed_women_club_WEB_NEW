@@ -282,6 +282,7 @@ def approve_admin_payment_request(
             starts_at=subscription_starts_at,
             ends_at=subscription_ends_at,
             source_payment_request_id=payment_request.id,
+            source="paid",
         )
     )
     db.commit()

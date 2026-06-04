@@ -61,9 +61,15 @@ class SubscriptionRead(BaseModel):
     starts_at: datetime | None = None
     ends_at: datetime | None = None
     source_payment_request_id: int | None = None
+    source: str | None = None
+    type: str | None = None
     is_active: bool
+    subscription_active: bool | None = None
     expires_at: datetime | None = None
     end_date: datetime | None = None
+    subscription_until: datetime | None = None
+    trial_available: bool = False
+    trial_used: bool = False
     amount: Decimal = Decimal("349.00")
 
     model_config = {"from_attributes": True}
