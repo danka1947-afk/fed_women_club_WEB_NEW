@@ -75,6 +75,7 @@ class Subscription(Base):
     starts_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     ends_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     source_payment_request_id: Mapped[int | None] = mapped_column(ForeignKey("payment_requests.id"), nullable=True)
+    source: Mapped[str | None] = mapped_column(String(64), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
