@@ -22,6 +22,8 @@ from app.models.partner import Partner
 from app.models.user import AdminUser, User, UserRole
 from app.models.verification import PrivilegeVerificationSession, PrivilegeVerificationStatus
 
+DEFAULT_GIVEAWAY_EMPTY_TEXT = "Информация о призах появится после настройки розыгрыша."
+
 
 @pytest.fixture()
 def landing_client() -> Generator[TestClient, None, None]:
@@ -80,6 +82,7 @@ def test_public_landing_stats_returns_start_values(landing_client: TestClient) -
     assert data["savings_total_base"] == 53500
     assert data["savings_total_real"] == 0
     assert data["giveaway_title"] == "Розыгрыш месяца"
+    assert data["giveaway_empty_text"] == DEFAULT_GIVEAWAY_EMPTY_TEXT
 
 
 def test_public_members_count_grows_when_client_user_appears(landing_client: TestClient) -> None:
@@ -191,6 +194,7 @@ def test_admin_landing_settings_patch_saves_public_stats_and_giveaway(landing_cl
             "giveaway_title": "Розыгрыш месяца",
             "giveaway_current": "Сертификат в SPA",
             "giveaway_subtitle": "для активных участниц",
+            "giveaway_empty_text": "Скоро расскажем о призах месяца.",
             "giveaway_items": [
                 {"title": "Сертификат в SPA", "description": "Главный приз", "is_active": True, "sort_order": 10},
                 {"title": "Beauty box", "description": "Дополнительный приз", "is_active": True, "sort_order": 20},
@@ -203,7 +207,38 @@ def test_admin_landing_settings_patch_saves_public_stats_and_giveaway(landing_cl
     assert data["partners_count_display"] == 24
     assert data["savings_total"] == 75000
     assert data["giveaway_current"] == "Сертификат в SPA"
+    assert data["giveaway_empty_text"] == "Скоро расскажем о призах месяца."
     assert [item["title"] for item in data["giveaway_items"]] == ["Сертификат в SPA", "Beauty box"]
+
+
+def test_admin_landing_settings_patch_updates_giveaway_empty_text(landing_client: TestClient) -> None:
+    response = landing_client.patch(
+        "/api/v1/admin/landing-settings",
+        headers=_auth_headers(landing_client),
+        json={"giveaway_empty_text": "Призы появятся после запуска нового розыгрыша."},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["giveaway_empty_text"] == "Призы появятся после запуска нового розыгрыша."
+
+
+def test_public_landing_stats_returns_configured_giveaway_empty_text(landing_client: TestClient) -> None:
+    headers = _auth_headers(landing_client)
+    response = landing_client.patch(
+        "/api/v1/admin/landing-settings",
+        headers=headers,
+        json={"giveaway_empty_text": "Итоги и призы опубликуем в этом разделе.", "giveaway_items": []},
+    )
+    assert response.status_code == 200
+
+    public_response = landing_client.get("/api/v1/public/landing/stats")
+
+    assert public_response.status_code == 200
+    data = public_response.json()
+    assert data["giveaway_empty_text"] == "Итоги и призы опубликуем в этом разделе."
+    assert data["giveaway_current"] == ""
+    assert data["giveaway_items"] == []
 
 
 def test_admin_landing_settings_patch_updates_bases_used_by_public_stats(landing_client: TestClient) -> None:
@@ -261,6 +296,7 @@ def test_public_landing_stats_returns_updated_giveaway(landing_client: TestClien
     assert public_response.status_code == 200
     data = public_response.json()
     assert data["giveaway_current"] == "Главный активный приз"
+    assert data["giveaway_empty_text"] == DEFAULT_GIVEAWAY_EMPTY_TEXT
     assert data["giveaway_items"][0]["title"] == "Неактивный приз"
 
 
@@ -282,5 +318,7 @@ def test_frontend_landing_settings_copy_marks_partner_and_savings_values_as_base
         "Базовая сумма экономии",
         "База + активные партнёры",
         "База + реальная экономия",
+        "Текст, если призы ещё не заполнены",
+        "Показывается на главной, когда призы розыгрыша ещё не настроены.",
     ):
         assert expected_text in text

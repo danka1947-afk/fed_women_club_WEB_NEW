@@ -4,6 +4,8 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field
 
+from app.models.landing import DEFAULT_GIVEAWAY_EMPTY_TEXT
+
 
 class GiveawayItem(BaseModel):
     title: str = ""
@@ -21,6 +23,7 @@ class LandingSettingsBase(BaseModel):
     giveaway_title: str = "Розыгрыш месяца"
     giveaway_current: str = "Приз месяца"
     giveaway_subtitle: str = "доступно участницам клуба"
+    giveaway_empty_text: str = DEFAULT_GIVEAWAY_EMPTY_TEXT
     giveaway_items: list[GiveawayItem] = Field(default_factory=list)
 
 
@@ -46,6 +49,7 @@ class LandingSettingsUpdate(BaseModel):
     giveaway_title: str | None = None
     giveaway_current: str | None = None
     giveaway_subtitle: str | None = None
+    giveaway_empty_text: str | None = None
     giveaway_items: list[GiveawayItem] | None = None
 
 
@@ -62,4 +66,5 @@ class PublicLandingStatsRead(BaseModel):
     giveaway_title: str
     giveaway_current: str
     giveaway_subtitle: str
+    giveaway_empty_text: str
     giveaway_items: list[GiveawayItem]
