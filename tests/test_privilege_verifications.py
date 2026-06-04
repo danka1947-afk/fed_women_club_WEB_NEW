@@ -137,7 +137,15 @@ def verification_client() -> Generator[TestClient, None, None]:
         second_offer = PartnerOffer(partner_id=partner.id, title="Second Active Discount", is_active=True, sort_order=15)
         inactive_offer = PartnerOffer(partner_id=partner.id, title="Inactive Discount", is_active=False, sort_order=20)
         other_offer = PartnerOffer(partner_id=other_partner.id, title="Other Discount", is_active=True, sort_order=10)
-        session.add_all([offer, second_offer, inactive_offer, other_offer])
+        selected_offer = PartnerOffer(
+            partner_id=partner.id,
+            title="Selected Spa",
+            base_price=5000,
+            discount_percent=10,
+            is_active=True,
+            sort_order=25,
+        )
+        session.add_all([offer, second_offer, inactive_offer, other_offer, selected_offer])
         session.flush()
 
         now = datetime.now(timezone.utc)
@@ -274,7 +282,7 @@ def test_client_post_verify_with_partner_token_returns_403(verification_client: 
     assert response.status_code == 403
 
 
-def test_client_post_verify_without_body_uses_first_active_offer(verification_client: TestClient) -> None:
+def test_client_post_verify_without_body_keeps_offer_unset(verification_client: TestClient) -> None:
     response = verification_client.post(
         "/api/v1/clients/partners/1/verify",
         headers=_auth_headers(_client_token(verification_client)),
@@ -282,8 +290,8 @@ def test_client_post_verify_without_body_uses_first_active_offer(verification_cl
 
     assert response.status_code == 200
     data = response.json()
-    assert data["offer_id"] == 1
-    assert data["offer_title"] == "Active Discount"
+    assert data["offer_id"] is None
+    assert data["offer_title"] is None
     assert data["code"]
     assert data["status"] == "active"
     assert data["expires_at"]
@@ -295,7 +303,7 @@ def test_client_post_verify_without_body_uses_first_active_offer(verification_cl
     assert list_response.status_code == 200
     assert any(item["id"] == data["id"] for item in list_response.json())
 
-def test_client_post_verify_with_empty_body_uses_first_active_offer(verification_client: TestClient) -> None:
+def test_client_post_verify_with_empty_body_keeps_offer_unset(verification_client: TestClient) -> None:
     response = verification_client.post(
         "/api/v1/clients/partners/1/verify",
         json={},
@@ -304,8 +312,8 @@ def test_client_post_verify_with_empty_body_uses_first_active_offer(verification
 
     assert response.status_code == 200
     data = response.json()
-    assert data["offer_id"] == 1
-    assert data["offer_title"] == "Active Discount"
+    assert data["offer_id"] is None
+    assert data["offer_title"] is None
     assert data["code"]
     assert data["status"] == "active"
     assert data["expires_at"]
@@ -330,8 +338,8 @@ def test_client_post_verify_creates_active_session_for_active_partner(verificati
     assert data["client_id"] == 1
     assert data["partner_id"] == 1
     assert data["partner_name"] == "Alpha Beauty"
-    assert data["offer_id"] == 1
-    assert data["offer_title"] == "Active Discount"
+    assert data["offer_id"] is None
+    assert data["offer_title"] is None
     assert data["status"] == "active"
     assert data["source"] == "web"
     assert data["subscription_required"] is False
@@ -1399,3 +1407,155 @@ def test_partner_confirm_requires_active_client_subscription(verification_client
 
     assert response.status_code == 400
     assert response.json()["detail"] == "Active subscription required"
+
+
+def test_client_post_verify_with_selected_offer_id_stores_exact_offer_not_first(
+    verification_client: TestClient,
+) -> None:
+    response = verification_client.post(
+        "/api/v1/clients/partners/1/verify",
+        json={"offer_id": 5},
+        headers=_auth_headers(_client_token(verification_client)),
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["offer_id"] == 5
+    assert data["offer_title"] == "Selected Spa"
+    _assert_old_verify_qr_response(data)
+    with _session(verification_client) as session:
+        stored = session.get(PrivilegeVerificationSession, data["id"])
+        assert stored.offer_id == 5
+
+
+def test_client_post_verify_with_selected_privilege_id_stores_exact_offer_not_first(
+    verification_client: TestClient,
+) -> None:
+    response = verification_client.post(
+        "/api/v1/clients/partners/1/verify",
+        json={"privilege_id": 5},
+        headers=_auth_headers(_client_token(verification_client)),
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["offer_id"] == 5
+    assert data["offer_title"] == "Selected Spa"
+    with _session(verification_client) as session:
+        stored = session.get(PrivilegeVerificationSession, data["id"])
+        assert stored.offer_id == 5
+
+
+def test_privilege_session_with_selected_offer_id_stores_exact_offer_id(
+    verification_client: TestClient,
+) -> None:
+    response = verification_client.post(
+        "/api/v1/privileges/sessions",
+        json={"partner_id": 1, "offer_id": 5},
+        headers=_auth_headers(_client_token(verification_client)),
+    )
+
+    assert response.status_code == 201
+    data = response.json()
+    assert data["privilege"] == {"id": 5, "title": "Selected Spa"}
+    _assert_privilege_session_qr_response(data)
+    with _session(verification_client) as session:
+        stored = session.get(PrivilegeVerificationSession, data["session_id"])
+        assert stored.offer_id == 5
+
+
+def test_privilege_session_rejects_offer_from_another_partner_and_inactive_offer(
+    verification_client: TestClient,
+) -> None:
+    other_partner_offer = verification_client.post(
+        "/api/v1/privileges/sessions",
+        json={"partner_id": 1, "offer_id": 4},
+        headers=_auth_headers(_client_token(verification_client)),
+    )
+    inactive_offer = verification_client.post(
+        "/api/v1/privileges/sessions",
+        json={"partner_id": 1, "offer_id": 3},
+        headers=_auth_headers(_client_token(verification_client)),
+    )
+
+    assert other_partner_offer.status_code == 404
+    assert other_partner_offer.json()["detail"] == "Offer not found"
+    assert inactive_offer.status_code == 404
+    assert inactive_offer.json()["detail"] == "Offer not found"
+
+
+def test_partner_scan_uses_selected_session_offer_prices_5000_10_percent(
+    verification_client: TestClient,
+) -> None:
+    verification_id = _create_verification(
+        verification_client,
+        offer_id=5,
+        status=PrivilegeVerificationStatus.pending.value,
+        token="selected-offer-scan-token",
+    )
+
+    response = verification_client.post(
+        "/api/v1/partner/privileges/scan",
+        json={"qr_payload": "bloomclub:privilege:selected-offer-scan-token"},
+        headers=_auth_headers(_partner_token(verification_client)),
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["session_id"] == verification_id
+    assert data["privilege"] == {"id": 5, "title": "Selected Spa"}
+    assert data["regular_price"] == "5000.00"
+    assert data["club_price"] == "4500.00"
+    assert data["estimated_saving_amount"] == "500.00"
+
+
+def test_partner_confirm_uses_selected_session_offer_prices_5000_10_percent(
+    verification_client: TestClient,
+) -> None:
+    verification_id = _create_verification(
+        verification_client,
+        offer_id=5,
+        status=PrivilegeVerificationStatus.pending.value,
+        token="selected-offer-confirm-token",
+    )
+
+    response = verification_client.post(
+        "/api/v1/partner/privileges/confirm",
+        json={"session_id": verification_id},
+        headers=_auth_headers(_partner_token(verification_client)),
+    )
+
+    assert response.status_code == 200
+    assert response.json()["saving_amount"] == "500.00"
+    with _session(verification_client) as session:
+        stored = session.get(PrivilegeVerificationSession, verification_id)
+        assert stored.saving_base_price == 5000
+        assert stored.saving_final_price == 4500
+        assert stored.saving_discount_percent == 10
+        assert stored.saving_amount == 500
+        assert stored.saving_offer_title == "Selected Spa"
+
+
+def test_partner_scan_session_without_offer_does_not_show_random_partner_offer_price(
+    verification_client: TestClient,
+) -> None:
+    verification_id = _create_verification(
+        verification_client,
+        offer_id=None,
+        status=PrivilegeVerificationStatus.pending.value,
+        token="no-offer-scan-token",
+    )
+
+    response = verification_client.post(
+        "/api/v1/partner/privileges/scan",
+        json={"qr_payload": "bloomclub:privilege:no-offer-scan-token"},
+        headers=_auth_headers(_partner_token(verification_client)),
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["session_id"] == verification_id
+    assert data["privilege"] is None
+    assert data["regular_price"] is None
+    assert data["club_price"] is None
+    assert data["estimated_saving_amount"] == "0.00"
