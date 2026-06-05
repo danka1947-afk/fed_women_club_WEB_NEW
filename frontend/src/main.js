@@ -901,6 +901,21 @@ const validateRequiredCustomSelects = (form) => {
     return true;
   }
 
+  const fieldLabel = getCustomSelectParts(emptyRequiredSelect).trigger?.textContent?.trim() || 'обязательное поле';
+  const message = `Заполните обязательное поле: ${fieldLabel}.`;
+  const formType = form?.dataset?.adminForm || '';
+  if (formType === 'partner' || formType === 'partnerEdit') {
+    adminState.partnerFormInlineError = message;
+    setFormMessage(formType, message);
+    const messageNode = form.querySelector(`[data-form-message="${formType}"]`);
+    if (messageNode) {
+      messageNode.textContent = message;
+    }
+    const inlineErrorNode = form.querySelector('.admin-form-inline-error');
+    if (inlineErrorNode) {
+      inlineErrorNode.textContent = message;
+    }
+  }
   openCustomSelect(emptyRequiredSelect);
   getCustomSelectParts(emptyRequiredSelect).trigger?.focus();
   return false;
@@ -4449,6 +4464,9 @@ const renderPartnerForm = () => {
   const selectedCategoryIds = getAdminPartnerSelectedCategoryIds(isEditMode ? partner : null, activeCategories);
   const currentStepIndex = Math.max(getPartnerWizardStepIndex(adminState.partnerFormStep), 0);
   const currentStep = adminPartnerWizardSteps[currentStepIndex]?.key || 'basic';
+  const partnerWizardFormId = isEditMode
+    ? `admin-partner-edit-form-${partner?.id || adminState.selectedPartnerIdForEdit}`
+    : 'admin-partner-create-form';
   const selectedCategories = activeCategories.filter((category) => selectedCategoryIds.has(String(category.id)));
   const hasDescription = Boolean(String(partner?.description || '').trim());
   const hasPhoto = Boolean(partner?.logo_url || partner?.cover_url || (adminState.partnerPhotosByPartner[adminState.selectedPartnerIdForEdit] || []).length);
@@ -4472,7 +4490,7 @@ const renderPartnerForm = () => {
           ${adminPartnerWizardSteps.map((step, index) => `<button class="admin-partner-stepper__item ${index === currentStepIndex ? 'admin-partner-stepper__item--active' : ''} ${index < currentStepIndex ? 'admin-partner-stepper__item--done' : ''}" type="button" data-admin-partner-step-jump="${escapeHtml(step.key)}">${index + 1}. ${escapeHtml(step.label)}</button>`).join('')}
         </div>
       </div>
-      <form class="admin-form" data-admin-form="${isEditMode ? 'partnerEdit' : 'partner'}" ${isEditMode ? `data-partner-id="${escapeHtml(partner?.id)}"` : ''} data-admin-partner-wizard-form>
+      <form id="${escapeHtml(partnerWizardFormId)}" class="admin-form" data-admin-form="${isEditMode ? 'partnerEdit' : 'partner'}" ${isEditMode ? `data-partner-id="${escapeHtml(partner?.id)}"` : ''} data-admin-partner-wizard-form novalidate>
         <section class="${renderStepClass('basic')}"><h5 class="admin-form-section__title">Основное</h5><div class="admin-form-grid">
           <label>Название<input name="name" required value="${escapeHtml(partner?.name || '')}" /></label>
           <label>Город${renderSelect('city_id', adminState.cities.map((city) => [city.id, city.name]), true, partner?.city_id || '', null, { label: 'Город', data: { adminPartnerField: 'city' } })}</label>
@@ -4493,7 +4511,7 @@ const renderPartnerForm = () => {
         <section class="${renderStepClass('description')}"><h5 class="admin-form-section__title">Описание</h5><label>Описание<textarea name="description" rows="3">${escapeHtml(partner?.description || '')}</textarea></label></section>
         <section class="${renderStepClass('media')}"><h5 class="admin-form-section__title">Медиа</h5><div class="admin-form-grid"><label>Логотип URL<input name="logo_url" value="${escapeHtml(partner?.logo_url || '')}" /></label><label>Обложка URL<input name="cover_url" value="${escapeHtml(partner?.cover_url || '')}" /></label></div>${isEditMode && partner ? renderPartnerImageUploader(partner, 'admin') : ''}${isEditMode && partner ? renderPartnerGallery(partner, adminState.partnerPhotosByPartner[adminState.selectedPartnerIdForEdit] || [], 'admin') : ''}</section>
         <div class="ui-form-actions admin-partner-wizard-actions">
-          <button class="ui-button ui-button--primary" type="submit">Сохранить</button>
+          <button class="ui-button ui-button--primary" type="submit" form="${escapeHtml(partnerWizardFormId)}" data-admin-partner-save-button>Сохранить</button>
           <button class="admin-inline-action ui-button ui-button--ghost" type="button" data-admin-partner-edit-cancel>Отмена</button>
         </div>
         <p class="form-message" data-form-message="${isEditMode ? 'partnerEdit' : 'partner'}">${escapeHtml(adminState.formMessages[isEditMode ? 'partnerEdit' : 'partner'] || '')}</p>
