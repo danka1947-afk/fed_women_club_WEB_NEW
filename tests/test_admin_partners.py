@@ -350,6 +350,126 @@ def test_admin_partner_get_returns_partner_with_city_name(admin_client: TestClie
     assert data["city_name"] == "Москва"
 
 
+
+def test_admin_partner_patch_replaces_categories_with_smaller_set_and_removes_unchecked(
+    admin_client: TestClient,
+    admin_token: str,
+) -> None:
+    category_response = admin_client.get("/api/v1/admin/categories", headers=_auth_headers(admin_token))
+    assert category_response.status_code == 200
+    categories_by_slug = {category["slug"]: category for category in category_response.json()}
+    original_category_ids = [
+        categories_by_slug["krasota"]["id"],
+        categories_by_slug["manikyur-pedikyur"]["id"],
+        categories_by_slug["brovi-resnitsy"]["id"],
+        categories_by_slug["kosmetologiya"]["id"],
+    ]
+    create_response = admin_client.post(
+        "/api/v1/admin/partners",
+        headers=_auth_headers(admin_token),
+        json=_partner_payload(name="Unchecked Category Partner", category_ids=original_category_ids),
+    )
+    assert create_response.status_code == 200
+    partner_id = create_response.json()["id"]
+
+    selected_after_uncheck = original_category_ids[1:]
+    update_response = admin_client.patch(
+        f"/api/v1/admin/partners/{partner_id}",
+        headers=_auth_headers(admin_token),
+        json={"category_ids": selected_after_uncheck},
+    )
+
+    assert update_response.status_code == 200
+    updated = update_response.json()
+    assert updated["category_ids"] == selected_after_uncheck
+    assert categories_by_slug["krasota"]["id"] not in updated["category_ids"]
+    assert updated["category_slugs"] == ["manikyur-pedikyur", "brovi-resnitsy", "kosmetologiya"]
+
+    list_response = admin_client.get("/api/v1/admin/partners", headers=_auth_headers(admin_token))
+    assert list_response.status_code == 200
+    listed = next(partner for partner in list_response.json() if partner["id"] == partner_id)
+    assert listed["category_ids"] == selected_after_uncheck
+    assert "krasota" not in listed["category_slugs"]
+
+
+def test_admin_partner_patch_can_clear_categories_with_empty_array(
+    admin_client: TestClient,
+    admin_token: str,
+) -> None:
+    category_response = admin_client.get("/api/v1/admin/categories", headers=_auth_headers(admin_token))
+    assert category_response.status_code == 200
+    category_ids = [category["id"] for category in category_response.json()[:2]]
+    create_response = admin_client.post(
+        "/api/v1/admin/partners",
+        headers=_auth_headers(admin_token),
+        json=_partner_payload(name="Clear Category Partner", category_ids=category_ids),
+    )
+    assert create_response.status_code == 200
+    partner_id = create_response.json()["id"]
+
+    update_response = admin_client.patch(
+        f"/api/v1/admin/partners/{partner_id}",
+        headers=_auth_headers(admin_token),
+        json={"category_ids": []},
+    )
+
+    assert update_response.status_code == 200
+    updated = update_response.json()
+    assert updated["category_ids"] == []
+    assert updated["category_slugs"] == []
+    assert updated["categories"] == []
+    assert updated["category_slug"] is None
+
+
+def test_admin_partner_patch_deduplicates_category_ids(
+    admin_client: TestClient,
+    admin_token: str,
+) -> None:
+    category_response = admin_client.get("/api/v1/admin/categories", headers=_auth_headers(admin_token))
+    assert category_response.status_code == 200
+    category_ids = [category["id"] for category in category_response.json()[:2]]
+
+    update_response = admin_client.patch(
+        "/api/v1/admin/partners/1",
+        headers=_auth_headers(admin_token),
+        json={"category_ids": [category_ids[0], category_ids[0], category_ids[1]]},
+    )
+
+    assert update_response.status_code == 200
+    assert update_response.json()["category_ids"] == category_ids
+
+
+def test_admin_partner_patch_invalid_category_id_returns_controlled_error(
+    admin_client: TestClient,
+    admin_token: str,
+) -> None:
+    response = admin_client.patch(
+        "/api/v1/admin/partners/1",
+        headers=_auth_headers(admin_token),
+        json={"category_ids": [999999]},
+    )
+
+    assert response.status_code == 400
+    assert response.json() == {"detail": "Category not found"}
+
+
+def test_admin_partner_patch_accepts_categories_alias_for_category_ids(
+    admin_client: TestClient,
+    admin_token: str,
+) -> None:
+    category_response = admin_client.get("/api/v1/admin/categories", headers=_auth_headers(admin_token))
+    assert category_response.status_code == 200
+    category_ids = [category["id"] for category in category_response.json()[:2]]
+
+    response = admin_client.patch(
+        "/api/v1/admin/partners/1",
+        headers=_auth_headers(admin_token),
+        json={"categories": category_ids},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["category_ids"] == category_ids
+
 def test_admin_partner_get_missing_returns_404(admin_client: TestClient, admin_token: str) -> None:
     response = admin_client.get("/api/v1/admin/partners/9999", headers=_auth_headers(admin_token))
 

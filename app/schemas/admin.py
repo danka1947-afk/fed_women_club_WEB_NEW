@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from decimal import Decimal
 
-from pydantic import BaseModel, Field
+from pydantic import AliasChoices, BaseModel, Field
 
 
 class CityRead(BaseModel):
@@ -127,7 +127,7 @@ class PartnerCreate(BaseModel):
     city_id: int
     owner_user_id: int | None = None
     category_slug: str | None = None
-    category_ids: list[int] | None = None
+    category_ids: list[int] | None = Field(default=None, validation_alias=AliasChoices("category_ids", "categories"))
     name: str
     description: str | None = None
     address: str | None = None
@@ -151,7 +151,7 @@ class PartnerUpdate(BaseModel):
     city_id: int | None = None
     owner_user_id: int | None = None
     category_slug: str | None = None
-    category_ids: list[int] | None = None
+    category_ids: list[int] | None = Field(default=None, validation_alias=AliasChoices("category_ids", "categories"))
     name: str | None = None
     description: str | None = None
     address: str | None = None
