@@ -2232,6 +2232,7 @@ const apiFetch = async (path, options = {}) => {
   }
 
   const response = await fetch(path, {
+    cache: options.cache || 'no-store',
     ...options,
     headers,
   });
@@ -4384,7 +4385,7 @@ const renderPartnerEditForm = () => {
             <form class="admin-form partner-profile-settings" data-admin-form="partnerEdit" data-partner-id="${escapeHtml(partner.id)}">
               <div class="admin-section-heading text-stack"><h4 class="section-title">Основные данные</h4><p class="section-description compact-copy">Профиль, контакты и статусы для каталога.</p></div>
               <label>Город${renderSelect('city_id', adminState.cities.map((city) => [city.id, city.name]), true, partner.city_id, null, { label: 'Город', data: { adminPartnerField: 'city' } })}</label>
-              <fieldset class="partner-multicategory"><legend>Категории</legend><div class="partner-category-chips">${activeCategories.map((category) => `<label class="checkbox-row"><input type="checkbox" name="category_ids" value="${escapeHtml(category.id)}" ${selectedCategoryIds.has(String(category.id)) ? 'checked' : ''}/> ${escapeHtml(category.title)}</label>`).join('')}</div></fieldset>
+              <fieldset class="partner-multicategory"><legend>Категории</legend><div class="partner-category-chips">${activeCategories.map((category) => `<label class="checkbox-row"><input type="checkbox" name="category_ids" value="${escapeHtml(category.id)}" data-category-id="${escapeHtml(category.id)}" data-category-slug="${escapeHtml(category.slug || '')}" data-category-title="${escapeHtml(category.title || category.name || '')}" ${selectedCategoryIds.has(String(category.id)) ? 'checked' : ''}/> ${escapeHtml(category.title)}</label>`).join('')}</div></fieldset>
               <label>Владелец / аккаунт партнёра${renderSelect('owner_user_id', adminState.users.filter((item) => item.role === 'partner').map((item) => [item.id, item.email || item.phone || `Партнёр #${item.id}`]), false, partner.owner_user_id || '', 'Без владельца', { label: 'Владелец', data: { adminPartnerField: 'owner' } })}</label>
               <label>Название<input name="name" required value="${escapeHtml(partner.name || '')}" /></label>
               <label>Описание<textarea name="description" rows="3">${escapeHtml(partner.description || '')}</textarea></label>
@@ -4481,7 +4482,7 @@ const renderPartnerForm = () => {
         <section class="${renderStepClass('status')}"><h5 class="admin-form-section__title">Статусы</h5><div class="admin-form-grid">
           <label class="checkbox-row"><input name="is_active" type="checkbox" ${partner?.is_active || !isEditMode ? 'checked' : ''} /> Активен</label>
           <label class="checkbox-row"><input name="is_verified" type="checkbox" ${partner?.is_verified ? 'checked' : ''} /> Проверен</label>
-        </div><h5 class="admin-form-section__title">Категории</h5><p class="helper-text">Партнёр может отображаться сразу в нескольких категориях.</p><fieldset class="partner-multicategory"><div class="partner-category-chips admin-partner-chips">${activeCategories.map((category) => `<label class="checkbox-row"><input type="checkbox" name="category_ids" value="${escapeHtml(category.id)}" ${selectedCategoryIds.has(String(category.id)) ? 'checked' : ''}/> ${escapeHtml(category.title)}</label>`).join('')}</div></fieldset></section>
+        </div><h5 class="admin-form-section__title">Категории</h5><p class="helper-text">Партнёр может отображаться сразу в нескольких категориях.</p><fieldset class="partner-multicategory"><div class="partner-category-chips admin-partner-chips">${activeCategories.map((category) => `<label class="checkbox-row"><input type="checkbox" name="category_ids" value="${escapeHtml(category.id)}" data-category-id="${escapeHtml(category.id)}" data-category-slug="${escapeHtml(category.slug || '')}" data-category-title="${escapeHtml(category.title || category.name || '')}" ${selectedCategoryIds.has(String(category.id)) ? 'checked' : ''}/> ${escapeHtml(category.title)}</label>`).join('')}</div></fieldset></section>
         <section class="${renderStepClass('contacts')}"><h5 class="admin-form-section__title">Контакты</h5><div class="admin-form-grid">
           <label>Адрес<input name="address" value="${escapeHtml(partner?.address || '')}" /></label>
           <label>Телефон<input name="phone" value="${escapeHtml(partner?.phone || '')}" /></label>
@@ -5626,7 +5627,14 @@ const deleteUser = async (userId) => {
   renderAdminLayout();
 };
 
-const buildAdminPartnerPayload = (formData) => ({
+const getAdminPartnerPayloadCategoryIds = (formData, selectedCategoryIds = null) => {
+  const rawCategoryIds = Array.isArray(selectedCategoryIds) ? selectedCategoryIds : formData.getAll('category_ids');
+  return rawCategoryIds
+    .map((id) => Number(String(id || '').trim()))
+    .filter((id) => Number.isInteger(id) && id > 0);
+};
+
+const buildAdminPartnerPayload = (formData, selectedCategoryIds = null) => ({
   city_id: Number(formData.get('city_id')),
   category_slug: getOptionalText(formData, 'category_slug'),
   owner_user_id: formData.get('owner_user_id') ? Number(formData.get('owner_user_id')) : null,
@@ -5642,13 +5650,13 @@ const buildAdminPartnerPayload = (formData) => ({
   is_active: formData.has('is_active'),
   is_verified: formData.has('is_verified'),
   sort_order: Number(formData.get('sort_order') || 0),
-  category_ids: formData.getAll('category_ids').map((id) => Number(id)).filter((id) => Number.isFinite(id)),
+  category_ids: getAdminPartnerPayloadCategoryIds(formData, selectedCategoryIds),
 });
 
 const submitPartner = async (form) => {
-  captureAdminPartnerCategoryDraft(form);
+  const selectedCategoryIds = captureAdminPartnerCategoryDraft(form);
   const formData = new FormData(form);
-  const createdPartner = await postJson('/api/v1/admin/partners', buildAdminPartnerPayload(formData));
+  const createdPartner = await postJson('/api/v1/admin/partners', buildAdminPartnerPayload(formData, selectedCategoryIds));
   resetAdminPartnerCategoryDraft('');
   await loadPartners();
   return createdPartner;
@@ -5656,9 +5664,9 @@ const submitPartner = async (form) => {
 
 const submitPartnerEdit = async (form) => {
   const partnerId = form.dataset.partnerId;
-  captureAdminPartnerCategoryDraft(form);
+  const selectedCategoryIds = captureAdminPartnerCategoryDraft(form);
   const formData = new FormData(form);
-  const updatedPartner = await patchJson(`/api/v1/admin/partners/${partnerId}`, buildAdminPartnerPayload(formData));
+  const updatedPartner = await patchJson(`/api/v1/admin/partners/${partnerId}`, buildAdminPartnerPayload(formData, selectedCategoryIds));
   adminState.partners = adminState.partners.map((partner) => String(partner.id) === String(partnerId) ? updatedPartner : partner);
   resetAdminPartnerCategoryDraft(partnerId);
   await loadPartners();
