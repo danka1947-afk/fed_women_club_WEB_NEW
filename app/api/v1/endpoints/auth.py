@@ -19,6 +19,7 @@ from app.core.security import (
 from app.db.session import get_db
 from app.models.client import ClientPasswordSetupToken
 from app.models.client import ClientProfile
+from app.models.payment import Subscription, SubscriptionStatus
 from app.models.user import AdminUser, User, UserRole
 from app.services.site_credentials import ensure_vk_site_credentials
 from app.schemas.auth import (
@@ -26,10 +27,18 @@ from app.schemas.auth import (
     LoginResponse,
     PasswordSetupCompleteRequest,
     PasswordSetupCompleteResponse,
+    TelegramMiniAppLoginResponse,
+    TelegramMiniAppSubscriptionRead,
+    TelegramMiniAppUserRead,
     UnifiedTokenResponse,
     UnifiedUserRead,
     UserLoginRequest,
     VkMiniAppLoginResponse,
+)
+from app.services.telegram_miniapp_auth import (
+    TelegramMiniAppUser,
+    extract_telegram_user,
+    verify_telegram_init_data,
 )
 from app.services.vk_miniapp_auth import (
     extract_vk_user_id,
@@ -172,6 +181,132 @@ def _get_or_create_vk_client_profile(
     db.commit()
     db.refresh(profile)
     return profile, True, generated_credentials
+
+
+def _build_telegram_full_name(telegram_user: TelegramMiniAppUser) -> str | None:
+    full_name = " ".join(
+        part for part in (telegram_user.first_name, telegram_user.last_name) if part
+    ).strip()
+    return full_name or None
+
+
+def _sync_telegram_profile_fields(profile: ClientProfile, telegram_user: TelegramMiniAppUser) -> bool:
+    changed = False
+    updates = {
+        "telegram_username": telegram_user.username,
+        "telegram_first_name": telegram_user.first_name,
+        "telegram_last_name": telegram_user.last_name,
+        "telegram_photo_url": telegram_user.photo_url,
+    }
+    for field, value in updates.items():
+        if getattr(profile, field) != value:
+            setattr(profile, field, value)
+            changed = True
+
+    full_name = _build_telegram_full_name(telegram_user)
+    if full_name and not profile.full_name:
+        profile.full_name = full_name
+        changed = True
+    if profile.source != "telegram-miniapp":
+        profile.source = "telegram-miniapp"
+        changed = True
+    if not profile.is_active:
+        profile.is_active = True
+        changed = True
+    return changed
+
+
+def _get_or_create_telegram_client_profile(
+    db: Session,
+    telegram_user: TelegramMiniAppUser,
+) -> tuple[ClientProfile, bool]:
+    profile = db.execute(
+        select(ClientProfile)
+        .options(joinedload(ClientProfile.user))
+        .where(ClientProfile.telegram_user_id == telegram_user.telegram_user_id)
+    ).scalar_one_or_none()
+    if profile is not None:
+        if profile.user is None:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Client user is inactive or invalid")
+        changed = _sync_telegram_profile_fields(profile, telegram_user)
+        if changed:
+            db.commit()
+            db.refresh(profile)
+        return profile, False
+
+    user = User(role=UserRole.CLIENT.value, is_active=True)
+    db.add(user)
+    db.flush()
+
+    profile = ClientProfile(
+        user_id=user.id,
+        telegram_user_id=telegram_user.telegram_user_id,
+        telegram_username=telegram_user.username,
+        telegram_first_name=telegram_user.first_name,
+        telegram_last_name=telegram_user.last_name,
+        telegram_photo_url=telegram_user.photo_url,
+        full_name=_build_telegram_full_name(telegram_user),
+        source="telegram-miniapp",
+        is_active=True,
+    )
+    db.add(profile)
+    db.commit()
+    db.refresh(profile)
+    return profile, True
+
+
+def _active_subscription_summary(db: Session, client_id: int) -> TelegramMiniAppSubscriptionRead:
+    now = datetime.now(timezone.utc)
+    subscription = db.execute(
+        select(Subscription)
+        .where(
+            Subscription.client_id == client_id,
+            Subscription.status == SubscriptionStatus.active.value,
+            Subscription.starts_at <= now,
+            Subscription.ends_at > now,
+        )
+        .order_by(Subscription.ends_at.desc())
+        .limit(1)
+    ).scalar_one_or_none()
+    if subscription is None:
+        return TelegramMiniAppSubscriptionRead(is_active=False, expires_at=None)
+    return TelegramMiniAppSubscriptionRead(is_active=True, expires_at=subscription.ends_at)
+
+
+def _telegram_user_read(user: User, profile: ClientProfile) -> TelegramMiniAppUserRead:
+    return TelegramMiniAppUserRead(
+        id=user.id,
+        telegram_user_id=profile.telegram_user_id,
+        first_name=profile.telegram_first_name,
+        last_name=profile.telegram_last_name,
+        username=profile.telegram_username,
+        photo_url=profile.telegram_photo_url,
+        role=UserRole.CLIENT.value,
+    )
+
+
+@router.post("/telegram-miniapp-login", response_model=TelegramMiniAppLoginResponse)
+def telegram_miniapp_login(
+    payload: Any = Body(default=None),
+    db: Session = Depends(get_db),
+) -> TelegramMiniAppLoginResponse:
+    init_data = payload.get("init_data") if isinstance(payload, dict) else None
+    if not isinstance(init_data, str) or not init_data.strip():
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="missing_init_data")
+
+    params = verify_telegram_init_data(init_data)
+    telegram_user = extract_telegram_user(params)
+    profile, _ = _get_or_create_telegram_client_profile(db, telegram_user)
+    user = profile.user
+    if user is None or not user.is_active or user.role != UserRole.CLIENT.value:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Client user is inactive or invalid")
+
+    return TelegramMiniAppLoginResponse(
+        access_token=create_access_token(f"user:{user.id}"),
+        user=_telegram_user_read(user, profile),
+        client=profile,
+        subscription=_active_subscription_summary(db, profile.id),
+    )
 
 
 @router.post("/vk-miniapp-login", response_model=VkMiniAppLoginResponse)

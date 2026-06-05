@@ -11,6 +11,7 @@ from fastapi.staticfiles import StaticFiles
 from app.core.config import settings
 from app.api.v1.router import api_router
 from app.api.v1.endpoints.public import router as public_router
+from app.api.v1.endpoints.auth import router as root_auth_router
 
 
 logger = logging.getLogger("app.auth_cors")
@@ -86,6 +87,7 @@ async def api_health_check() -> dict[str, str]:
 
 app.include_router(public_router)
 app.include_router(api_router)
+app.include_router(root_auth_router)
 
 
 @app.middleware("http")
