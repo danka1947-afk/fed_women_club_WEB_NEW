@@ -23,6 +23,8 @@ class Settings:
     VK_APP_ID: str = os.getenv("VK_APP_ID", "")
     VK_APP_SECRET: str = os.getenv("VK_APP_SECRET", "")
     VK_MINIAPP_AUTH_MAX_AGE_SECONDS: int = int(os.getenv("VK_MINIAPP_AUTH_MAX_AGE_SECONDS", "86400"))
+    TELEGRAM_BOT_TOKEN: str = os.getenv("TELEGRAM_BOT_TOKEN", "")
+    TELEGRAM_MINIAPP_AUTH_MAX_AGE_SECONDS: int = int(os.getenv("TELEGRAM_MINIAPP_AUTH_MAX_AGE_SECONDS", "86400"))
     LEAD_HASH_SALT: str = os.getenv("LEAD_HASH_SALT", "change-me-test-salt")
     BACKEND_CORS_ORIGINS: str = os.getenv(
         "BACKEND_CORS_ORIGINS",
