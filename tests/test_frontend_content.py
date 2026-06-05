@@ -2344,11 +2344,12 @@ def test_admin_partner_wizard_reset_and_category_review_normalization_markers() 
 
 def test_admin_partner_category_payload_uses_current_checkbox_state_and_refreshes_row() -> None:
     source = _frontend_main()
-    payload_block = source.split("const buildAdminPartnerPayload = (formData) => ({", 1)[1].split("const submitPartner = async", 1)[0]
+    payload_block = source.split("const buildAdminPartnerPayload = (formData, selectedCategoryIds = null) => ({", 1)[1].split("const submitPartner = async", 1)[0]
     edit_block = source.split("const submitPartnerEdit = async (form) => {", 1)[1].split("const decimalOrNull", 1)[0]
 
-    assert "category_ids: formData.getAll('category_ids').map((id) => Number(id)).filter((id) => Number.isFinite(id))" in payload_block
-    assert "const updatedPartner = await patchJson(`/api/v1/admin/partners/${partnerId}`, buildAdminPartnerPayload(formData));" in edit_block
+    assert "category_ids: getAdminPartnerPayloadCategoryIds(formData, selectedCategoryIds)" in payload_block
+    assert "const selectedCategoryIds = captureAdminPartnerCategoryDraft(form);" in edit_block
+    assert "const updatedPartner = await patchJson(`/api/v1/admin/partners/${partnerId}`, buildAdminPartnerPayload(formData, selectedCategoryIds));" in edit_block
     assert "adminState.partners = adminState.partners.map" in edit_block
     assert "await loadPartners();" in edit_block
 
@@ -2414,3 +2415,45 @@ def test_landing_partner_filter_uses_categories_array_and_keeps_direction_marker
     assert "Array.isArray(partner?.categories) ? partner.categories : []" in source
     assert "categories.some((category)" in source
     assert "partners.filter((partner) => partnerMatchesLandingCategory(partner, slug))" in source
+
+
+def test_admin_partner_category_payload_uses_captured_checked_ids_not_initial_partner_categories() -> None:
+    source = _frontend_main()
+
+    assert "const selectedCategoryIds = captureAdminPartnerCategoryDraft(form);" in source
+    assert "buildAdminPartnerPayload(formData, selectedCategoryIds)" in source
+    assert "category_ids: getAdminPartnerPayloadCategoryIds(formData, selectedCategoryIds)" in source
+    assert "formData.getAll('category_ids').map((id) => Number(id)).filter((id) => Number.isFinite(id))" not in source
+
+
+def test_admin_partner_manicure_checkbox_uses_category_id_value_with_slug_title_diagnostics() -> None:
+    source = _frontend_main()
+
+    assert "{ slug: 'manikyur-pedikyur', title: 'Маникюр / педикюр' }" in source
+    assert 'name="category_ids" value="${escapeHtml(category.id)}"' in source
+    assert 'data-category-id="${escapeHtml(category.id)}"' in source
+    assert 'data-category-slug="${escapeHtml(category.slug || \'\')}"' in source
+    assert 'data-category-title="${escapeHtml(category.title || category.name || \'\')}"' in source
+    assert 'value="${escapeHtml(category.slug)}"' not in source
+    assert 'value="${escapeHtml(category.title)}"' not in source
+
+
+def test_admin_partner_save_updates_table_from_patch_response_then_uncached_refetch() -> None:
+    source = _frontend_main()
+
+    submit_edit = re.search(r"const submitPartnerEdit = async \(form\) => \{(.*?)\n\};", source, re.S)
+    assert submit_edit is not None
+    submit_edit_body = submit_edit.group(1)
+    assert "const updatedPartner = await patchJson" in submit_edit_body
+    assert "adminState.partners = adminState.partners.map" in submit_edit_body
+    assert "? updatedPartner : partner" in submit_edit_body
+    assert "await loadPartners();" in submit_edit_body
+    assert "cache: options.cache || 'no-store'" in source
+
+
+def test_admin_partner_reopening_drawer_uses_updated_partner_category_ids() -> None:
+    source = _frontend_main()
+
+    assert "const selectedCategoryIds = getAdminPartnerSelectedCategoryIds(isEditMode ? partner : null, activeCategories);" in source
+    assert "return new Set(partner ? getPartnerCategoryIdStrings(partner, activeCategories) : []);" in source
+    assert "resetAdminPartnerCategoryDraft(partnerId);" in source

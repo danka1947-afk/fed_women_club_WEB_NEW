@@ -392,6 +392,131 @@ def test_admin_partner_patch_replaces_categories_with_smaller_set_and_removes_un
     assert "krasota" not in listed["category_slugs"]
 
 
+
+def test_admin_partner_patch_removes_exact_manicure_category_and_preserves_other_russian_categories(
+    admin_client: TestClient,
+    admin_token: str,
+) -> None:
+    category_response = admin_client.get("/api/v1/admin/categories", headers=_auth_headers(admin_token))
+    assert category_response.status_code == 200
+    categories_by_slug = {category["slug"]: category for category in category_response.json()}
+    exact_slugs = [
+        "krasota",
+        "manikyur-pedikyur",
+        "volosy-okrashivanie",
+        "brovi-resnitsy",
+        "kosmetologiya",
+    ]
+    original_category_ids = [categories_by_slug[slug]["id"] for slug in exact_slugs]
+    manicure_id = categories_by_slug["manikyur-pedikyur"]["id"]
+    selected_after_uncheck = [category_id for category_id in original_category_ids if category_id != manicure_id]
+
+    create_response = admin_client.post(
+        "/api/v1/admin/partners",
+        headers=_auth_headers(admin_token),
+        json=_partner_payload(
+            name="Счастье есть",
+            description="Initial description",
+            phone="+79990000000",
+            category_ids=original_category_ids,
+        ),
+    )
+    assert create_response.status_code == 200
+    partner_id = create_response.json()["id"]
+    assert [category["name"] for category in create_response.json()["categories"]] == [
+        "Красота",
+        "Маникюр / педикюр",
+        "Волосы / окрашивание",
+        "Брови / ресницы",
+        "Косметология",
+    ]
+
+    update_response = admin_client.patch(
+        f"/api/v1/admin/partners/{partner_id}",
+        headers=_auth_headers(admin_token),
+        json={
+            "category_ids": selected_after_uncheck,
+            "description": "Updated description",
+            "phone": "+79991112233",
+        },
+    )
+
+    assert update_response.status_code == 200
+    updated = update_response.json()
+    assert manicure_id not in updated["category_ids"]
+    assert updated["category_ids"] == selected_after_uncheck
+    assert [category["name"] for category in updated["categories"]] == [
+        "Красота",
+        "Волосы / окрашивание",
+        "Брови / ресницы",
+        "Косметология",
+    ]
+    assert "Маникюр / педикюр" not in [category["name"] for category in updated["categories"]]
+    assert updated["description"] == "Updated description"
+    assert updated["phone"] == "+79991112233"
+
+    refetch_response = admin_client.get(f"/api/v1/admin/partners/{partner_id}", headers=_auth_headers(admin_token))
+    assert refetch_response.status_code == 200
+    refetched = refetch_response.json()
+    assert refetched["category_ids"] == selected_after_uncheck
+    assert [category["name"] for category in refetched["categories"]] == [
+        "Красота",
+        "Волосы / окрашивание",
+        "Брови / ресницы",
+        "Косметология",
+    ]
+
+    list_response = admin_client.get("/api/v1/admin/partners", headers=_auth_headers(admin_token))
+    assert list_response.status_code == 200
+    listed = next(partner for partner in list_response.json() if partner["id"] == partner_id)
+    assert listed["category_ids"] == selected_after_uncheck
+    assert "Маникюр / педикюр" not in [category["name"] for category in listed["categories"]]
+
+
+def test_admin_partner_patch_duplicate_label_removes_only_submitted_unchecked_category_id(
+    admin_client: TestClient,
+    admin_token: str,
+) -> None:
+    duplicate_response = admin_client.post(
+        "/api/v1/admin/categories",
+        headers=_auth_headers(admin_token),
+        json={"name": "Маникюр / педикюр", "slug": "manikyur-pedikyur-duplicate", "is_active": True, "sort_order": 99},
+    )
+    assert duplicate_response.status_code == 200
+    duplicate_id = duplicate_response.json()["id"]
+
+    category_response = admin_client.get("/api/v1/admin/categories", headers=_auth_headers(admin_token))
+    assert category_response.status_code == 200
+    categories_by_slug = {category["slug"]: category for category in category_response.json()}
+    manicure_id = categories_by_slug["manikyur-pedikyur"]["id"]
+    original_category_ids = [
+        categories_by_slug["krasota"]["id"],
+        manicure_id,
+        duplicate_id,
+        categories_by_slug["kosmetologiya"]["id"],
+    ]
+
+    create_response = admin_client.post(
+        "/api/v1/admin/partners",
+        headers=_auth_headers(admin_token),
+        json=_partner_payload(name="Duplicate Label Partner", category_ids=original_category_ids),
+    )
+    assert create_response.status_code == 200
+    partner_id = create_response.json()["id"]
+
+    selected_after_uncheck = [category_id for category_id in original_category_ids if category_id != manicure_id]
+    update_response = admin_client.patch(
+        f"/api/v1/admin/partners/{partner_id}",
+        headers=_auth_headers(admin_token),
+        json={"category_ids": selected_after_uncheck},
+    )
+
+    assert update_response.status_code == 200
+    updated = update_response.json()
+    assert manicure_id not in updated["category_ids"]
+    assert duplicate_id in updated["category_ids"]
+    assert set(category["id"] for category in updated["categories"]) == set(selected_after_uncheck)
+
 def test_admin_partner_patch_can_clear_categories_with_empty_array(
     admin_client: TestClient,
     admin_token: str,
