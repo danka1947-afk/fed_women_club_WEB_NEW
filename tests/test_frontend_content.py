@@ -2311,6 +2311,8 @@ def test_admin_partner_wizard_markers_present() -> None:
         "Партнёр может отображаться сразу в нескольких категориях.",
                 "type=\"button\"",
         "data-admin-partner-wizard-form",
+        "data-admin-partner-save-button",
+        "partnerWizardFormId",
     ):
         assert marker in source
 
@@ -2319,7 +2321,8 @@ def test_admin_partner_wizard_uses_single_save_action_markers() -> None:
     source = _frontend_main()
 
     for marker in (
-        '<button class="ui-button ui-button--primary" type="submit">Сохранить</button>',
+        'data-admin-partner-save-button',
+        'form="${escapeHtml(partnerWizardFormId)}"',
         'data-admin-partner-step-jump',
         'adminState.partnerFormOpen = true;',
     ):
@@ -2327,6 +2330,41 @@ def test_admin_partner_wizard_uses_single_save_action_markers() -> None:
 
     assert 'data-admin-partner-step-next' not in source
 
+
+
+def test_admin_partner_wizard_save_button_targets_edit_form_and_is_not_disabled() -> None:
+    source = _frontend_main()
+    form_block = source.split('const renderPartnerForm = () => {', 1)[1].split('const defaultPartnerFilters = () => ({', 1)[0]
+
+    assert 'id="${escapeHtml(partnerWizardFormId)}"' in form_block
+    assert 'data-admin-partner-wizard-form novalidate' in form_block
+    assert 'type="submit" form="${escapeHtml(partnerWizardFormId)}" data-admin-partner-save-button' in form_block
+    save_button_line = 'type="submit" form="${escapeHtml(partnerWizardFormId)}" data-admin-partner-save-button>Сохранить</button>'
+    assert save_button_line in form_block
+    assert 'disabled' not in save_button_line
+
+
+def test_admin_partner_category_only_save_still_posts_patch_payload() -> None:
+    source = _frontend_main()
+    edit_block = source.split('const submitPartnerEdit = async (form) => {', 1)[1].split('const decimalOrNull', 1)[0]
+    payload_block = source.split('const buildAdminPartnerPayload = (formData, selectedCategoryIds = null) => ({', 1)[1].split('const submitPartner = async', 1)[0]
+
+    assert 'const selectedCategoryIds = captureAdminPartnerCategoryDraft(form);' in edit_block
+    assert 'const formData = new FormData(form);' in edit_block
+    assert 'patchJson(`/api/v1/admin/partners/${partnerId}`, buildAdminPartnerPayload(formData, selectedCategoryIds))' in edit_block
+    assert 'category_ids: getAdminPartnerPayloadCategoryIds(formData, selectedCategoryIds)' in payload_block
+    assert "formData.getAll('category_ids')" in source
+
+
+def test_admin_partner_validation_block_shows_visible_message() -> None:
+    source = _frontend_main()
+    validation_block = source.split('const validateRequiredCustomSelects = (form) => {', 1)[1].split('const moveCustomSelectActiveOption', 1)[0]
+
+    assert 'Заполните обязательное поле:' in validation_block
+    assert 'adminState.partnerFormInlineError = message;' in validation_block
+    assert 'setFormMessage(formType, message);' in validation_block
+    assert 'messageNode.textContent = message;' in validation_block
+    assert 'inlineErrorNode.textContent = message;' in validation_block
 
 def test_admin_partner_wizard_reset_and_category_review_normalization_markers() -> None:
     source = _frontend_main()
