@@ -2341,6 +2341,32 @@ def test_admin_partner_wizard_reset_and_category_review_normalization_markers() 
         assert marker in source
 
 
+
+def test_admin_partner_category_payload_uses_current_checkbox_state_and_refreshes_row() -> None:
+    source = _frontend_main()
+    payload_block = source.split("const buildAdminPartnerPayload = (formData) => ({", 1)[1].split("const submitPartner = async", 1)[0]
+    edit_block = source.split("const submitPartnerEdit = async (form) => {", 1)[1].split("const decimalOrNull", 1)[0]
+
+    assert "category_ids: formData.getAll('category_ids').map((id) => Number(id)).filter((id) => Number.isFinite(id))" in payload_block
+    assert "const updatedPartner = await patchJson(`/api/v1/admin/partners/${partnerId}`, buildAdminPartnerPayload(formData));" in edit_block
+    assert "adminState.partners = adminState.partners.map" in edit_block
+    assert "await loadPartners();" in edit_block
+
+
+def test_admin_partner_category_uncheck_state_survives_wizard_rerender() -> None:
+    source = _frontend_main()
+
+    for marker in (
+        "partnerFormCategoryIds",
+        "captureAdminPartnerCategoryDraft",
+        "getAdminPartnerSelectedCategoryIds",
+        "input[name=\"category_ids\"]:checked",
+        "[data-admin-partner-wizard-form] input[name=\"category_ids\"]",
+        "captureAdminPartnerCategoryDraft(partnerStepJump.closest('[data-admin-partner-wizard-form]'))",
+        "selectedCategoryIds.has(String(category.id)) ? 'checked' : ''",
+    ):
+        assert marker in source
+
 def test_offer_pricing_helpers_and_copy_present() -> None:
     source = _frontend_main()
     styles = _frontend_styles()

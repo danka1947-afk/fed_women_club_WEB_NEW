@@ -510,6 +510,7 @@ const adminState = {
   partnerFormOpen: false,
   partnerFormStep: 'basic',
   partnerFormInlineError: '',
+  partnerFormCategoryIds: {},
   selectedCityIdForEdit: '',
   selectedCategoryIdForEdit: '',
   selectedOfferIdForEdit: '',
@@ -1344,6 +1345,40 @@ const getPartnerCategories = (partner = {}) => {
       .forEach((fallback) => addCategory(typeof fallback === 'string' ? { name: fallback, slug: fallback } : {}));
   }
   return result;
+};
+
+
+const getPartnerCategoryIdStrings = (partner = {}, activeCategories = []) => getPartnerCategories(partner)
+  .map((item) => {
+    if (item.id) return String(item.id);
+    const match = activeCategories.find((category) => category.slug === item.slug);
+    return match ? String(match.id) : '';
+  })
+  .filter(Boolean);
+
+const getAdminPartnerDraftKey = (partnerId) => (partnerId ? String(partnerId) : '__new__');
+
+const getAdminPartnerSelectedCategoryIds = (partner = null, activeCategories = []) => {
+  const draftKey = getAdminPartnerDraftKey(partner?.id || adminState.selectedPartnerIdForEdit || '');
+  const draftCategoryIds = adminState.partnerFormCategoryIds[draftKey];
+  if (Array.isArray(draftCategoryIds)) {
+    return new Set(draftCategoryIds.map(String));
+  }
+  return new Set(partner ? getPartnerCategoryIdStrings(partner, activeCategories) : []);
+};
+
+const captureAdminPartnerCategoryDraft = (form) => {
+  if (!form) return [];
+  const draftKey = getAdminPartnerDraftKey(form.dataset.partnerId || '');
+  const selectedIds = Array.from(form.querySelectorAll('input[name="category_ids"]:checked'))
+    .map((input) => String(input.value || '').trim())
+    .filter(Boolean);
+  adminState.partnerFormCategoryIds[draftKey] = selectedIds;
+  return selectedIds;
+};
+
+const resetAdminPartnerCategoryDraft = (partnerId = '') => {
+  delete adminState.partnerFormCategoryIds[getAdminPartnerDraftKey(partnerId)];
 };
 
 const formatPartnerCategory = (partner) => getPartnerCategories(partner).map((item) => item.name).join(', ') || '—';
@@ -4328,15 +4363,7 @@ const renderPartnerEditForm = () => {
   }
 
   const activeCategories = adminState.categories.filter((category) => category.is_active !== false);
-  const selectedCategoryIds = new Set(
-    getPartnerCategories(partner)
-      .map((item) => {
-        if (item.id) return String(item.id);
-        const match = activeCategories.find((category) => category.slug === item.slug);
-        return match ? String(match.id) : '';
-      })
-      .filter(Boolean),
-  );
+  const selectedCategoryIds = getAdminPartnerSelectedCategoryIds(partner, activeCategories);
   return `
     <section class="admin-partner-detail">
       <div class="admin-partner-detail-header">
@@ -4418,17 +4445,7 @@ const renderPartnerForm = () => {
     : null;
 
   const activeCategories = adminState.categories.filter((category) => category.is_active !== false);
-  const selectedCategoryIds = new Set(
-    isEditMode && partner
-      ? getPartnerCategories(partner)
-        .map((item) => {
-          if (item.id) return String(item.id);
-          const match = activeCategories.find((category) => category.slug === item.slug);
-          return match ? String(match.id) : '';
-        })
-        .filter(Boolean)
-      : [],
-  );
+  const selectedCategoryIds = getAdminPartnerSelectedCategoryIds(isEditMode ? partner : null, activeCategories);
   const currentStepIndex = Math.max(getPartnerWizardStepIndex(adminState.partnerFormStep), 0);
   const currentStep = adminPartnerWizardSteps[currentStepIndex]?.key || 'basic';
   const selectedCategories = activeCategories.filter((category) => selectedCategoryIds.has(String(category.id)));
@@ -5629,16 +5646,21 @@ const buildAdminPartnerPayload = (formData) => ({
 });
 
 const submitPartner = async (form) => {
+  captureAdminPartnerCategoryDraft(form);
   const formData = new FormData(form);
   const createdPartner = await postJson('/api/v1/admin/partners', buildAdminPartnerPayload(formData));
+  resetAdminPartnerCategoryDraft('');
   await loadPartners();
   return createdPartner;
 };
 
 const submitPartnerEdit = async (form) => {
   const partnerId = form.dataset.partnerId;
+  captureAdminPartnerCategoryDraft(form);
   const formData = new FormData(form);
-  await patchJson(`/api/v1/admin/partners/${partnerId}`, buildAdminPartnerPayload(formData));
+  const updatedPartner = await patchJson(`/api/v1/admin/partners/${partnerId}`, buildAdminPartnerPayload(formData));
+  adminState.partners = adminState.partners.map((partner) => String(partner.id) === String(partnerId) ? updatedPartner : partner);
+  resetAdminPartnerCategoryDraft(partnerId);
   await loadPartners();
 };
 
@@ -6413,6 +6435,7 @@ root.addEventListener('click', async (event) => {
   const partnerCreateButton = event.target.closest('[data-admin-partner-create]');
   if (partnerCreateButton) {
     adminState.selectedPartnerIdForEdit = '';
+    resetAdminPartnerCategoryDraft('');
     adminState.partnerFormOpen = true;
     adminState.partnerFormStep = 'basic';
     adminState.partnerFormInlineError = '';
@@ -6424,6 +6447,7 @@ root.addEventListener('click', async (event) => {
   const partnerEditButton = event.target.closest('[data-admin-partner-edit]');
   if (partnerEditButton) {
     adminState.selectedPartnerIdForEdit = partnerEditButton.dataset.adminPartnerEdit;
+    resetAdminPartnerCategoryDraft(adminState.selectedPartnerIdForEdit);
     adminState.partnerFormOpen = true;
     adminState.partnerFormStep = 'basic';
     adminState.partnerFormInlineError = '';
@@ -6445,6 +6469,7 @@ root.addEventListener('click', async (event) => {
 
   const partnerEditCancel = event.target.closest('[data-admin-partner-edit-cancel]');
   if (partnerEditCancel) {
+    resetAdminPartnerCategoryDraft(partnerEditCancel.dataset.partnerId || adminState.selectedPartnerIdForEdit || '');
     adminState.selectedPartnerIdForEdit = '';
     adminState.selectedPartnerAnalytics = null;
     adminState.partnerAnalyticsError = '';
@@ -6459,6 +6484,7 @@ root.addEventListener('click', async (event) => {
 
   const partnerStepJump = event.target.closest('[data-admin-partner-step-jump]');
   if (partnerStepJump) {
+    captureAdminPartnerCategoryDraft(partnerStepJump.closest('[data-admin-partner-wizard-form]'));
     const stepKey = partnerStepJump.dataset.adminPartnerStepJump;
     if (getPartnerWizardStepIndex(stepKey) >= 0) {
       adminState.partnerFormStep = stepKey;
@@ -7160,6 +7186,12 @@ const handlePartnerOfferPhotoFormSubmit = async (form) => {
 };
 
 root.addEventListener('change', (event) => {
+  const adminPartnerCategoryInput = event.target.closest('[data-admin-partner-wizard-form] input[name="category_ids"]');
+  if (adminPartnerCategoryInput) {
+    captureAdminPartnerCategoryDraft(adminPartnerCategoryInput.closest('[data-admin-partner-wizard-form]'));
+    return;
+  }
+
   const adminPhotoInput = event.target.closest('[data-admin-partner-photo-upload]');
   if (adminPhotoInput) {
     handleAdminPartnerPhotoInput(adminPhotoInput);
