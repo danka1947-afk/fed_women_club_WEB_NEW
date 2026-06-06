@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from enum import Enum
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -49,6 +49,32 @@ class ClientProfile(Base):
         back_populates="client",
     )
     vk_link_codes: Mapped[list["VkLinkCode"]] = relationship("VkLinkCode", back_populates="client")
+    identity_links: Mapped[list["ClientIdentityLink"]] = relationship(
+        "ClientIdentityLink",
+        back_populates="client_profile",
+        cascade="all, delete-orphan",
+    )
+
+
+class ClientIdentityLink(Base):
+    __tablename__ = "client_identity_links"
+    __table_args__ = (
+        UniqueConstraint("provider", "provider_user_id", name="uq_client_identity_links_provider_user"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    client_profile_id: Mapped[int] = mapped_column(ForeignKey("client_profiles.id"), nullable=False, index=True)
+    provider: Mapped[str] = mapped_column(String(32), nullable=False)
+    provider_user_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    linked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+    client_profile: Mapped["ClientProfile"] = relationship("ClientProfile", back_populates="identity_links")
 
 
 class VkLinkCode(Base):

@@ -32,6 +32,8 @@ class User(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     email: Mapped[str | None] = mapped_column(String(255), nullable=True, unique=True, index=True)
     phone: Mapped[str | None] = mapped_column(String(64), nullable=True, unique=True, index=True)
+    phone_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    email_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     password_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
     site_login: Mapped[str | None] = mapped_column(String(255), nullable=True, unique=True, index=True)
     encrypted_site_password: Mapped[str | None] = mapped_column(String(2048), nullable=True)

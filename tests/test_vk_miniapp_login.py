@@ -508,3 +508,55 @@ def test_client_profile_patch_updates_profile_fields_without_changing_credential
     assert profile["city"] == "Новосибирск"
     after = vk_miniapp_client.get("/api/v1/clients/me/site-credentials", headers=headers).json()
     assert after == before
+
+
+def test_documented_risk_vk_login_uses_vk_user_id_only_not_existing_phone_or_email(
+    vk_miniapp_client: TestClient,
+) -> None:
+    """Documentation regression: VK login must not silently merge by unverified phone/email today."""
+    session_gen = app.dependency_overrides[get_db]()
+    session = next(session_gen)
+    try:
+        existing_user = User(
+            email="same-person@example.com",
+            phone="+79990007777",
+            password_hash=hash_password("ClientPass123"),
+            role=UserRole.CLIENT.value,
+            is_active=True,
+        )
+        session.add(existing_user)
+        session.flush()
+        existing_profile = ClientProfile(
+            user_id=existing_user.id,
+            contact_email="same-person@example.com",
+            is_active=True,
+            source="web",
+        )
+        session.add(existing_profile)
+        session.commit()
+        existing_user_id = existing_user.id
+        existing_profile_id = existing_profile.id
+    finally:
+        session_gen.close()
+
+    response = vk_miniapp_client.post(
+        "/api/v1/auth/vk-miniapp-login",
+        json={"launch_params": _build_launch_params(vk_user_id="777777")},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["client"]["vk_user_id"] == "777777"
+    assert body["client"]["id"] != existing_profile_id
+    assert body["user"]["id"] != existing_user_id
+
+    session_gen = app.dependency_overrides[get_db]()
+    session = next(session_gen)
+    try:
+        original_profile = session.get(ClientProfile, existing_profile_id)
+        new_profile = session.execute(select(ClientProfile).where(ClientProfile.vk_user_id == "777777")).scalar_one()
+        assert original_profile is not None
+        assert original_profile.vk_user_id is None
+        assert new_profile.user_id != existing_user_id
+    finally:
+        session_gen.close()

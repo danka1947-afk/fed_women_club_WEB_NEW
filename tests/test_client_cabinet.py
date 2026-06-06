@@ -544,6 +544,29 @@ def test_client_can_activate_trial_subscription_for_15_days(client_cabinet_clien
     assert subscription_response.json()["source"] == "trial"
 
 
+
+def test_documented_risk_trial_subscription_is_per_client_profile_today(
+    client_cabinet_client: TestClient,
+) -> None:
+    """Documentation regression: duplicated profiles can each activate one trial today."""
+    first_token = _client_token(client_cabinet_client)
+    second_token = _profile_client_token(client_cabinet_client)
+
+    first_response = client_cabinet_client.post(
+        "/api/v1/clients/me/trial-subscription",
+        headers=_auth_headers(first_token),
+    )
+    second_response = client_cabinet_client.post(
+        "/api/v1/clients/me/trial-subscription",
+        headers=_auth_headers(second_token),
+    )
+
+    assert first_response.status_code == 200
+    assert second_response.status_code == 200
+    assert first_response.json()["client_id"] != second_response.json()["client_id"]
+    assert first_response.json()["trial_used"] is True
+    assert second_response.json()["trial_used"] is True
+
 def test_client_trial_subscription_repeated_activation_is_blocked(client_cabinet_client: TestClient) -> None:
     token = _client_token(client_cabinet_client)
     first_response = client_cabinet_client.post("/api/v1/clients/me/trial-subscription", headers=_auth_headers(token))
