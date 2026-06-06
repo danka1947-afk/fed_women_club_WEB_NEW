@@ -256,3 +256,52 @@ def test_vk_auth_contract_paths_still_preserved(telegram_miniapp_client: TestCli
     assert "/api/v1/auth/vk-miniapp-login" in post_routes
     assert "/auth/vk-miniapp-login" in post_routes
     assert "/api/v1/auth/telegram-miniapp-login" in post_routes
+
+
+def test_documented_risk_telegram_login_uses_telegram_user_id_only_not_existing_phone_or_email(
+    telegram_miniapp_client: TestClient,
+) -> None:
+    """Documentation regression: Telegram login must not silently merge by unverified phone/email today."""
+    session_gen, session = _open_override_session()
+    try:
+        existing_user = User(
+            email="same-telegram-person@example.com",
+            phone="+79990008888",
+            role=UserRole.CLIENT.value,
+            is_active=True,
+        )
+        session.add(existing_user)
+        session.flush()
+        existing_profile = ClientProfile(
+            user_id=existing_user.id,
+            contact_email="same-telegram-person@example.com",
+            source="web",
+            is_active=True,
+        )
+        session.add(existing_profile)
+        session.commit()
+        existing_user_id = existing_user.id
+        existing_profile_id = existing_profile.id
+    finally:
+        session_gen.close()
+
+    response = telegram_miniapp_client.post(
+        "/api/v1/auth/telegram-miniapp-login",
+        json={"init_data": _build_init_data(user={"id": 889900, "first_name": "Same"})},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["client"]["telegram_user_id"] == "889900"
+    assert body["client"]["id"] != existing_profile_id
+    assert body["user"]["id"] != existing_user_id
+
+    session_gen, session = _open_override_session()
+    try:
+        original_profile = session.get(ClientProfile, existing_profile_id)
+        new_profile = session.execute(select(ClientProfile).where(ClientProfile.telegram_user_id == "889900")).scalar_one()
+        assert original_profile is not None
+        assert original_profile.telegram_user_id is None
+        assert new_profile.user_id != existing_user_id
+    finally:
+        session_gen.close()

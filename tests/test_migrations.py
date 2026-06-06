@@ -14,6 +14,7 @@ from app.db.base import Base
 from app.models import (
     Category,
     City,
+    ClientIdentityLink,
     ClientProfile,
     LeadClick,
     Partner,
@@ -63,7 +64,7 @@ def test_migration_files_have_single_head_revision() -> None:
     assert missing_references == []
 
     heads = sorted(set(revisions) - referenced_revisions)
-    assert heads == ["20260605_0021"]
+    assert heads == ["20260606_0022"]
 
 
 def test_20260602_0017_constraint_names_are_postgresql_safe() -> None:
@@ -111,6 +112,7 @@ def test_base_metadata_includes_domain_foundation_tables() -> None:
         "users",
         "cities",
         "client_profiles",
+        "client_identity_links",
         "partners",
         "partner_offers",
         "partner_photos",
@@ -167,6 +169,7 @@ def test_domain_foundation_persists_in_sqlite_memory() -> None:
             assert session.query(City).count() == 2
             assert session.query(User).count() == 2
             assert session.query(ClientProfile).count() == 1
+            assert session.query(ClientIdentityLink).count() == 1
             assert session.query(Partner).count() == 1
             assert session.query(PartnerOffer).count() == 1
             assert session.query(PartnerPhoto).count() == 1
@@ -196,6 +199,12 @@ def _create_domain_foundation_graph(session: Session, now: datetime) -> None:
         vk_user_id="vk-client-1",
         source="test",
     )
+    identity_link = ClientIdentityLink(
+        provider="vk",
+        provider_user_id="vk-client-1",
+        linked_at=now,
+        verified_at=now,
+    )
     partner = Partner(
         city_id=novosibirsk.id,
         owner_user_id=partner_user.id,
@@ -203,6 +212,7 @@ def _create_domain_foundation_graph(session: Session, now: datetime) -> None:
         name="Beauty Partner",
         is_verified=True,
     )
+    client.identity_links.append(identity_link)
     session.add_all([client, partner])
     session.flush()
 
