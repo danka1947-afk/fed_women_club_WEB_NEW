@@ -75,6 +75,40 @@ class SubscriptionRead(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class ClientLinkingStatusRead(BaseModel):
+    has_vk_identity: bool
+    has_telegram_identity: bool
+    has_site_login: bool
+    is_linked: bool
+    can_start_linking: bool
+
+
+class ClientLinkingStartRequest(BaseModel):
+    identifier: str
+
+
+class ClientLinkingStartResponse(BaseModel):
+    status: str
+    challenge_id: str | None = None
+    masked_identifier: str | None = None
+    expires_in_seconds: int | None = None
+    dev_code: str | None = None
+
+
+class ClientLinkingConfirmRequest(BaseModel):
+    challenge_id: str
+    code: str
+
+
+class ClientLinkingConfirmResponse(BaseModel):
+    status: str
+    access_token: str | None = None
+    token_type: str = "bearer"
+    client: ClientProfileRead | None = None
+    subscription: SubscriptionRead | None = None
+    detail: str | None = None
+
+
 class ClientPartnerPhotoRead(BaseModel):
     id: int
     url: str

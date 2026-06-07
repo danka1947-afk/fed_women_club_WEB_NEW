@@ -2,19 +2,23 @@ from __future__ import annotations
 
 from datetime import date, datetime, time, timedelta, timezone
 from decimal import Decimal
+import hashlib
+import hmac
 import secrets
 import string
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.api.deps import require_client
 from app.core.categories import get_women_club_categories
+from app.core.config import settings
+from app.core.security import create_access_token
 from app.db.session import get_db
 from app.models.city import City
 from app.models.category import Category
-from app.models.client import ClientProfile, VkLinkCode, VkLinkCodeStatus
+from app.models.client import AccountLinkingChallenge, ClientIdentityLink, ClientProfile, VkLinkCode, VkLinkCodeStatus
 from app.models.partner import OfferPhoto, Partner, PartnerOffer, PartnerPhoto
 from app.models.payment import PaymentReceipt, PaymentRequest, PaymentRequestStatus, Subscription, SubscriptionStatus
 from app.models.verification import PrivilegeVerificationSession, PrivilegeVerificationStatus
@@ -23,6 +27,11 @@ from app.schemas.activity import ActivityFeedRead
 from app.schemas.client import (
     ClientSiteCredentialsRead,
     ClientCityResponse,
+    ClientLinkingConfirmRequest,
+    ClientLinkingConfirmResponse,
+    ClientLinkingStartRequest,
+    ClientLinkingStartResponse,
+    ClientLinkingStatusRead,
     ClientCreateVerificationRequest,
     ClientPartnerCatalogItem,
     ClientPartnerCategoryRead,
@@ -74,8 +83,164 @@ TRIAL_SUBSCRIPTION_DAYS = 15
 TRIAL_PROMO_DEADLINE = date(2026, 6, 15)
 TRIAL_SOURCE = "trial"
 PAID_SOURCE = "paid"
+LINKING_CHALLENGE_TTL_SECONDS = 600
+LINKING_MAX_ATTEMPTS = 5
 CATEGORY_DISPLAY_BY_SLUG = {item["slug"]: item["title"] for item in get_women_club_categories()}
 
+
+
+
+@router.get("/me/linking-status", response_model=ClientLinkingStatusRead)
+def read_client_linking_status(
+    current_user: User = Depends(require_client),
+    db: Session = Depends(get_db),
+) -> ClientLinkingStatusRead:
+    profile = _get_or_create_client_profile(db, current_user.id)
+    has_vk_identity = bool(profile.vk_user_id)
+    has_telegram_identity = bool(profile.telegram_user_id)
+    has_site_login = bool(current_user.site_login or current_user.email or current_user.phone)
+    is_linked = has_telegram_identity and (has_vk_identity or has_site_login)
+    can_start_linking = has_telegram_identity and not is_linked
+    return ClientLinkingStatusRead(
+        has_vk_identity=has_vk_identity,
+        has_telegram_identity=has_telegram_identity,
+        has_site_login=has_site_login,
+        is_linked=is_linked,
+        can_start_linking=can_start_linking,
+    )
+
+
+@router.post("/me/linking/start", response_model=ClientLinkingStartResponse)
+def start_client_account_linking(
+    payload: ClientLinkingStartRequest,
+    current_user: User = Depends(require_client),
+    db: Session = Depends(get_db),
+) -> ClientLinkingStartResponse:
+    current_profile = _get_or_create_client_profile(db, current_user.id)
+    if not current_profile.telegram_user_id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="telegram_identity_required")
+
+    identifier_type, normalized_identifier = _normalize_linking_identifier(payload.identifier)
+    candidates = _find_linking_candidates(db, current_profile.id, identifier_type, normalized_identifier)
+    if not candidates:
+        return ClientLinkingStartResponse(status="not_found")
+    if len(candidates) > 1:
+        return ClientLinkingStartResponse(status="multiple_matches")
+
+    target_profile = candidates[0]
+    now = datetime.now(timezone.utc)
+    code = _generate_linking_code()
+    challenge = AccountLinkingChallenge(
+        id=secrets.token_urlsafe(24),
+        current_client_profile_id=current_profile.id,
+        target_client_profile_id=target_profile.id,
+        identifier_type=identifier_type,
+        identifier_hash=_linking_hash(f"{identifier_type}:{normalized_identifier}"),
+        code_hash=_linking_hash(code),
+        expires_at=now + timedelta(seconds=LINKING_CHALLENGE_TTL_SECONDS),
+    )
+    db.add(challenge)
+    db.commit()
+    response = ClientLinkingStartResponse(
+        status="challenge_created",
+        challenge_id=challenge.id,
+        masked_identifier=_mask_linking_identifier(identifier_type, normalized_identifier),
+        expires_in_seconds=LINKING_CHALLENGE_TTL_SECONDS,
+    )
+    if not settings.is_production:
+        response.dev_code = code
+    return response
+
+
+@router.post("/me/linking/confirm", response_model=ClientLinkingConfirmResponse)
+def confirm_client_account_linking(
+    payload: ClientLinkingConfirmRequest,
+    current_user: User = Depends(require_client),
+    db: Session = Depends(get_db),
+) -> ClientLinkingConfirmResponse:
+    current_profile = _get_or_create_client_profile(db, current_user.id)
+    challenge = db.get(AccountLinkingChallenge, payload.challenge_id.strip())
+    now = datetime.now(timezone.utc)
+    if (
+        challenge is None
+        or challenge.current_client_profile_id != current_profile.id
+        or challenge.consumed_at is not None
+    ):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="invalid_challenge")
+    if as_aware_utc(challenge.expires_at) <= now:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="expired_challenge")
+    if challenge.attempts_count >= LINKING_MAX_ATTEMPTS:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="too_many_attempts")
+
+    if not hmac.compare_digest(challenge.code_hash, _linking_hash(payload.code.strip())):
+        challenge.attempts_count += 1
+        db.commit()
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="invalid_code")
+
+    target_profile = db.execute(
+        select(ClientProfile).where(ClientProfile.id == challenge.target_client_profile_id)
+    ).scalar_one_or_none()
+    if target_profile is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="target_profile_not_found")
+    if not current_profile.telegram_user_id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="telegram_identity_required")
+    if target_profile.telegram_user_id and target_profile.telegram_user_id != current_profile.telegram_user_id:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="target_has_another_telegram_identity")
+    if _temporary_profile_has_activity(db, current_profile):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="temporary_profile_has_activity")
+
+    telegram_user_id = current_profile.telegram_user_id
+    telegram_fields = {
+        field: getattr(current_profile, field)
+        for field in ("telegram_username", "telegram_first_name", "telegram_last_name", "telegram_photo_url")
+    }
+    current_profile.telegram_user_id = None
+    current_profile.telegram_username = None
+    current_profile.telegram_first_name = None
+    current_profile.telegram_last_name = None
+    current_profile.telegram_photo_url = None
+    current_profile.is_active = False
+    db.flush()
+    target_profile.telegram_user_id = telegram_user_id
+    for field, value in telegram_fields.items():
+        if value and not getattr(target_profile, field):
+            setattr(target_profile, field, value)
+    challenge.consumed_at = now
+    challenge.attempts_count += 1
+
+    existing_link = db.execute(
+        select(ClientIdentityLink).where(
+            ClientIdentityLink.provider == "telegram",
+            ClientIdentityLink.provider_user_id == telegram_user_id,
+        )
+    ).scalar_one_or_none()
+    if existing_link is None:
+        db.add(
+            ClientIdentityLink(
+                provider="telegram",
+                provider_user_id=telegram_user_id,
+                client_profile_id=target_profile.id,
+                linked_at=now,
+                verified_at=now,
+            )
+        )
+    else:
+        existing_link.client_profile_id = target_profile.id
+        existing_link.linked_at = existing_link.linked_at or now
+        existing_link.verified_at = now
+
+    db.commit()
+    target_user = db.get(User, target_profile.user_id)
+    if target_user is None or not target_user.is_active:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="target_user_inactive")
+    db.refresh(target_profile)
+    subscription = _get_current_active_subscription(db, target_profile.id, now)
+    return ClientLinkingConfirmResponse(
+        status="linked",
+        access_token=create_access_token(f"user:{target_user.id}"),
+        client=_client_profile_to_read(db, target_profile, target_user),
+        subscription=_subscription_to_read(subscription, target_profile, now),
+    )
 
 @router.get("/me", response_model=ClientProfileRead)
 def read_client_me(
@@ -557,6 +722,85 @@ def _get_current_client_profile_or_404(db: Session, current_user: User) -> Clien
         return profile
     return _get_or_create_client_profile(db, current_user.id)
 
+
+
+def _normalize_linking_identifier(identifier: str) -> tuple[str, str]:
+    value = (identifier or "").strip()
+    if not value:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="identifier_required")
+    if "@" in value:
+        normalized = value.lower()
+        if "." not in normalized.split("@")[-1]:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="invalid_email")
+        return "email", normalized
+    normalized_phone = "".join(ch for ch in value if ch.isdigit() or ch == "+")
+    if len(normalized_phone.replace("+", "")) < 6:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="invalid_phone")
+    return "phone", normalized_phone
+
+
+def _linking_hash(value: str) -> str:
+    return hmac.new(settings.SECRET_KEY.encode("utf-8"), value.encode("utf-8"), hashlib.sha256).hexdigest()
+
+
+def _generate_linking_code() -> str:
+    return "".join(secrets.choice(string.digits) for _ in range(6))
+
+
+def _mask_linking_identifier(identifier_type: str, value: str) -> str:
+    if identifier_type == "email":
+        local, _, domain = value.partition("@")
+        masked_local = (local[:1] + "***") if local else "***"
+        return f"{masked_local}@{domain}"
+    digits = "".join(ch for ch in value if ch.isdigit())
+    suffix = digits[-4:] if len(digits) >= 4 else digits
+    prefix = "+" if value.startswith("+") else ""
+    return f"{prefix}***{suffix}" if suffix else "***"
+
+
+def _find_linking_candidates(
+    db: Session,
+    current_profile_id: int,
+    identifier_type: str,
+    normalized_identifier: str,
+) -> list[ClientProfile]:
+    if identifier_type == "email":
+        statement = (
+            select(ClientProfile)
+            .join(User, User.id == ClientProfile.user_id)
+            .where(
+                ClientProfile.id != current_profile_id,
+                or_(
+                    func.lower(User.email) == normalized_identifier,
+                    func.lower(ClientProfile.contact_email) == normalized_identifier,
+                ),
+            )
+        )
+    else:
+        statement = (
+            select(ClientProfile)
+            .join(User, User.id == ClientProfile.user_id)
+            .where(
+                ClientProfile.id != current_profile_id,
+                User.phone == normalized_identifier,
+            )
+        )
+    profiles = list(db.execute(statement).scalars().all())
+    preferred = [profile for profile in profiles if profile.vk_user_id or profile.user.site_login or profile.user.email or profile.user.phone]
+    return preferred or profiles
+
+
+def _temporary_profile_has_activity(db: Session, profile: ClientProfile) -> bool:
+    if profile.trial_subscription_used_at is not None:
+        return True
+    has_subscription = db.execute(select(Subscription.id).where(Subscription.client_id == profile.id).limit(1)).scalar_one_or_none()
+    if has_subscription is not None:
+        return True
+    has_payment_request = db.execute(select(PaymentRequest.id).where(PaymentRequest.client_id == profile.id).limit(1)).scalar_one_or_none()
+    if has_payment_request is not None:
+        return True
+    has_verification = db.execute(select(PrivilegeVerificationSession.id).where(PrivilegeVerificationSession.client_id == profile.id).limit(1)).scalar_one_or_none()
+    return has_verification is not None
 
 def _get_owned_payment_request_or_404(db: Session, client_id: int, payment_request_id: int) -> PaymentRequest:
     payment_request = db.execute(

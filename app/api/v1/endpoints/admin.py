@@ -382,7 +382,11 @@ def list_admin_users(
             ClientProfile.contact_email.label("contact_email"),
             ClientProfile.selected_city_id.label("selected_city_id"),
             City.name.label("selected_city_name"),
+            ClientProfile.id.label("client_profile_id"),
             ClientProfile.vk_user_id.label("vk_user_id"),
+            ClientProfile.telegram_user_id.label("telegram_user_id"),
+            ClientProfile.telegram_username.label("telegram_username"),
+            ClientProfile.trial_subscription_used_at.label("trial_subscription_used_at"),
         )
         .outerjoin(ClientProfile, ClientProfile.user_id == User.id)
         .outerjoin(City, City.id == ClientProfile.selected_city_id)
@@ -397,14 +401,45 @@ def list_admin_users(
         search = q.strip()
         if search:
             pattern = f"%{search}%"
-            statement = statement.where(or_(User.email.ilike(pattern), User.phone.ilike(pattern), ClientProfile.full_name.ilike(pattern), ClientProfile.contact_email.ilike(pattern), City.name.ilike(pattern), ClientProfile.vk_user_id.ilike(pattern)))
+            statement = statement.where(or_(User.email.ilike(pattern), User.phone.ilike(pattern), ClientProfile.full_name.ilike(pattern), ClientProfile.contact_email.ilike(pattern), City.name.ilike(pattern), ClientProfile.vk_user_id.ilike(pattern), ClientProfile.telegram_user_id.ilike(pattern), ClientProfile.telegram_username.ilike(pattern)))
 
     rows = db.execute(statement).all()
     result: list[AdminManagedUserRead] = []
-    for user, full_name, contact_email, selected_city_id, selected_city_name, vk_user_id in rows:
+    now = datetime.now(timezone.utc)
+    for (
+        user,
+        full_name,
+        contact_email,
+        selected_city_id,
+        selected_city_name,
+        client_profile_id,
+        vk_user_id,
+        telegram_user_id,
+        telegram_username,
+        trial_subscription_used_at,
+    ) in rows:
         normalized_email = (user.email or "").strip().lower()
         is_synthetic_email = normalized_email.startswith("vk_") and normalized_email.endswith("@vk.local") or normalized_email.endswith("@vk.local")
         vk_url = f"https://vk.com/id{vk_user_id}" if vk_user_id else None
+        telegram_url = f"https://t.me/{telegram_username}" if telegram_username else None
+        active_subscription = None
+        if client_profile_id is not None:
+            active_subscription = db.execute(
+                select(Subscription).where(
+                    Subscription.client_id == client_profile_id,
+                    Subscription.status == SubscriptionStatus.active.value,
+                    Subscription.starts_at <= now,
+                    Subscription.ends_at > now,
+                ).order_by(Subscription.ends_at.desc(), Subscription.id.desc()).limit(1)
+            ).scalar_one_or_none()
+        active_subscription_type = "none"
+        paid_subscription_status = "Не подключена"
+        subscription_active_until = None
+        if active_subscription is not None:
+            subscription_active_until = active_subscription.ends_at
+            active_subscription_type = "trial" if active_subscription.source == "trial" else "paid"
+            if active_subscription_type == "paid":
+                paid_subscription_status = "Подключена"
         display_name = (
             (full_name.strip() if isinstance(full_name, str) and full_name.strip() else None)
             or (contact_email.strip() if isinstance(contact_email, str) and contact_email.strip() else None)
@@ -425,6 +460,13 @@ def list_admin_users(
                     "selected_city_name": selected_city_name,
                     "vk_user_id": vk_user_id,
                     "vk_url": vk_url,
+                    "telegram_user_id": telegram_user_id,
+                    "telegram_username": telegram_username,
+                    "telegram_url": telegram_url,
+                    "trial_status": "Активировал" if trial_subscription_used_at is not None else "Не активировал",
+                    "paid_subscription_status": paid_subscription_status,
+                    "subscription_active_until": subscription_active_until,
+                    "active_subscription_type": active_subscription_type,
                     "display_name": display_name,
                     "is_synthetic_email": is_synthetic_email,
                 }

@@ -4144,6 +4144,11 @@ const renderUsersTab = () => {
     'full_name',
     'selected_city_name',
     'vk_user_id',
+    'telegram_user_id',
+    'telegram_username',
+    'trial_status',
+    'paid_subscription_status',
+    'active_subscription_type',
     'role',
     (item) => item.display_name,
     (item) => formatRole(item.role),
@@ -4155,12 +4160,13 @@ const renderUsersTab = () => {
         <div class="admin-section-heading"><h4>Пользователи</h4><p>Unified users для клиентских, партнёрских и административных кабинетов.</p></div>
         ${renderAdminSearch('users', 'Поиск по пользователям')}
         ${renderTable(
-          ['Пользователь', 'Контакты', 'Роль', 'Статус', 'Действия'],
+          ['Пользователь', 'Контакты', 'Роль', 'Статус', 'Подписка', 'Действия'],
           users.map((item) => [
             `<strong>${formatValue(item.display_name || item.full_name)}</strong><br><small class="muted-text">ID: ${formatValue(item.id)}</small>${item.selected_city_name ? `<br><small class="muted-text">${formatValue(item.selected_city_name)}</small>` : ''}`,
-            `<div><strong>Login:</strong> ${item.is_synthetic_email ? `<span class="muted-text">${formatValue(item.email)}</span>` : formatValue(item.email)}</div><div><strong>Email:</strong> ${formatValue(item.contact_email)}</div><div><strong>Телефон:</strong> ${formatValue(item.phone)}</div><div><strong>VK:</strong> ${item.vk_url ? `<a href="${escapeHtml(item.vk_url)}" target="_blank" rel="noopener noreferrer">Открыть</a>${item.vk_user_id ? ` <small class="muted-text">(id: ${escapeHtml(item.vk_user_id)})</small>` : ''}` : '—'}</div>`,
+            `<div><strong>Login:</strong> ${item.is_synthetic_email ? `<span class="muted-text">${formatValue(item.email)}</span>` : formatValue(item.email)}</div><div><strong>Email:</strong> ${formatValue(item.contact_email)}</div><div><strong>Телефон:</strong> ${formatValue(item.phone)}</div><div><strong>VK:</strong> ${item.vk_url ? `<a href="${escapeHtml(item.vk_url)}" target="_blank" rel="noopener noreferrer">Открыть</a>${item.vk_user_id ? ` <small class="muted-text">(id: ${escapeHtml(item.vk_user_id)})</small>` : ''}` : '—'}</div><div><strong>TG:</strong> ${item.telegram_url ? `<a href="${escapeHtml(item.telegram_url)}" target="_blank" rel="noopener noreferrer">Открыть</a>${item.telegram_user_id ? ` <small class="muted-text">(id: ${escapeHtml(item.telegram_user_id)})</small>` : ''}` : (item.telegram_user_id ? `ID: ${escapeHtml(item.telegram_user_id)} <small class="muted-text">(username не указан)</small>` : '—')}</div>`,
             formatValue(formatRole(item.role)),
             renderBoolStatusBadge(item.is_active),
+            `<div><strong>Trial:</strong> ${formatValue(item.trial_status)}</div><div><strong>Платная:</strong> ${formatValue(item.paid_subscription_status)}</div><div><strong>Тип:</strong> ${formatValue(item.active_subscription_type)}</div><div><strong>До:</strong> ${formatDateTime(item.subscription_active_until)}</div>`,
             renderUserActionButton(item),
           ]),
           true,

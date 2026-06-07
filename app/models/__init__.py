@@ -1,6 +1,6 @@
 from app.models.category import Category
 from app.models.city import City
-from app.models.client import ClientIdentityLink, ClientPasswordSetupToken, ClientProfile, VkLinkCode
+from app.models.client import AccountLinkingChallenge, ClientIdentityLink, ClientPasswordSetupToken, ClientProfile, VkLinkCode
 from app.models.lead import LeadClick
 from app.models.landing import LandingSettings
 from app.models.partner import OfferPhoto, Partner, PartnerOffer, PartnerPhoto, PartnerQrLink
@@ -9,6 +9,7 @@ from app.models.user import AdminUser, User, UserRole
 from app.models.verification import PrivilegeVerificationSession, PrivilegeVerificationStatus
 
 __all__ = [
+    "AccountLinkingChallenge",
     "AdminUser",
     "Category",
     "City",

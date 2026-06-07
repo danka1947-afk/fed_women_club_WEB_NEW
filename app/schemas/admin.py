@@ -42,6 +42,13 @@ class AdminManagedUserRead(BaseModel):
     selected_city_name: str | None = None
     vk_user_id: str | None = None
     vk_url: str | None = None
+    telegram_user_id: str | None = None
+    telegram_username: str | None = None
+    telegram_url: str | None = None
+    trial_status: str | None = None
+    paid_subscription_status: str | None = None
+    subscription_active_until: datetime | None = None
+    active_subscription_type: str | None = None
     display_name: str | None = None
     is_synthetic_email: bool = False
 

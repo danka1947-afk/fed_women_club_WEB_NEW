@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Generator
+from datetime import datetime, timedelta, timezone
 
 import pytest
 from fastapi.testclient import TestClient
@@ -15,6 +16,7 @@ from app.db.session import get_db
 from app.main import app
 from app.models.city import City
 from app.models.client import ClientProfile
+from app.models.payment import Subscription, SubscriptionStatus
 from app.models.user import AdminUser, User, UserRole
 
 
@@ -76,12 +78,26 @@ def admin_users_client() -> Generator[TestClient, None, None]:
                     contact_email="anna.real@example.com",
                     selected_city_id=city.id,
                     vk_user_id="1234567",
+                    telegram_user_id="998877",
+                    telegram_username="anna_bloom",
+                    trial_subscription_used_at=datetime.now(timezone.utc),
                 ),
                 ClientProfile(
                     user_id=client_user.id,
                     contact_email="fallback@example.com",
                 ),
             ]
+        )
+        session.flush()
+        partner_profile = session.query(ClientProfile).filter(ClientProfile.vk_user_id == "1234567").one()
+        session.add(
+            Subscription(
+                client_id=partner_profile.id,
+                status=SubscriptionStatus.active.value,
+                starts_at=datetime.now(timezone.utc) - timedelta(days=1),
+                ends_at=datetime.now(timezone.utc) + timedelta(days=30),
+                source="paid",
+            )
         )
         session.commit()
 
@@ -282,6 +298,13 @@ def test_admin_users_list_returns_vk_and_display_fields(admin_users_client: Test
     assert partner["selected_city_name"] == "Moscow"
     assert partner["vk_user_id"] == "1234567"
     assert partner["vk_url"] == "https://vk.com/id1234567"
+    assert partner["telegram_user_id"] == "998877"
+    assert partner["telegram_username"] == "anna_bloom"
+    assert partner["telegram_url"] == "https://t.me/anna_bloom"
+    assert partner["trial_status"] == "Активировал"
+    assert partner["paid_subscription_status"] == "Подключена"
+    assert partner["active_subscription_type"] == "paid"
+    assert partner["subscription_active_until"] is not None
     assert partner["display_name"] == "Анна Иванова"
     assert partner["is_synthetic_email"] is False
 
@@ -294,6 +317,11 @@ def test_admin_users_list_vk_url_is_null_without_vk_id(admin_users_client: TestC
     client = next(user for user in data if user["email"] == "existing-client@example.com")
     assert client["vk_user_id"] is None
     assert client["vk_url"] is None
+    assert client["telegram_user_id"] is None
+    assert client["telegram_url"] is None
+    assert client["trial_status"] == "Не активировал"
+    assert client["paid_subscription_status"] == "Не подключена"
+    assert client["active_subscription_type"] == "none"
 
 
 def test_admin_users_list_display_name_fallbacks(admin_users_client: TestClient, admin_token: str) -> None:

@@ -6,6 +6,7 @@ from datetime import datetime, timedelta, timezone
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
+from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -1362,3 +1363,233 @@ def test_client_payment_request_mark_paid_does_not_create_subscription(client_ca
     assert subscription_data["status"] == "inactive"
     with next(app.dependency_overrides[get_db]()) as session:
         assert session.query(Subscription).filter(Subscription.client_id == profile["id"]).count() == 0
+
+
+def _seed_linking_profiles(client: TestClient, *, target_trial_used: bool = False, multiple: bool = False) -> None:
+    with next(client.app.dependency_overrides[get_db]()) as session:
+        vk_user = User(
+            email="linked-vk@example.com",
+            phone="+79991112234",
+            role=UserRole.CLIENT.value,
+            is_active=True,
+            password_hash=hash_password("LinkedPassword123"),
+        )
+        tg_user = User(
+            email=None,
+            phone=None,
+            role=UserRole.CLIENT.value,
+            is_active=True,
+        )
+        session.add_all([vk_user, tg_user])
+        session.flush()
+        vk_profile = ClientProfile(
+            user_id=vk_user.id,
+            vk_user_id="777001",
+            contact_email="linked-vk@example.com",
+            trial_subscription_used_at=datetime.now(timezone.utc) if target_trial_used else None,
+            is_active=True,
+            source="vk-miniapp",
+        )
+        tg_profile = ClientProfile(
+            user_id=tg_user.id,
+            telegram_user_id="999001",
+            telegram_username="bloom_tg",
+            is_active=True,
+            source="telegram-miniapp",
+        )
+        session.add_all([vk_profile, tg_profile])
+        if multiple:
+            other_user = User(email="other-vk@example.com", phone=None, role=UserRole.CLIENT.value, is_active=True)
+            session.add(other_user)
+            session.flush()
+            session.add(ClientProfile(user_id=other_user.id, vk_user_id="777002", contact_email="linked-vk@example.com", is_active=True, source="vk-miniapp"))
+        session.commit()
+
+
+def _tg_linking_token(client: TestClient) -> str:
+    from app.core.security import create_access_token
+    with next(client.app.dependency_overrides[get_db]()) as session:
+        user_id = session.execute(select(User.id).where(User.email.is_(None))).scalar_one()
+    return create_access_token(f"user:{user_id}")
+
+
+def test_linking_status_for_new_tg_profile_can_start(client_cabinet_client: TestClient) -> None:
+    _seed_linking_profiles(client_cabinet_client)
+    token = _tg_linking_token(client_cabinet_client)
+
+    response = client_cabinet_client.get("/api/v1/clients/me/linking-status", headers=_auth_headers(token))
+
+    assert response.status_code == 200
+    assert response.json()["has_telegram_identity"] is True
+    assert response.json()["is_linked"] is False
+    assert response.json()["can_start_linking"] is True
+
+
+def test_linking_start_not_found(client_cabinet_client: TestClient) -> None:
+    _seed_linking_profiles(client_cabinet_client)
+    token = _tg_linking_token(client_cabinet_client)
+
+    response = client_cabinet_client.post(
+        "/api/v1/clients/me/linking/start",
+        json={"identifier": "missing@example.com"},
+        headers=_auth_headers(token),
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {"status": "not_found", "challenge_id": None, "masked_identifier": None, "expires_in_seconds": None, "dev_code": None}
+
+
+def test_linking_start_existing_vk_profile_creates_challenge(client_cabinet_client: TestClient) -> None:
+    _seed_linking_profiles(client_cabinet_client)
+    token = _tg_linking_token(client_cabinet_client)
+
+    response = client_cabinet_client.post(
+        "/api/v1/clients/me/linking/start",
+        json={"identifier": "LINKED-VK@example.com"},
+        headers=_auth_headers(token),
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "challenge_created"
+    assert body["challenge_id"]
+    assert body["masked_identifier"] == "l***@example.com"
+    assert body["expires_in_seconds"] == 600
+    assert body["dev_code"] and len(body["dev_code"]) == 6
+
+
+def test_linking_start_multiple_matches(client_cabinet_client: TestClient) -> None:
+    _seed_linking_profiles(client_cabinet_client, multiple=True)
+    token = _tg_linking_token(client_cabinet_client)
+
+    response = client_cabinet_client.post(
+        "/api/v1/clients/me/linking/start",
+        json={"identifier": "linked-vk@example.com"},
+        headers=_auth_headers(token),
+    )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "multiple_matches"
+
+
+def test_linking_confirm_invalid_expired_and_success(client_cabinet_client: TestClient) -> None:
+    from app.models.client import AccountLinkingChallenge, ClientIdentityLink
+
+    _seed_linking_profiles(client_cabinet_client)
+    token = _tg_linking_token(client_cabinet_client)
+    start = client_cabinet_client.post(
+        "/api/v1/clients/me/linking/start",
+        json={"identifier": "linked-vk@example.com"},
+        headers=_auth_headers(token),
+    ).json()
+
+    bad = client_cabinet_client.post(
+        "/api/v1/clients/me/linking/confirm",
+        json={"challenge_id": start["challenge_id"], "code": "000000"},
+        headers=_auth_headers(token),
+    )
+    assert bad.status_code == 400
+    assert bad.json()["detail"] == "invalid_code"
+
+    with next(client_cabinet_client.app.dependency_overrides[get_db]()) as session:
+        challenge = session.get(AccountLinkingChallenge, start["challenge_id"])
+        challenge.expires_at = datetime.now(timezone.utc) - timedelta(seconds=1)
+        session.commit()
+    expired = client_cabinet_client.post(
+        "/api/v1/clients/me/linking/confirm",
+        json={"challenge_id": start["challenge_id"], "code": start["dev_code"]},
+        headers=_auth_headers(token),
+    )
+    assert expired.status_code == 400
+    assert expired.json()["detail"] == "expired_challenge"
+
+    start = client_cabinet_client.post(
+        "/api/v1/clients/me/linking/start",
+        json={"identifier": "linked-vk@example.com"},
+        headers=_auth_headers(token),
+    ).json()
+    ok = client_cabinet_client.post(
+        "/api/v1/clients/me/linking/confirm",
+        json={"challenge_id": start["challenge_id"], "code": start["dev_code"]},
+        headers=_auth_headers(token),
+    )
+    assert ok.status_code == 200
+    body = ok.json()
+    assert body["status"] == "linked"
+    assert body["client"]["vk_user_id"] == "777001"
+    assert body["access_token"]
+    with next(client_cabinet_client.app.dependency_overrides[get_db]()) as session:
+        target = session.execute(select(ClientProfile).where(ClientProfile.vk_user_id == "777001")).scalar_one()
+        assert target.telegram_user_id == "999001"
+        link = session.execute(select(ClientIdentityLink).where(ClientIdentityLink.provider == "telegram")).scalar_one()
+        assert link.client_profile_id == target.id
+
+
+def test_linking_conflicts_target_has_other_telegram(client_cabinet_client: TestClient) -> None:
+    _seed_linking_profiles(client_cabinet_client)
+    token = _tg_linking_token(client_cabinet_client)
+    with next(client_cabinet_client.app.dependency_overrides[get_db]()) as session:
+        target = session.execute(select(ClientProfile).where(ClientProfile.vk_user_id == "777001")).scalar_one()
+        target.telegram_user_id = "another-tg"
+        session.commit()
+    start = client_cabinet_client.post(
+        "/api/v1/clients/me/linking/start",
+        json={"identifier": "linked-vk@example.com"},
+        headers=_auth_headers(token),
+    ).json()
+
+    response = client_cabinet_client.post(
+        "/api/v1/clients/me/linking/confirm",
+        json={"challenge_id": start["challenge_id"], "code": start["dev_code"]},
+        headers=_auth_headers(token),
+    )
+
+    assert response.status_code == 409
+    assert response.json()["detail"] == "target_has_another_telegram_identity"
+
+
+def test_linking_conflicts_temporary_profile_has_trial(client_cabinet_client: TestClient) -> None:
+    _seed_linking_profiles(client_cabinet_client)
+    token = _tg_linking_token(client_cabinet_client)
+    with next(client_cabinet_client.app.dependency_overrides[get_db]()) as session:
+        tg = session.execute(select(ClientProfile).where(ClientProfile.telegram_user_id == "999001")).scalar_one()
+        tg.trial_subscription_used_at = datetime.now(timezone.utc)
+        session.commit()
+    start = client_cabinet_client.post(
+        "/api/v1/clients/me/linking/start",
+        json={"identifier": "linked-vk@example.com"},
+        headers=_auth_headers(token),
+    ).json()
+
+    response = client_cabinet_client.post(
+        "/api/v1/clients/me/linking/confirm",
+        json={"challenge_id": start["challenge_id"], "code": start["dev_code"]},
+        headers=_auth_headers(token),
+    )
+
+    assert response.status_code == 409
+    assert response.json()["detail"] == "temporary_profile_has_activity"
+
+
+def test_trial_not_reissued_after_linking_to_vk_profile_with_used_trial(client_cabinet_client: TestClient) -> None:
+    _seed_linking_profiles(client_cabinet_client, target_trial_used=True)
+    token = _tg_linking_token(client_cabinet_client)
+    start = client_cabinet_client.post(
+        "/api/v1/clients/me/linking/start",
+        json={"identifier": "linked-vk@example.com"},
+        headers=_auth_headers(token),
+    ).json()
+    linked = client_cabinet_client.post(
+        "/api/v1/clients/me/linking/confirm",
+        json={"challenge_id": start["challenge_id"], "code": start["dev_code"]},
+        headers=_auth_headers(token),
+    ).json()
+    linked_token = linked["access_token"]
+
+    state = client_cabinet_client.get("/api/v1/clients/me/subscription", headers=_auth_headers(linked_token))
+    assert state.status_code == 200
+    assert state.json()["trial_used"] is True
+    assert state.json()["trial_available"] is False
+    repeat = client_cabinet_client.post("/api/v1/clients/me/trial-subscription", headers=_auth_headers(linked_token))
+    assert repeat.status_code == 400
+    assert repeat.json()["detail"] == "Trial subscription already activated"
