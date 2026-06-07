@@ -1188,6 +1188,14 @@ const renderOfferMarketplaceCard = (offer = {}, options = {}) => {
 
 const renderDisplayValue = (value) => String(value || '').startsWith('<span class="status-badge') ? value : formatValue(value);
 const formatDate = (value) => (value ? new Date(value).toLocaleString('ru-RU') : '—');
+const formatDateTime = (value) => {
+  if (value === null || value === undefined || value === '') return '—';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '—';
+
+  const pad = (part) => String(part).padStart(2, '0');
+  return `${pad(date.getDate())}.${pad(date.getMonth() + 1)}.${date.getFullYear()} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+};
 const formatDateRu = (value) => {
   if (!value) return '—';
   const [year, month, day] = String(value).split('-');
@@ -4166,7 +4174,7 @@ const renderUsersTab = () => {
             `<div><strong>Login:</strong> ${item.is_synthetic_email ? `<span class="muted-text">${formatValue(item.email)}</span>` : formatValue(item.email)}</div><div><strong>Email:</strong> ${formatValue(item.contact_email)}</div><div><strong>Телефон:</strong> ${formatValue(item.phone)}</div><div><strong>VK:</strong> ${item.vk_url ? `<a href="${escapeHtml(item.vk_url)}" target="_blank" rel="noopener noreferrer">Открыть</a>${item.vk_user_id ? ` <small class="muted-text">(id: ${escapeHtml(item.vk_user_id)})</small>` : ''}` : '—'}</div><div><strong>TG:</strong> ${item.telegram_url ? `<a href="${escapeHtml(item.telegram_url)}" target="_blank" rel="noopener noreferrer">Открыть</a>${item.telegram_user_id ? ` <small class="muted-text">(id: ${escapeHtml(item.telegram_user_id)})</small>` : ''}` : (item.telegram_user_id ? `ID: ${escapeHtml(item.telegram_user_id)} <small class="muted-text">(username не указан)</small>` : '—')}</div>`,
             formatValue(formatRole(item.role)),
             renderBoolStatusBadge(item.is_active),
-            `<div><strong>Trial:</strong> ${formatValue(item.trial_status)}</div><div><strong>Платная:</strong> ${formatValue(item.paid_subscription_status)}</div><div><strong>Тип:</strong> ${formatValue(item.active_subscription_type)}</div><div><strong>До:</strong> ${formatDateTime(item.subscription_active_until)}</div>`,
+            `<div><strong>Trial:</strong> ${formatValue(item.trial_status)}</div><div><strong>Платная:</strong> ${formatValue(item.paid_subscription_status)}</div><div><strong>Тип:</strong> ${formatValue(item.active_subscription_type)}</div><div><strong>До:</strong> ${formatDateTime(item.subscription_active_until ?? item.active_subscription_until)}</div>`,
             renderUserActionButton(item),
           ]),
           true,
