@@ -54,6 +54,46 @@ class ClientProfile(Base):
         back_populates="client_profile",
         cascade="all, delete-orphan",
     )
+    outgoing_linking_challenges: Mapped[list["AccountLinkingChallenge"]] = relationship(
+        "AccountLinkingChallenge",
+        foreign_keys="AccountLinkingChallenge.current_client_profile_id",
+        back_populates="current_client_profile",
+    )
+    incoming_linking_challenges: Mapped[list["AccountLinkingChallenge"]] = relationship(
+        "AccountLinkingChallenge",
+        foreign_keys="AccountLinkingChallenge.target_client_profile_id",
+        back_populates="target_client_profile",
+    )
+
+
+class AccountLinkingChallenge(Base):
+    __tablename__ = "account_linking_challenges"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    current_client_profile_id: Mapped[int] = mapped_column(ForeignKey("client_profiles.id"), nullable=False, index=True)
+    target_client_profile_id: Mapped[int] = mapped_column(ForeignKey("client_profiles.id"), nullable=False, index=True)
+    identifier_type: Mapped[str] = mapped_column(String(16), nullable=False)
+    identifier_hash: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    code_hash: Mapped[str] = mapped_column(String(128), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+    consumed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    attempts_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+    current_client_profile: Mapped["ClientProfile"] = relationship(
+        "ClientProfile",
+        foreign_keys=[current_client_profile_id],
+        back_populates="outgoing_linking_challenges",
+    )
+    target_client_profile: Mapped["ClientProfile"] = relationship(
+        "ClientProfile",
+        foreign_keys=[target_client_profile_id],
+        back_populates="incoming_linking_challenges",
+    )
 
 
 class ClientIdentityLink(Base):
