@@ -64,6 +64,7 @@ After restart, verify:
 ```bash
 curl -fsS https://<production-host>/health
 curl -fsS https://<production-host>/api/v1/health
+curl -fsS https://<production-host>/health/db
 ```
 
-Also smoke-test `/r/p/{slug}` with a known active partner QR slug before announcing the release.
+See `docs/production-stability.md` for outage diagnostics, systemd checks, nginx checks, and PostgreSQL resource checks. Also smoke-test `/r/p/{slug}` with a known active partner QR slug before announcing the release.
