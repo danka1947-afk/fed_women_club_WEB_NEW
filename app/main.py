@@ -1,27 +1,36 @@
 from __future__ import annotations
 
 import logging
+import time
 from pathlib import Path
+from uuid import uuid4
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy import text
+from sqlalchemy.exc import DBAPIError, OperationalError, SQLAlchemyError, TimeoutError as SQLAlchemyTimeoutError
 
-from app.core.config import settings
-from app.api.v1.router import api_router
-from app.api.v1.endpoints.public import router as public_router
 from app.api.v1.endpoints.auth import router as root_auth_router
+from app.api.v1.endpoints.public import router as public_router
+from app.api.v1.router import api_router
+from app.core.config import settings
+from app.db.session import SessionLocal
 
 
-logger = logging.getLogger("app.auth_cors")
+logger = logging.getLogger("app.request")
+vk_logger = logging.getLogger("app.auth_cors")
+db_logger = logging.getLogger("app.database")
 
 VK_MINIAPP_AUTH_LOG_PATHS = {"/api/v1/auth/vk-miniapp-login", "/auth/vk-miniapp-login"}
+SERVICE_NAME = "womenclub"
+APP_VERSION = "0.1.0"
 
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
-    version="0.1.0",
+    version=APP_VERSION,
 )
 
 app.add_middleware(
@@ -30,7 +39,7 @@ app.add_middleware(
     allow_origin_regex=r"https://([a-z0-9-]+\.)*(vk\.ru|vk\.com|bloomclub\.ru)$",
     allow_credentials=True,
     allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
-    allow_headers=["Authorization", "Content-Type", "Accept"],
+    allow_headers=["Authorization", "Content-Type", "Accept", "X-Request-ID"],
 )
 
 upload_dir = Path(settings.UPLOAD_DIR)
@@ -58,6 +67,46 @@ def _vk_mini_app_index() -> FileResponse:
     return FileResponse(index_path)
 
 
+def _health_payload() -> dict[str, str]:
+    return {"status": "ok", "service": SERVICE_NAME, "version": APP_VERSION}
+
+
+def _database_health_payload() -> dict[str, str]:
+    with SessionLocal() as session:
+        session.execute(text("SELECT 1"))
+    return {"status": "ok", "service": SERVICE_NAME, "database": "ok"}
+
+
+@app.exception_handler(OperationalError)
+async def operational_error_handler(request: Request, exc: OperationalError) -> JSONResponse:
+    request_id = getattr(request.state, "request_id", "")
+    db_logger.exception("database operational error path=%s request_id=%s", request.url.path, request_id)
+    return JSONResponse(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        content={"detail": "Database temporarily unavailable", "request_id": request_id},
+    )
+
+
+@app.exception_handler(SQLAlchemyTimeoutError)
+async def sqlalchemy_timeout_handler(request: Request, exc: SQLAlchemyTimeoutError) -> JSONResponse:
+    request_id = getattr(request.state, "request_id", "")
+    db_logger.exception("database pool timeout path=%s request_id=%s", request.url.path, request_id)
+    return JSONResponse(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        content={"detail": "Database temporarily unavailable", "request_id": request_id},
+    )
+
+
+@app.exception_handler(DBAPIError)
+async def dbapi_error_handler(request: Request, exc: DBAPIError) -> JSONResponse:
+    request_id = getattr(request.state, "request_id", "")
+    db_logger.exception("database error path=%s request_id=%s", request.url.path, request_id)
+    return JSONResponse(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content={"detail": "Database error", "request_id": request_id},
+    )
+
+
 @app.get("/vk-mini-app/")
 async def vk_mini_app_entrypoint() -> FileResponse:
     return _vk_mini_app_index()
@@ -77,12 +126,24 @@ async def vk_mini_app_static(full_path: str) -> FileResponse:
 
 @app.get("/health", tags=["health"])
 async def health_check() -> dict[str, str]:
-    return {"status": "ok"}
+    return _health_payload()
 
 
 @app.get("/api/v1/health", tags=["health"])
 async def api_health_check() -> dict[str, str]:
-    return {"status": "ok"}
+    return _health_payload()
+
+
+@app.get("/health/db", tags=["health"], response_model=None)
+async def database_health_check():
+    try:
+        return _database_health_payload()
+    except SQLAlchemyError:
+        db_logger.exception("database health check failed")
+        return JSONResponse(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            content={"status": "error", "service": SERVICE_NAME, "database": "unavailable"},
+        )
 
 
 app.include_router(public_router)
@@ -91,7 +152,32 @@ app.include_router(root_auth_router)
 
 
 @app.middleware("http")
-async def log_vk_miniapp_auth_cors_debug(request, call_next):
+async def request_logging_middleware(request: Request, call_next):
+    request_id = request.headers.get("x-request-id") or str(uuid4())
+    request.state.request_id = request_id
+    started_at = time.perf_counter()
+    status_code = 500
+
+    try:
+        response = await call_next(request)
+        status_code = response.status_code
+        return response
+    finally:
+        duration_ms = (time.perf_counter() - started_at) * 1000
+        logger.info(
+            "request method=%s path=%s status=%s duration_ms=%.2f request_id=%s",
+            request.method,
+            request.url.path,
+            status_code,
+            duration_ms,
+            request_id,
+        )
+        if "response" in locals():
+            response.headers["X-Request-ID"] = request_id
+
+
+@app.middleware("http")
+async def log_vk_miniapp_auth_cors_debug(request: Request, call_next):
     path = request.url.path
     if path not in VK_MINIAPP_AUTH_LOG_PATHS:
         return await call_next(request)
@@ -103,7 +189,7 @@ async def log_vk_miniapp_auth_cors_debug(request, call_next):
     user_agent = request.headers.get("user-agent", "")[:120]
 
     response = await call_next(request)
-    logger.info(
+    vk_logger.info(
         "vk-miniapp-login method=%s path=%s origin=%s acr_method=%s acr_headers=%s status=%s ua=%s",
         method,
         path,
