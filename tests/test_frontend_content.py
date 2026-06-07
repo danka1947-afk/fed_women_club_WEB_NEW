@@ -286,6 +286,15 @@ def test_client_savings_uses_defined_price_formatter() -> None:
     assert "formatPrice(data.total_saving_amount)" in source
 
 
+def test_admin_users_subscription_date_uses_safe_datetime_formatter() -> None:
+    source = _frontend_main()
+    users_block = source.split("const renderUsersTab = () => {", 1)[1].split("const renderCityActionButtons", 1)[0]
+
+    assert "const formatDateTime = (value) => {" in source
+    assert "if (value === null || value === undefined || value === '') return '—';" in source
+    assert "if (Number.isNaN(date.getTime())) return '—';" in source
+    assert "formatDateTime(item.subscription_active_until ?? item.active_subscription_until)" in users_block
+
 
 def test_frontend_applies_custom_selects_to_client_catalog_filters() -> None:
     source = _frontend_main()
