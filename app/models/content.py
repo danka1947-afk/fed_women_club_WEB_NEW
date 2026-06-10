@@ -220,16 +220,16 @@ class ContentBanner(ContentBase):
 
 class ContentBlock(ContentBase):
     __tablename__ = "content_blocks"
+    __table_args__ = (UniqueConstraint("key", "locale", name="uq_content_blocks_key_locale"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    slug: Mapped[str] = mapped_column(String(120), nullable=False, unique=True, index=True)
+    key: Mapped[str] = mapped_column(String(120), nullable=False, index=True)
+    placement: Mapped[str] = mapped_column(String(120), nullable=False, default="static_texts", index=True)
+    locale: Mapped[str] = mapped_column(String(16), nullable=False, default="ru", index=True)
     title: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    subtitle: Mapped[str | None] = mapped_column(String(512), nullable=True)
     body: Mapped[str | None] = mapped_column(Text, nullable=True)
-    block_type: Mapped[str] = mapped_column(String(120), nullable=False, default="generic")
-    payload: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    metadata_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
-    sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()

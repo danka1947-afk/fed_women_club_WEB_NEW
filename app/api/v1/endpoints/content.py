@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TypeVar
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
@@ -11,6 +11,7 @@ from app.api.deps import require_admin
 from app.db.content_session import get_content_db
 from app.models.content import (
     ContentBanner,
+    ContentBlock,
     ContentCategory,
     ContentCity,
     ContentGiveaway,
@@ -24,6 +25,9 @@ from app.schemas.content import (
     ContentBannerCreate,
     ContentBannerRead,
     ContentBannerUpdate,
+    ContentBlockCreate,
+    ContentBlockRead,
+    ContentBlockUpdate,
     ContentCategoryCreate,
     ContentCategoryRead,
     ContentCategoryUpdate,
@@ -144,6 +148,25 @@ def content_health(_db: Session = Depends(get_content_db)) -> dict[str, str]:
     return {"status": "ok", "service": "content", "database": "configured"}
 
 
+@router.get("/blocks", response_model=list[ContentBlockRead])
+def list_content_blocks(
+    block_type: str | None = Query(default=None, alias="type"),
+    db: Session = Depends(get_content_db),
+) -> list[ContentBlock]:
+    statement = select(ContentBlock).where(ContentBlock.is_active.is_(True))
+    if block_type is not None:
+        statement = statement.where(ContentBlock.placement == block_type)
+    return (
+        db.execute(
+            statement.order_by(
+                ContentBlock.placement, ContentBlock.key, ContentBlock.locale
+            )
+        )
+        .scalars()
+        .all()
+    )
+
+
 @router.get("/cities", response_model=list[ContentCityRead])
 def list_content_cities(db: Session = Depends(get_content_db)) -> list[ContentCity]:
     return (
@@ -249,6 +272,43 @@ def list_content_banners(db: Session = Depends(get_content_db)) -> list[ContentB
         .scalars()
         .all()
     )
+
+
+@admin_router.post(
+    "/blocks", response_model=ContentBlockRead, status_code=status.HTTP_201_CREATED
+)
+def admin_create_content_block(
+    payload: ContentBlockCreate, db: Session = Depends(get_content_db)
+) -> ContentBlock:
+    block = ContentBlock(**payload.model_dump())
+    db.add(block)
+    _commit_or_400(db, "Content block with this key and locale already exists")
+    db.refresh(block)
+    return block
+
+
+@admin_router.patch("/blocks/{key}", response_model=ContentBlockRead)
+def admin_update_content_block(
+    key: str, payload: ContentBlockUpdate, db: Session = Depends(get_content_db)
+) -> ContentBlock:
+    locale = payload.locale or "ru"
+    block = db.execute(
+        select(ContentBlock).where(
+            ContentBlock.key == key, ContentBlock.locale == locale
+        )
+    ).scalar_one_or_none()
+    if block is None:
+        create_data = payload.model_dump(exclude_unset=True)
+        create_data["key"] = key
+        create_data["locale"] = locale
+        create_data.setdefault("placement", "static_texts")
+        block = ContentBlock(**create_data)
+    else:
+        _apply_update(block, payload)
+    db.add(block)
+    _commit_or_400(db, "Content block with this key and locale already exists")
+    db.refresh(block)
+    return block
 
 
 @admin_router.get("/cities", response_model=list[ContentCityRead])
