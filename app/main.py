@@ -13,6 +13,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError, OperationalError, SQLAlchemyError, TimeoutError as SQLAlchemyTimeoutError
 
 from app.api.v1.endpoints.auth import router as root_auth_router
+from app.api.v1.endpoints.content import router as content_router
 from app.api.v1.endpoints.public import router as public_router
 from app.api.v1.router import api_router
 from app.core.config import settings
@@ -147,6 +148,7 @@ async def database_health_check():
 
 
 app.include_router(public_router)
+app.include_router(content_router)
 app.include_router(api_router)
 app.include_router(root_auth_router)
 

@@ -13,6 +13,7 @@ class Settings:
     PROJECT_NAME: str = os.getenv("PROJECT_NAME", "Federal Women Club WEB")
     ENV: str = _ENV
     DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./test.db")
+    CONTENT_DATABASE_URL: str = os.getenv("CONTENT_DATABASE_URL", "sqlite+aiosqlite:///./content.db")
     SECRET_KEY: str = os.getenv("SECRET_KEY", "change-me-test-secret")
     SITE_CREDENTIALS_SECRET: str | None = os.getenv("SITE_CREDENTIALS_SECRET")
     JWT_SECRET_KEY: str = os.getenv("JWT_SECRET_KEY", _DEFAULT_JWT_SECRET)
