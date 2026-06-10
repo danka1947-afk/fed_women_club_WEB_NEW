@@ -10,6 +10,35 @@ class ContentBaseRead(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class ContentBlockCreate(BaseModel):
+    key: str
+    placement: str = "static_texts"
+    locale: str = "ru"
+    title: str | None = None
+    body: str | None = None
+    metadata_json: dict[str, object] | None = None
+    is_active: bool = True
+
+
+class ContentBlockUpdate(BaseModel):
+    placement: str | None = None
+    locale: str | None = None
+    title: str | None = None
+    body: str | None = None
+    metadata_json: dict[str, object] | None = None
+    is_active: bool | None = None
+
+
+class ContentBlockRead(ContentBaseRead):
+    key: str
+    placement: str
+    locale: str
+    title: str | None
+    body: str | None
+    metadata_json: dict[str, object] | None
+    is_active: bool
+
+
 class ContentCityCreate(BaseModel):
     name: str
     slug: str
