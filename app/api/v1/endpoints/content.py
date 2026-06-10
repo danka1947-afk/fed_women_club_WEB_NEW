@@ -1,11 +1,140 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
-from sqlalchemy.orm import Session
+from typing import TypeVar
 
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session, selectinload
+
+from app.api.deps import require_admin
 from app.db.content_session import get_content_db
+from app.models.content import (
+    ContentBanner,
+    ContentCategory,
+    ContentCity,
+    ContentGiveaway,
+    ContentOffer,
+    ContentOfferPhoto,
+    ContentPartner,
+    ContentPartnerCategory,
+    ContentPartnerPhoto,
+)
+from app.schemas.content import (
+    ContentBannerCreate,
+    ContentBannerRead,
+    ContentBannerUpdate,
+    ContentCategoryCreate,
+    ContentCategoryRead,
+    ContentCategoryUpdate,
+    ContentCityCreate,
+    ContentCityRead,
+    ContentCityUpdate,
+    ContentGiveawayCreate,
+    ContentGiveawayRead,
+    ContentGiveawayUpdate,
+    ContentOfferCreate,
+    ContentOfferPhotoCreate,
+    ContentOfferPhotoRead,
+    ContentOfferPhotoUpdate,
+    ContentOfferRead,
+    ContentOfferUpdate,
+    ContentPartnerCreate,
+    ContentPartnerPhotoCreate,
+    ContentPartnerPhotoRead,
+    ContentPartnerPhotoUpdate,
+    ContentPartnerRead,
+    ContentPartnerUpdate,
+)
 
 router = APIRouter(prefix="/api/content", tags=["content"])
+admin_router = APIRouter(
+    prefix="/admin",
+    tags=["content-admin"],
+    dependencies=[Depends(require_admin)],
+)
+
+ModelT = TypeVar("ModelT")
+
+PARTNER_FIELDS = (
+    "city_id",
+    "category_slug",
+    "name",
+    "description",
+    "address",
+    "phone",
+    "website_url",
+    "social_url",
+    "instagram_url",
+    "vk_url",
+    "telegram_url",
+    "whatsapp_url",
+    "map_url",
+    "working_hours",
+    "logo_url",
+    "cover_url",
+    "is_active",
+    "is_verified",
+    "sort_order",
+)
+
+
+def _get_or_404(
+    db: Session, model: type[ModelT], object_id: int, detail: str
+) -> ModelT:
+    item = db.get(model, object_id)
+    if item is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=detail)
+    return item
+
+
+def _commit_or_400(db: Session, duplicate_detail: str) -> None:
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=duplicate_detail
+        ) from None
+
+
+def _apply_update(
+    instance: object, payload: object, *, exclude: set[str] | None = None
+) -> None:
+    exclude = exclude or set()
+    for field, value in payload.model_dump(exclude_unset=True, exclude=exclude).items():
+        setattr(instance, field, value)
+
+
+def _partner_to_read(partner: ContentPartner) -> ContentPartnerRead:
+    data = ContentPartnerRead.model_validate(partner).model_dump()
+    data["category_ids"] = [link.category_id for link in partner.category_links]
+    return ContentPartnerRead.model_validate(data)
+
+
+def _replace_partner_categories(
+    db: Session, partner: ContentPartner, category_ids: list[int]
+) -> None:
+    unique_ids = list(dict.fromkeys(category_ids))
+    if unique_ids:
+        existing_ids = set(
+            db.execute(
+                select(ContentCategory.id).where(ContentCategory.id.in_(unique_ids))
+            )
+            .scalars()
+            .all()
+        )
+        missing_ids = sorted(set(unique_ids) - existing_ids)
+        if missing_ids:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Content categories not found: {', '.join(str(category_id) for category_id in missing_ids)}",
+            )
+    db.query(ContentPartnerCategory).filter(
+        ContentPartnerCategory.partner_id == partner.id
+    ).delete()
+    for category_id in unique_ids:
+        db.add(ContentPartnerCategory(partner_id=partner.id, category_id=category_id))
 
 
 @router.get("/health")
@@ -15,36 +144,500 @@ def content_health(_db: Session = Depends(get_content_db)) -> dict[str, str]:
     return {"status": "ok", "service": "content", "database": "configured"}
 
 
-@router.get("/cities")
-def list_content_cities(_db: Session = Depends(get_content_db)) -> list[dict]:
-    return []
+@router.get("/cities", response_model=list[ContentCityRead])
+def list_content_cities(db: Session = Depends(get_content_db)) -> list[ContentCity]:
+    return (
+        db.execute(
+            select(ContentCity)
+            .where(ContentCity.is_active.is_(True))
+            .order_by(ContentCity.sort_order, ContentCity.name)
+        )
+        .scalars()
+        .all()
+    )
 
 
-@router.get("/categories")
-def list_content_categories(_db: Session = Depends(get_content_db)) -> list[dict]:
-    return []
+@router.get("/categories", response_model=list[ContentCategoryRead])
+def list_content_categories(
+    db: Session = Depends(get_content_db),
+) -> list[ContentCategory]:
+    return (
+        db.execute(
+            select(ContentCategory)
+            .where(ContentCategory.is_active.is_(True))
+            .order_by(ContentCategory.sort_order, ContentCategory.name)
+        )
+        .scalars()
+        .all()
+    )
 
 
-@router.get("/partners")
-def list_content_partners(_db: Session = Depends(get_content_db)) -> list[dict]:
-    return []
+@router.get("/partners", response_model=list[ContentPartnerRead])
+def list_content_partners(
+    db: Session = Depends(get_content_db),
+) -> list[ContentPartnerRead]:
+    partners = (
+        db.execute(
+            select(ContentPartner)
+            .options(selectinload(ContentPartner.category_links))
+            .where(ContentPartner.is_active.is_(True))
+            .order_by(ContentPartner.sort_order, ContentPartner.name)
+        )
+        .scalars()
+        .all()
+    )
+    return [_partner_to_read(partner) for partner in partners]
 
 
-@router.get("/partners/{partner_id}")
-def read_content_partner(partner_id: int, _db: Session = Depends(get_content_db)) -> dict:
-    return {"id": partner_id, "data": None}
+@router.get("/partners/{partner_id}", response_model=ContentPartnerRead)
+def read_content_partner(
+    partner_id: int, db: Session = Depends(get_content_db)
+) -> ContentPartnerRead:
+    partner = db.execute(
+        select(ContentPartner)
+        .options(selectinload(ContentPartner.category_links))
+        .where(ContentPartner.id == partner_id, ContentPartner.is_active.is_(True))
+    ).scalar_one_or_none()
+    if partner is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Content partner not found"
+        )
+    return _partner_to_read(partner)
 
 
-@router.get("/partners/{partner_id}/offers")
-def list_content_partner_offers(partner_id: int, _db: Session = Depends(get_content_db)) -> list[dict]:
-    return []
+@router.get("/partners/{partner_id}/offers", response_model=list[ContentOfferRead])
+def list_content_partner_offers(
+    partner_id: int, db: Session = Depends(get_content_db)
+) -> list[ContentOffer]:
+    _get_or_404(db, ContentPartner, partner_id, "Content partner not found")
+    return (
+        db.execute(
+            select(ContentOffer)
+            .where(
+                ContentOffer.partner_id == partner_id, ContentOffer.is_active.is_(True)
+            )
+            .order_by(ContentOffer.sort_order, ContentOffer.title)
+        )
+        .scalars()
+        .all()
+    )
 
 
-@router.get("/giveaways")
-def list_content_giveaways(_db: Session = Depends(get_content_db)) -> list[dict]:
-    return []
+@router.get("/giveaways", response_model=list[ContentGiveawayRead])
+def list_content_giveaways(
+    db: Session = Depends(get_content_db),
+) -> list[ContentGiveaway]:
+    return (
+        db.execute(
+            select(ContentGiveaway)
+            .where(ContentGiveaway.is_active.is_(True))
+            .order_by(ContentGiveaway.sort_order, ContentGiveaway.id)
+        )
+        .scalars()
+        .all()
+    )
 
 
-@router.get("/banners")
-def list_content_banners(_db: Session = Depends(get_content_db)) -> list[dict]:
-    return []
+@router.get("/banners", response_model=list[ContentBannerRead])
+def list_content_banners(db: Session = Depends(get_content_db)) -> list[ContentBanner]:
+    return (
+        db.execute(
+            select(ContentBanner)
+            .where(ContentBanner.is_active.is_(True))
+            .order_by(ContentBanner.sort_order, ContentBanner.id)
+        )
+        .scalars()
+        .all()
+    )
+
+
+@admin_router.get("/cities", response_model=list[ContentCityRead])
+def admin_list_content_cities(
+    db: Session = Depends(get_content_db),
+) -> list[ContentCity]:
+    return (
+        db.execute(
+            select(ContentCity).order_by(ContentCity.sort_order, ContentCity.name)
+        )
+        .scalars()
+        .all()
+    )
+
+
+@admin_router.post(
+    "/cities", response_model=ContentCityRead, status_code=status.HTTP_201_CREATED
+)
+def admin_create_content_city(
+    payload: ContentCityCreate, db: Session = Depends(get_content_db)
+) -> ContentCity:
+    city = ContentCity(**payload.model_dump())
+    db.add(city)
+    _commit_or_400(db, "Content city with this slug or name already exists")
+    db.refresh(city)
+    return city
+
+
+@admin_router.patch("/cities/{city_id}", response_model=ContentCityRead)
+def admin_update_content_city(
+    city_id: int, payload: ContentCityUpdate, db: Session = Depends(get_content_db)
+) -> ContentCity:
+    city = _get_or_404(db, ContentCity, city_id, "Content city not found")
+    _apply_update(city, payload)
+    db.add(city)
+    _commit_or_400(db, "Content city with this slug or name already exists")
+    db.refresh(city)
+    return city
+
+
+@admin_router.get("/categories", response_model=list[ContentCategoryRead])
+def admin_list_content_categories(
+    db: Session = Depends(get_content_db),
+) -> list[ContentCategory]:
+    return (
+        db.execute(
+            select(ContentCategory).order_by(
+                ContentCategory.sort_order, ContentCategory.name
+            )
+        )
+        .scalars()
+        .all()
+    )
+
+
+@admin_router.post(
+    "/categories",
+    response_model=ContentCategoryRead,
+    status_code=status.HTTP_201_CREATED,
+)
+def admin_create_content_category(
+    payload: ContentCategoryCreate, db: Session = Depends(get_content_db)
+) -> ContentCategory:
+    category = ContentCategory(**payload.model_dump())
+    db.add(category)
+    _commit_or_400(db, "Content category with this slug already exists")
+    db.refresh(category)
+    return category
+
+
+@admin_router.patch("/categories/{category_id}", response_model=ContentCategoryRead)
+def admin_update_content_category(
+    category_id: int,
+    payload: ContentCategoryUpdate,
+    db: Session = Depends(get_content_db),
+) -> ContentCategory:
+    category = _get_or_404(
+        db, ContentCategory, category_id, "Content category not found"
+    )
+    _apply_update(category, payload)
+    db.add(category)
+    _commit_or_400(db, "Content category with this slug already exists")
+    db.refresh(category)
+    return category
+
+
+@admin_router.get("/partners", response_model=list[ContentPartnerRead])
+def admin_list_content_partners(
+    db: Session = Depends(get_content_db),
+) -> list[ContentPartnerRead]:
+    partners = (
+        db.execute(
+            select(ContentPartner)
+            .options(selectinload(ContentPartner.category_links))
+            .order_by(ContentPartner.sort_order, ContentPartner.name)
+        )
+        .scalars()
+        .all()
+    )
+    return [_partner_to_read(partner) for partner in partners]
+
+
+@admin_router.post(
+    "/partners", response_model=ContentPartnerRead, status_code=status.HTTP_201_CREATED
+)
+def admin_create_content_partner(
+    payload: ContentPartnerCreate, db: Session = Depends(get_content_db)
+) -> ContentPartnerRead:
+    _get_or_404(db, ContentCity, payload.city_id, "Content city not found")
+    partner_data = {field: getattr(payload, field) for field in PARTNER_FIELDS}
+    partner = ContentPartner(**partner_data)
+    db.add(partner)
+    db.flush()
+    _replace_partner_categories(db, partner, payload.category_ids)
+    _commit_or_400(db, "Content partner could not be created")
+    partner = db.execute(
+        select(ContentPartner)
+        .options(selectinload(ContentPartner.category_links))
+        .where(ContentPartner.id == partner.id)
+    ).scalar_one()
+    return _partner_to_read(partner)
+
+
+@admin_router.patch("/partners/{partner_id}", response_model=ContentPartnerRead)
+def admin_update_content_partner(
+    partner_id: int,
+    payload: ContentPartnerUpdate,
+    db: Session = Depends(get_content_db),
+) -> ContentPartnerRead:
+    partner = db.execute(
+        select(ContentPartner)
+        .options(selectinload(ContentPartner.category_links))
+        .where(ContentPartner.id == partner_id)
+    ).scalar_one_or_none()
+    if partner is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Content partner not found"
+        )
+    if payload.city_id is not None:
+        _get_or_404(db, ContentCity, payload.city_id, "Content city not found")
+    update_data = payload.model_dump(exclude_unset=True, exclude={"category_ids"})
+    for field, value in update_data.items():
+        setattr(partner, field, value)
+    if "category_ids" in payload.model_fields_set and payload.category_ids is not None:
+        _replace_partner_categories(db, partner, payload.category_ids)
+    db.add(partner)
+    _commit_or_400(db, "Content partner could not be updated")
+    partner = db.execute(
+        select(ContentPartner)
+        .options(selectinload(ContentPartner.category_links))
+        .where(ContentPartner.id == partner_id)
+    ).scalar_one()
+    return _partner_to_read(partner)
+
+
+@admin_router.get(
+    "/partners/{partner_id}/offers", response_model=list[ContentOfferRead]
+)
+def admin_list_content_partner_offers(
+    partner_id: int, db: Session = Depends(get_content_db)
+) -> list[ContentOffer]:
+    _get_or_404(db, ContentPartner, partner_id, "Content partner not found")
+    return (
+        db.execute(
+            select(ContentOffer)
+            .where(ContentOffer.partner_id == partner_id)
+            .order_by(ContentOffer.sort_order, ContentOffer.title)
+        )
+        .scalars()
+        .all()
+    )
+
+
+@admin_router.post(
+    "/partners/{partner_id}/offers",
+    response_model=ContentOfferRead,
+    status_code=status.HTTP_201_CREATED,
+)
+def admin_create_content_offer(
+    partner_id: int, payload: ContentOfferCreate, db: Session = Depends(get_content_db)
+) -> ContentOffer:
+    _get_or_404(db, ContentPartner, partner_id, "Content partner not found")
+    offer = ContentOffer(partner_id=partner_id, **payload.model_dump())
+    db.add(offer)
+    _commit_or_400(db, "Content offer could not be created")
+    db.refresh(offer)
+    return offer
+
+
+@admin_router.patch("/offers/{offer_id}", response_model=ContentOfferRead)
+def admin_update_content_offer(
+    offer_id: int, payload: ContentOfferUpdate, db: Session = Depends(get_content_db)
+) -> ContentOffer:
+    offer = _get_or_404(db, ContentOffer, offer_id, "Content offer not found")
+    _apply_update(offer, payload)
+    db.add(offer)
+    _commit_or_400(db, "Content offer could not be updated")
+    db.refresh(offer)
+    return offer
+
+
+@admin_router.get(
+    "/partners/{partner_id}/photos", response_model=list[ContentPartnerPhotoRead]
+)
+def admin_list_content_partner_photos(
+    partner_id: int, db: Session = Depends(get_content_db)
+) -> list[ContentPartnerPhoto]:
+    _get_or_404(db, ContentPartner, partner_id, "Content partner not found")
+    return (
+        db.execute(
+            select(ContentPartnerPhoto)
+            .where(ContentPartnerPhoto.partner_id == partner_id)
+            .order_by(ContentPartnerPhoto.sort_order, ContentPartnerPhoto.id)
+        )
+        .scalars()
+        .all()
+    )
+
+
+@admin_router.post(
+    "/partners/{partner_id}/photos",
+    response_model=ContentPartnerPhotoRead,
+    status_code=status.HTTP_201_CREATED,
+)
+def admin_create_content_partner_photo(
+    partner_id: int,
+    payload: ContentPartnerPhotoCreate,
+    db: Session = Depends(get_content_db),
+) -> ContentPartnerPhoto:
+    _get_or_404(db, ContentPartner, partner_id, "Content partner not found")
+    photo = ContentPartnerPhoto(partner_id=partner_id, **payload.model_dump())
+    db.add(photo)
+    _commit_or_400(db, "Content partner photo could not be created")
+    db.refresh(photo)
+    return photo
+
+
+@admin_router.patch(
+    "/partner-photos/{photo_id}", response_model=ContentPartnerPhotoRead
+)
+def admin_update_content_partner_photo(
+    photo_id: int,
+    payload: ContentPartnerPhotoUpdate,
+    db: Session = Depends(get_content_db),
+) -> ContentPartnerPhoto:
+    photo = _get_or_404(
+        db, ContentPartnerPhoto, photo_id, "Content partner photo not found"
+    )
+    _apply_update(photo, payload)
+    db.add(photo)
+    _commit_or_400(db, "Content partner photo could not be updated")
+    db.refresh(photo)
+    return photo
+
+
+@admin_router.get(
+    "/offers/{offer_id}/photos", response_model=list[ContentOfferPhotoRead]
+)
+def admin_list_content_offer_photos(
+    offer_id: int, db: Session = Depends(get_content_db)
+) -> list[ContentOfferPhoto]:
+    _get_or_404(db, ContentOffer, offer_id, "Content offer not found")
+    return (
+        db.execute(
+            select(ContentOfferPhoto)
+            .where(ContentOfferPhoto.offer_id == offer_id)
+            .order_by(ContentOfferPhoto.sort_order, ContentOfferPhoto.id)
+        )
+        .scalars()
+        .all()
+    )
+
+
+@admin_router.post(
+    "/offers/{offer_id}/photos",
+    response_model=ContentOfferPhotoRead,
+    status_code=status.HTTP_201_CREATED,
+)
+def admin_create_content_offer_photo(
+    offer_id: int,
+    payload: ContentOfferPhotoCreate,
+    db: Session = Depends(get_content_db),
+) -> ContentOfferPhoto:
+    _get_or_404(db, ContentOffer, offer_id, "Content offer not found")
+    photo = ContentOfferPhoto(offer_id=offer_id, **payload.model_dump())
+    db.add(photo)
+    _commit_or_400(db, "Content offer photo could not be created")
+    db.refresh(photo)
+    return photo
+
+
+@admin_router.patch("/offer-photos/{photo_id}", response_model=ContentOfferPhotoRead)
+def admin_update_content_offer_photo(
+    photo_id: int,
+    payload: ContentOfferPhotoUpdate,
+    db: Session = Depends(get_content_db),
+) -> ContentOfferPhoto:
+    photo = _get_or_404(
+        db, ContentOfferPhoto, photo_id, "Content offer photo not found"
+    )
+    _apply_update(photo, payload)
+    db.add(photo)
+    _commit_or_400(db, "Content offer photo could not be updated")
+    db.refresh(photo)
+    return photo
+
+
+@admin_router.get("/giveaways", response_model=list[ContentGiveawayRead])
+def admin_list_content_giveaways(
+    db: Session = Depends(get_content_db),
+) -> list[ContentGiveaway]:
+    return (
+        db.execute(
+            select(ContentGiveaway).order_by(
+                ContentGiveaway.sort_order, ContentGiveaway.id
+            )
+        )
+        .scalars()
+        .all()
+    )
+
+
+@admin_router.post(
+    "/giveaways",
+    response_model=ContentGiveawayRead,
+    status_code=status.HTTP_201_CREATED,
+)
+def admin_create_content_giveaway(
+    payload: ContentGiveawayCreate, db: Session = Depends(get_content_db)
+) -> ContentGiveaway:
+    giveaway = ContentGiveaway(**payload.model_dump())
+    db.add(giveaway)
+    _commit_or_400(db, "Content giveaway could not be created")
+    db.refresh(giveaway)
+    return giveaway
+
+
+@admin_router.patch("/giveaways/{giveaway_id}", response_model=ContentGiveawayRead)
+def admin_update_content_giveaway(
+    giveaway_id: int,
+    payload: ContentGiveawayUpdate,
+    db: Session = Depends(get_content_db),
+) -> ContentGiveaway:
+    giveaway = _get_or_404(
+        db, ContentGiveaway, giveaway_id, "Content giveaway not found"
+    )
+    _apply_update(giveaway, payload)
+    db.add(giveaway)
+    _commit_or_400(db, "Content giveaway could not be updated")
+    db.refresh(giveaway)
+    return giveaway
+
+
+@admin_router.get("/banners", response_model=list[ContentBannerRead])
+def admin_list_content_banners(
+    db: Session = Depends(get_content_db),
+) -> list[ContentBanner]:
+    return (
+        db.execute(
+            select(ContentBanner).order_by(ContentBanner.sort_order, ContentBanner.id)
+        )
+        .scalars()
+        .all()
+    )
+
+
+@admin_router.post(
+    "/banners", response_model=ContentBannerRead, status_code=status.HTTP_201_CREATED
+)
+def admin_create_content_banner(
+    payload: ContentBannerCreate, db: Session = Depends(get_content_db)
+) -> ContentBanner:
+    banner = ContentBanner(**payload.model_dump())
+    db.add(banner)
+    _commit_or_400(db, "Content banner could not be created")
+    db.refresh(banner)
+    return banner
+
+
+@admin_router.patch("/banners/{banner_id}", response_model=ContentBannerRead)
+def admin_update_content_banner(
+    banner_id: int, payload: ContentBannerUpdate, db: Session = Depends(get_content_db)
+) -> ContentBanner:
+    banner = _get_or_404(db, ContentBanner, banner_id, "Content banner not found")
+    _apply_update(banner, payload)
+    db.add(banner)
+    _commit_or_400(db, "Content banner could not be updated")
+    db.refresh(banner)
+    return banner
+
+
+router.include_router(admin_router)
