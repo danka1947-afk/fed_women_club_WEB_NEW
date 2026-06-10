@@ -1,6 +1,19 @@
 from app.models.category import Category
 from app.models.city import City
 from app.models.client import AccountLinkingChallenge, ClientIdentityLink, ClientPasswordSetupToken, ClientProfile, VkLinkCode
+from app.models.content import (
+    ContentBanner,
+    ContentBlock,
+    ContentCategory,
+    ContentCity,
+    ContentGiveaway,
+    ContentGiveawayItem,
+    ContentOffer,
+    ContentOfferPhoto,
+    ContentPartner,
+    ContentPartnerCategory,
+    ContentPartnerPhoto,
+)
 from app.models.lead import LeadClick
 from app.models.landing import LandingSettings
 from app.models.partner import OfferPhoto, Partner, PartnerOffer, PartnerPhoto, PartnerQrLink
@@ -16,6 +29,17 @@ __all__ = [
     "ClientProfile",
     "ClientIdentityLink",
     "ClientPasswordSetupToken",
+    "ContentBanner",
+    "ContentBlock",
+    "ContentCategory",
+    "ContentCity",
+    "ContentGiveaway",
+    "ContentGiveawayItem",
+    "ContentOffer",
+    "ContentOfferPhoto",
+    "ContentPartner",
+    "ContentPartnerCategory",
+    "ContentPartnerPhoto",
     "VkLinkCode",
     "LeadClick",
     "LandingSettings",
