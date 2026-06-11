@@ -10,6 +10,14 @@ class ContentBaseRead(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class ContentUploadRead(BaseModel):
+    url: str
+    path: str
+    filename: str
+    content_type: str
+    size: int
+
+
 class ContentBlockCreate(BaseModel):
     key: str
     placement: str = "static_texts"
