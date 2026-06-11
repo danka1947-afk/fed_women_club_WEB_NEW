@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TypeVar
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
@@ -21,6 +21,7 @@ from app.models.content import (
     ContentPartnerCategory,
     ContentPartnerPhoto,
 )
+from app.services.image_uploads import save_content_image_upload
 from app.schemas.content import (
     ContentBannerCreate,
     ContentBannerRead,
@@ -49,6 +50,7 @@ from app.schemas.content import (
     ContentPartnerPhotoUpdate,
     ContentPartnerRead,
     ContentPartnerUpdate,
+    ContentUploadRead,
 )
 
 router = APIRouter(prefix="/api/content", tags=["content"])
@@ -146,6 +148,14 @@ def content_health(_db: Session = Depends(get_content_db)) -> dict[str, str]:
     """Health endpoint for the isolated content API surface."""
 
     return {"status": "ok", "service": "content", "database": "configured"}
+
+
+@router.post("/uploads", response_model=ContentUploadRead)
+async def upload_content_image(
+    file: UploadFile = File(...),
+    _admin=Depends(require_admin),
+) -> dict[str, object]:
+    return await save_content_image_upload(file)
 
 
 @router.get("/blocks", response_model=list[ContentBlockRead])

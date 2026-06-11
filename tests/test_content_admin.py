@@ -8,6 +8,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from app.core.config import settings
 from app.core.security import create_access_token, hash_password
 from app.db.base import Base
 from app.db.content_base import ContentBase
@@ -436,3 +437,103 @@ def test_public_static_texts_returns_created_telegram_miniapp_blocks(
         assert blocks_by_key[key]["placement"] == "static_texts"
         assert blocks_by_key[key]["locale"] == "ru"
         assert blocks_by_key[key]["is_active"] is True
+
+
+PNG_BYTES = b"\x89PNG\r\n\x1a\ncontent-cms-upload"
+JPG_BYTES = b"\xff\xd8\xffcontent-cms-upload"
+WEBP_BYTES = b"RIFF\x12\x00\x00\x00WEBPcontent"
+
+
+@pytest.fixture()
+def content_upload_settings(tmp_path):
+    original_upload_dir = settings.UPLOAD_DIR
+    original_web_public_url = settings.WEB_PUBLIC_URL
+    object.__setattr__(settings, "UPLOAD_DIR", str(tmp_path / "uploads"))
+    object.__setattr__(settings, "WEB_PUBLIC_URL", "https://bloomclub.ru")
+    try:
+        yield tmp_path / "uploads"
+    finally:
+        object.__setattr__(settings, "UPLOAD_DIR", original_upload_dir)
+        object.__setattr__(settings, "WEB_PUBLIC_URL", original_web_public_url)
+
+
+def _upload_file(
+    client: TestClient, token: str, filename: str, content: bytes, content_type: str
+):
+    return client.post(
+        "/api/content/uploads",
+        headers=_auth_headers(token),
+        files={"file": (filename, content, content_type)},
+    )
+
+
+def test_content_upload_requires_admin_token(
+    content_admin_client: tuple[TestClient, str],
+    content_upload_settings,
+) -> None:
+    client, _token = content_admin_client
+
+    response = client.post(
+        "/api/content/uploads",
+        files={"file": ("image.png", PNG_BYTES, "image/png")},
+    )
+
+    assert response.status_code in {401, 403}
+
+
+def test_content_upload_rejects_unsupported_format(
+    content_admin_client: tuple[TestClient, str],
+    content_upload_settings,
+) -> None:
+    client, token = content_admin_client
+
+    response = _upload_file(
+        client, token, "script.exe", b"MZ executable", "application/octet-stream"
+    )
+
+    assert response.status_code == 400
+
+
+def test_content_upload_rejects_large_file(
+    content_admin_client: tuple[TestClient, str],
+    content_upload_settings,
+) -> None:
+    client, token = content_admin_client
+    too_large_png = PNG_BYTES + (b"0" * (10 * 1024 * 1024 + 1))
+
+    response = _upload_file(client, token, "large.png", too_large_png, "image/png")
+
+    assert response.status_code == 400
+
+
+@pytest.mark.parametrize(
+    ("filename", "content", "content_type", "expected_suffix"),
+    [
+        ("image.png", PNG_BYTES, "image/png", ".png"),
+        ("image.jpg", JPG_BYTES, "image/jpeg", ".jpg"),
+        ("image.jpeg", JPG_BYTES, "image/jpeg", ".jpeg"),
+        ("image.webp", WEBP_BYTES, "image/webp", ".webp"),
+    ],
+)
+def test_content_upload_accepts_valid_images_and_creates_file(
+    content_admin_client: tuple[TestClient, str],
+    content_upload_settings,
+    filename: str,
+    content: bytes,
+    content_type: str,
+    expected_suffix: str,
+) -> None:
+    client, token = content_admin_client
+
+    response = _upload_file(client, token, filename, content, content_type)
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["filename"].endswith(expected_suffix)
+    assert data["path"] == f"/uploads/content/{data['filename']}"
+    assert data["url"] == f"https://bloomclub.ru/uploads/content/{data['filename']}"
+    assert data["content_type"] == content_type
+    assert data["size"] == len(content)
+    saved_file = content_upload_settings / "content" / data["filename"]
+    assert saved_file.exists()
+    assert saved_file.read_bytes() == content
