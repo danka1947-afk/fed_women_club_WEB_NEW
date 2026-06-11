@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from hmac import compare_digest
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, Header, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -61,9 +62,68 @@ def get_current_admin(
     if admin is None:
         raise unauthorized
     if not admin.is_active:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Inactive admin user")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Inactive admin user"
+        )
     if admin.role != UserRole.ADMIN.value:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin role required")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Admin role required"
+        )
+    return admin
+
+
+def require_content_admin(
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+    x_telegram_admin_token: str | None = Header(
+        default=None, alias="X-Telegram-Admin-Token"
+    ),
+    db: Session = Depends(get_db),
+) -> AdminUser | None:
+    """Authorize Content Admin API callers.
+
+    Prefer the server-to-server TELEGRAM_ADMIN_API_TOKEN in an Authorization
+    Bearer header for the Telegram admin bot. Keep the legacy AdminUser JWT
+    path so the existing web admin and tests continue to work. The optional
+    X-Telegram-Admin-Token header is accepted for compatibility only.
+    """
+
+    unauthorized = _unauthorized()
+    configured_token = settings.TELEGRAM_ADMIN_API_TOKEN
+    bearer_token = (
+        credentials.credentials
+        if credentials is not None and credentials.scheme.lower() == "bearer"
+        else None
+    )
+
+    for candidate in (bearer_token, x_telegram_admin_token):
+        if (
+            configured_token
+            and candidate
+            and compare_digest(candidate, configured_token)
+        ):
+            return None
+
+    if bearer_token is None:
+        raise unauthorized
+
+    try:
+        payload = decode_access_token(bearer_token)
+        admin_id = int(payload.get("sub", ""))
+    except (TypeError, ValueError):
+        raise unauthorized from None
+
+    result = db.execute(select(AdminUser).where(AdminUser.id == admin_id))
+    admin = result.scalar_one_or_none()
+    if admin is None:
+        raise unauthorized
+    if not admin.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Inactive admin user"
+        )
+    if admin.role != UserRole.ADMIN.value:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Admin role required"
+        )
     return admin
 
 

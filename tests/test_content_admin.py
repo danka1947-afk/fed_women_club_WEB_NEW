@@ -220,6 +220,91 @@ def test_content_admin_crud_bootstraps_content_database(
     assert client.get("/api/content/admin/banners", headers=headers).status_code == 200
 
 
+def test_content_admin_accepts_server_to_server_telegram_token(
+    content_admin_client: tuple[TestClient, str],
+) -> None:
+    client, _token = content_admin_client
+    original_token = settings.TELEGRAM_ADMIN_API_TOKEN
+    object.__setattr__(settings, "TELEGRAM_ADMIN_API_TOKEN", "telegram-admin-test-token")
+    try:
+        bearer_response = client.get(
+            "/api/content/admin/cities",
+            headers={"Authorization": "Bearer telegram-admin-test-token"},
+        )
+        legacy_header_response = client.get(
+            "/api/content/admin/cities",
+            headers={"X-Telegram-Admin-Token": "telegram-admin-test-token"},
+        )
+    finally:
+        object.__setattr__(settings, "TELEGRAM_ADMIN_API_TOKEN", original_token)
+
+    assert bearer_response.status_code == 200
+    assert legacy_header_response.status_code == 200
+
+
+def test_content_admin_detail_endpoints_and_offer_bot_price_aliases(
+    content_admin_client: tuple[TestClient, str],
+) -> None:
+    client, token = content_admin_client
+    headers = _auth_headers(token)
+
+    city_id = client.post(
+        "/api/content/admin/cities",
+        headers=headers,
+        json={"name": "Новосибирск", "slug": "novosibirsk"},
+    ).json()["id"]
+    partner = client.post(
+        "/api/content/admin/partners",
+        headers=headers,
+        json={"city_id": city_id, "name": "Bloom Fit"},
+    ).json()
+    partner_id = partner["id"]
+
+    offer_response = client.post(
+        f"/api/content/admin/partners/{partner_id}/offers",
+        headers=headers,
+        json={
+            "title": "Абонемент",
+            "terms": "Только для участниц клуба",
+            "regular_price": "5000.00",
+            "club_price": "3500.00",
+        },
+    )
+    assert offer_response.status_code == 201
+    offer = offer_response.json()
+    offer_id = offer["id"]
+    assert offer["base_price"] == "5000.00"
+    assert offer["regular_price"] == "5000.00"
+    assert offer["club_price"] == "3500.00"
+    assert offer["saving"] == "1500.00"
+    assert offer["terms"] == "Только для участниц клуба"
+
+    assert client.get(
+        f"/api/content/admin/partners/{partner_id}", headers=headers
+    ).json()["name"] == "Bloom Fit"
+    assert client.get(
+        f"/api/content/admin/offers/{offer_id}", headers=headers
+    ).json()["saving"] == "1500.00"
+
+    patched_offer = client.patch(
+        f"/api/content/admin/offers/{offer_id}",
+        headers=headers,
+        json={"club_price": "4000.00"},
+    ).json()
+    assert patched_offer["club_price"] == "4000.00"
+    assert patched_offer["saving"] == "1000.00"
+
+    giveaway_response = client.post(
+        "/api/content/admin/giveaways",
+        headers=headers,
+        json={"title": "Июнь", "current": "Подарок"},
+    )
+    giveaway_id = giveaway_response.json()["id"]
+    assert client.get(
+        f"/api/content/admin/giveaways/{giveaway_id}", headers=headers
+    ).json()["title"] == "Июнь"
+
+
 def test_public_content_endpoints_remain_read_only(
     content_admin_client: tuple[TestClient, str],
 ) -> None:
