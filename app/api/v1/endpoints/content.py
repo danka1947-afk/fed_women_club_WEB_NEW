@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from decimal import Decimal
 from typing import TypeVar
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
@@ -7,7 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
-from app.api.deps import require_admin
+from app.api.deps import require_content_admin
 from app.db.content_session import get_content_db
 from app.models.content import (
     ContentBanner,
@@ -57,7 +58,7 @@ router = APIRouter(prefix="/api/content", tags=["content"])
 admin_router = APIRouter(
     prefix="/admin",
     tags=["content-admin"],
-    dependencies=[Depends(require_admin)],
+    dependencies=[Depends(require_content_admin)],
 )
 
 ModelT = TypeVar("ModelT")
@@ -112,6 +113,43 @@ def _apply_update(
         setattr(instance, field, value)
 
 
+def _discount_percent_from_saving(
+    regular_price: Decimal, saving: Decimal
+) -> Decimal | None:
+    if regular_price <= 0:
+        return None
+    return (saving / regular_price * Decimal("100")).quantize(Decimal("0.01"))
+
+
+def _offer_payload_to_db_data(
+    payload: ContentOfferCreate | ContentOfferUpdate,
+    *,
+    existing_offer: ContentOffer | None = None,
+) -> dict[str, object]:
+    fields_to_exclude = {"regular_price", "club_price", "saving", "terms"}
+    data = payload.model_dump(exclude_unset=True, exclude=fields_to_exclude)
+
+    if payload.regular_price is not None and "base_price" not in data:
+        data["base_price"] = payload.regular_price
+
+    regular_price = data.get(
+        "base_price", existing_offer.base_price if existing_offer is not None else None
+    )
+    club_price = payload.club_price
+    saving = payload.saving
+
+    if regular_price is not None:
+        regular_price = Decimal(str(regular_price))
+        if club_price is not None:
+            saving = regular_price - Decimal(str(club_price))
+        if saving is not None:
+            data["discount_percent"] = _discount_percent_from_saving(
+                regular_price, Decimal(str(saving))
+            )
+
+    return data
+
+
 def _partner_to_read(partner: ContentPartner) -> ContentPartnerRead:
     data = ContentPartnerRead.model_validate(partner).model_dump()
     data["category_ids"] = [link.category_id for link in partner.category_links]
@@ -153,7 +191,7 @@ def content_health(_db: Session = Depends(get_content_db)) -> dict[str, str]:
 @router.post("/uploads", response_model=ContentUploadRead)
 async def upload_content_image(
     file: UploadFile = File(...),
-    _admin=Depends(require_admin),
+    _admin=Depends(require_content_admin),
 ) -> dict[str, object]:
     return await save_content_image_upload(file)
 
@@ -442,6 +480,22 @@ def admin_create_content_partner(
     return _partner_to_read(partner)
 
 
+@admin_router.get("/partners/{partner_id}", response_model=ContentPartnerRead)
+def admin_read_content_partner(
+    partner_id: int, db: Session = Depends(get_content_db)
+) -> ContentPartnerRead:
+    partner = db.execute(
+        select(ContentPartner)
+        .options(selectinload(ContentPartner.category_links))
+        .where(ContentPartner.id == partner_id)
+    ).scalar_one_or_none()
+    if partner is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Content partner not found"
+        )
+    return _partner_to_read(partner)
+
+
 @admin_router.patch("/partners/{partner_id}", response_model=ContentPartnerRead)
 def admin_update_content_partner(
     partner_id: int,
@@ -501,11 +555,20 @@ def admin_create_content_offer(
     partner_id: int, payload: ContentOfferCreate, db: Session = Depends(get_content_db)
 ) -> ContentOffer:
     _get_or_404(db, ContentPartner, partner_id, "Content partner not found")
-    offer = ContentOffer(partner_id=partner_id, **payload.model_dump())
+    offer = ContentOffer(
+        partner_id=partner_id, **_offer_payload_to_db_data(payload)
+    )
     db.add(offer)
     _commit_or_400(db, "Content offer could not be created")
     db.refresh(offer)
     return offer
+
+
+@admin_router.get("/offers/{offer_id}", response_model=ContentOfferRead)
+def admin_read_content_offer(
+    offer_id: int, db: Session = Depends(get_content_db)
+) -> ContentOffer:
+    return _get_or_404(db, ContentOffer, offer_id, "Content offer not found")
 
 
 @admin_router.patch("/offers/{offer_id}", response_model=ContentOfferRead)
@@ -513,7 +576,9 @@ def admin_update_content_offer(
     offer_id: int, payload: ContentOfferUpdate, db: Session = Depends(get_content_db)
 ) -> ContentOffer:
     offer = _get_or_404(db, ContentOffer, offer_id, "Content offer not found")
-    _apply_update(offer, payload)
+    offer_data = _offer_payload_to_db_data(payload, existing_offer=offer)
+    for field, value in offer_data.items():
+        setattr(offer, field, value)
     db.add(offer)
     _commit_or_400(db, "Content offer could not be updated")
     db.refresh(offer)
@@ -654,6 +719,13 @@ def admin_create_content_giveaway(
     _commit_or_400(db, "Content giveaway could not be created")
     db.refresh(giveaway)
     return giveaway
+
+
+@admin_router.get("/giveaways/{giveaway_id}", response_model=ContentGiveawayRead)
+def admin_read_content_giveaway(
+    giveaway_id: int, db: Session = Depends(get_content_db)
+) -> ContentGiveaway:
+    return _get_or_404(db, ContentGiveaway, giveaway_id, "Content giveaway not found")
 
 
 @admin_router.patch("/giveaways/{giveaway_id}", response_model=ContentGiveawayRead)

@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from decimal import Decimal
 
-from pydantic import BaseModel, Field
+from pydantic import AliasChoices, BaseModel, Field
 
 
 class ContentBaseRead(BaseModel):
@@ -171,9 +171,15 @@ class ContentOfferCreate(BaseModel):
     title: str
     description: str | None = None
     benefit_text: str | None = None
-    conditions: str | None = None
+    conditions: str | None = Field(
+        default=None, validation_alias=AliasChoices("conditions", "terms")
+    )
     base_price: Decimal | None = None
     discount_percent: Decimal | None = None
+    regular_price: Decimal | None = None
+    club_price: Decimal | None = None
+    saving: Decimal | None = None
+    terms: str | None = None
     image_url: str | None = None
     is_active: bool = True
     sort_order: int = 0
@@ -183,9 +189,15 @@ class ContentOfferUpdate(BaseModel):
     title: str | None = None
     description: str | None = None
     benefit_text: str | None = None
-    conditions: str | None = None
+    conditions: str | None = Field(
+        default=None, validation_alias=AliasChoices("conditions", "terms")
+    )
     base_price: Decimal | None = None
     discount_percent: Decimal | None = None
+    regular_price: Decimal | None = None
+    club_price: Decimal | None = None
+    saving: Decimal | None = None
+    terms: str | None = None
     image_url: str | None = None
     is_active: bool | None = None
     sort_order: int | None = None
@@ -200,6 +212,10 @@ class ContentOfferRead(ContentBaseRead):
     conditions: str | None
     base_price: Decimal | None
     discount_percent: Decimal | None
+    regular_price: Decimal | None
+    club_price: Decimal | None
+    saving: Decimal | None
+    terms: str | None
     image_url: str | None
     is_active: bool
     sort_order: int

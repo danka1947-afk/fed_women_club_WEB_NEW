@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, JSON, Numeric, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -136,6 +136,34 @@ class ContentOffer(ContentBase):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
     )
+
+
+    @property
+    def regular_price(self) -> Decimal | None:
+        return self.base_price
+
+    @property
+    def saving(self) -> Decimal | None:
+        if self.base_price is None or self.discount_percent is None:
+            return None
+        return (
+            self.base_price * self.discount_percent / Decimal("100")
+        ).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+    @property
+    def club_price(self) -> Decimal | None:
+        if self.base_price is None:
+            return None
+        saving = self.saving
+        if saving is None:
+            return None
+        return (self.base_price - saving).quantize(
+            Decimal("0.01"), rounding=ROUND_HALF_UP
+        )
+
+    @property
+    def terms(self) -> str | None:
+        return self.conditions
 
     partner: Mapped["ContentPartner"] = relationship("ContentPartner", back_populates="offers")
     photos: Mapped[list["ContentOfferPhoto"]] = relationship("ContentOfferPhoto", back_populates="offer")
