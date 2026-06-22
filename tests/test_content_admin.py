@@ -225,7 +225,9 @@ def test_content_admin_accepts_server_to_server_telegram_token(
 ) -> None:
     client, _token = content_admin_client
     original_token = settings.TELEGRAM_ADMIN_API_TOKEN
-    object.__setattr__(settings, "TELEGRAM_ADMIN_API_TOKEN", "telegram-admin-test-token")
+    object.__setattr__(
+        settings, "TELEGRAM_ADMIN_API_TOKEN", "telegram-admin-test-token"
+    )
     try:
         bearer_response = client.get(
             "/api/content/admin/cities",
@@ -279,12 +281,18 @@ def test_content_admin_detail_endpoints_and_offer_bot_price_aliases(
     assert offer["saving"] == "1500.00"
     assert offer["terms"] == "Только для участниц клуба"
 
-    assert client.get(
-        f"/api/content/admin/partners/{partner_id}", headers=headers
-    ).json()["name"] == "Bloom Fit"
-    assert client.get(
-        f"/api/content/admin/offers/{offer_id}", headers=headers
-    ).json()["saving"] == "1500.00"
+    assert (
+        client.get(f"/api/content/admin/partners/{partner_id}", headers=headers).json()[
+            "name"
+        ]
+        == "Bloom Fit"
+    )
+    assert (
+        client.get(f"/api/content/admin/offers/{offer_id}", headers=headers).json()[
+            "saving"
+        ]
+        == "1500.00"
+    )
 
     patched_offer = client.patch(
         f"/api/content/admin/offers/{offer_id}",
@@ -300,9 +308,12 @@ def test_content_admin_detail_endpoints_and_offer_bot_price_aliases(
         json={"title": "Июнь", "current": "Подарок"},
     )
     giveaway_id = giveaway_response.json()["id"]
-    assert client.get(
-        f"/api/content/admin/giveaways/{giveaway_id}", headers=headers
-    ).json()["title"] == "Июнь"
+    assert (
+        client.get(
+            f"/api/content/admin/giveaways/{giveaway_id}", headers=headers
+        ).json()["title"]
+        == "Июнь"
+    )
 
 
 def test_public_content_endpoints_remain_read_only(
@@ -629,7 +640,9 @@ def test_content_admin_token_auth_status_codes(
 ) -> None:
     client, _token = content_admin_client
     original_token = settings.TELEGRAM_ADMIN_API_TOKEN
-    object.__setattr__(settings, "TELEGRAM_ADMIN_API_TOKEN", "telegram-admin-test-token")
+    object.__setattr__(
+        settings, "TELEGRAM_ADMIN_API_TOKEN", "telegram-admin-test-token"
+    )
     try:
         missing = client.get("/api/content/admin/cities")
         assert missing.status_code == 401
@@ -674,9 +687,158 @@ def test_legacy_web_admin_content_write_flag_blocks_old_content_editing(
             json={"name": "Legacy City", "slug": "legacy-city"},
         )
         assert response.status_code == 403
-        assert response.json()["detail"] == "Legacy WEB content editing is disabled; use Content Admin API"
+        assert (
+            response.json()["detail"]
+            == "Legacy WEB content editing is disabled; use Content Admin API"
+        )
 
         read_response = client.get("/api/v1/admin/cities", headers=_auth_headers(token))
         assert read_response.status_code == 200
     finally:
-        object.__setattr__(settings, "WEB_ADMIN_LEGACY_CONTENT_WRITE_ENABLED", original_flag)
+        object.__setattr__(
+            settings, "WEB_ADMIN_LEGACY_CONTENT_WRITE_ENABLED", original_flag
+        )
+
+
+def test_content_admin_giveaway_items_crud_and_public_active_items(
+    content_admin_client: tuple[TestClient, str],
+) -> None:
+    client, token = content_admin_client
+    headers = _auth_headers(token)
+    giveaway_id = client.post(
+        "/api/content/admin/giveaways",
+        headers=headers,
+        json={"title": "Июньский розыгрыш", "current": "Подарки"},
+    ).json()["id"]
+
+    inactive_response = client.post(
+        f"/api/content/admin/giveaways/{giveaway_id}/items",
+        headers=headers,
+        json={
+            "title": "Скрытый приз",
+            "description": None,
+            "image_url": None,
+            "sort_order": 0,
+            "is_active": False,
+        },
+    )
+    assert inactive_response.status_code == 201
+
+    second_response = client.post(
+        f"/api/content/admin/giveaways/{giveaway_id}/items",
+        headers=headers,
+        json={"title": "Второй приз", "sort_order": 20},
+    )
+    first_response = client.post(
+        f"/api/content/admin/giveaways/{giveaway_id}/items",
+        headers=headers,
+        json={
+            "title": "Первый приз",
+            "description": "Сертификат партнёра",
+            "image_url": "https://example.com/prize.jpg",
+            "sort_order": 10,
+        },
+    )
+    assert second_response.status_code == 201
+    assert first_response.status_code == 201
+    first_item = first_response.json()
+    first_item_id = first_item["id"]
+    assert first_item["giveaway_id"] == giveaway_id
+    assert first_item["description"] == "Сертификат партнёра"
+
+    list_response = client.get(
+        f"/api/content/admin/giveaways/{giveaway_id}/items", headers=headers
+    )
+    assert list_response.status_code == 200
+    assert [item["title"] for item in list_response.json()] == [
+        "Скрытый приз",
+        "Первый приз",
+        "Второй приз",
+    ]
+
+    read_response = client.get(
+        f"/api/content/admin/giveaway-items/{first_item_id}", headers=headers
+    )
+    assert read_response.status_code == 200
+    assert read_response.json()["title"] == "Первый приз"
+
+    update_response = client.patch(
+        f"/api/content/admin/giveaway-items/{first_item_id}",
+        headers=headers,
+        json={"title": "Главный приз"},
+    )
+    assert update_response.status_code == 200
+    updated_item = update_response.json()
+    assert updated_item["title"] == "Главный приз"
+    assert updated_item["description"] == "Сертификат партнёра"
+    assert updated_item["sort_order"] == 10
+
+    public_response = client.get("/api/content/giveaways")
+    assert public_response.status_code == 200
+    assert [item["title"] for item in public_response.json()[0]["items"]] == [
+        "Главный приз",
+        "Второй приз",
+    ]
+
+
+def test_content_admin_giveaway_items_not_found_and_auth(
+    content_admin_client: tuple[TestClient, str],
+) -> None:
+    client, token = content_admin_client
+    headers = _auth_headers(token)
+    giveaway_id = client.post(
+        "/api/content/admin/giveaways", headers=headers, json={"title": "Июль"}
+    ).json()["id"]
+
+    assert (
+        client.post(
+            "/api/content/admin/giveaways/999999/items",
+            headers=headers,
+            json={"title": "Приз"},
+        ).status_code
+        == 404
+    )
+    assert (
+        client.get(
+            "/api/content/admin/giveaway-items/999999", headers=headers
+        ).status_code
+        == 404
+    )
+    assert (
+        client.patch(
+            "/api/content/admin/giveaway-items/999999",
+            headers=headers,
+            json={"title": "Новый приз"},
+        ).status_code
+        == 404
+    )
+    assert (
+        client.get(f"/api/content/admin/giveaways/{giveaway_id}/items").status_code
+        == 401
+    )
+
+    original_token = settings.TELEGRAM_ADMIN_API_TOKEN
+    object.__setattr__(
+        settings, "TELEGRAM_ADMIN_API_TOKEN", "telegram-admin-test-token"
+    )
+    try:
+        wrong_response = client.get(
+            f"/api/content/admin/giveaways/{giveaway_id}/items",
+            headers={"X-Telegram-Admin-Token": "wrong-token"},
+        )
+        bearer_response = client.post(
+            f"/api/content/admin/giveaways/{giveaway_id}/items",
+            headers={"Authorization": "Bearer telegram-admin-test-token"},
+            json={"title": "Bearer prize"},
+        )
+        header_response = client.post(
+            f"/api/content/admin/giveaways/{giveaway_id}/items",
+            headers={"X-Telegram-Admin-Token": "telegram-admin-test-token"},
+            json={"title": "Header prize"},
+        )
+    finally:
+        object.__setattr__(settings, "TELEGRAM_ADMIN_API_TOKEN", original_token)
+
+    assert wrong_response.status_code == 403
+    assert bearer_response.status_code == 201
+    assert header_response.status_code == 201

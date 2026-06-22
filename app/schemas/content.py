@@ -273,6 +273,34 @@ class ContentOfferPhotoRead(ContentBaseRead):
     updated_at: datetime
 
 
+class ContentGiveawayItemCreate(BaseModel):
+    title: str
+    description: str | None = None
+    image_url: str | None = None
+    is_active: bool = True
+    sort_order: int = 0
+
+
+class ContentGiveawayItemUpdate(BaseModel):
+    title: str | None = None
+    description: str | None = None
+    image_url: str | None = None
+    is_active: bool | None = None
+    sort_order: int | None = None
+
+
+class ContentGiveawayItemRead(ContentBaseRead):
+    id: int
+    giveaway_id: int
+    title: str
+    description: str | None
+    image_url: str | None
+    is_active: bool
+    sort_order: int
+    created_at: datetime
+    updated_at: datetime
+
+
 class ContentGiveawayCreate(BaseModel):
     title: str
     current: str | None = None
@@ -307,6 +335,10 @@ class ContentGiveawayRead(ContentBaseRead):
     ends_at: datetime | None
     created_at: datetime
     updated_at: datetime
+
+
+class ContentGiveawayPublicRead(ContentGiveawayRead):
+    items: list[ContentGiveawayItemRead] = Field(default_factory=list)
 
 
 class ContentBannerCreate(BaseModel):

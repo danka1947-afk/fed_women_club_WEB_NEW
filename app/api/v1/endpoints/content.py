@@ -16,6 +16,7 @@ from app.models.content import (
     ContentCategory,
     ContentCity,
     ContentGiveaway,
+    ContentGiveawayItem,
     ContentOffer,
     ContentOfferPhoto,
     ContentPartner,
@@ -37,6 +38,10 @@ from app.schemas.content import (
     ContentCityRead,
     ContentCityUpdate,
     ContentGiveawayCreate,
+    ContentGiveawayItemCreate,
+    ContentGiveawayItemRead,
+    ContentGiveawayItemUpdate,
+    ContentGiveawayPublicRead,
     ContentGiveawayRead,
     ContentGiveawayUpdate,
     ContentOfferCreate,
@@ -154,6 +159,18 @@ def _partner_to_read(partner: ContentPartner) -> ContentPartnerRead:
     data = ContentPartnerRead.model_validate(partner).model_dump()
     data["category_ids"] = [link.category_id for link in partner.category_links]
     return ContentPartnerRead.model_validate(data)
+
+
+def _giveaway_to_public_read(giveaway: ContentGiveaway) -> ContentGiveawayPublicRead:
+    data = ContentGiveawayRead.model_validate(giveaway).model_dump()
+    active_items = sorted(
+        (item for item in giveaway.items if item.is_active),
+        key=lambda item: (item.sort_order, item.id),
+    )
+    data["items"] = [
+        ContentGiveawayItemRead.model_validate(item) for item in active_items
+    ]
+    return ContentGiveawayPublicRead.model_validate(data)
 
 
 def _replace_partner_categories(
@@ -294,19 +311,21 @@ def list_content_partner_offers(
     )
 
 
-@router.get("/giveaways", response_model=list[ContentGiveawayRead])
+@router.get("/giveaways", response_model=list[ContentGiveawayPublicRead])
 def list_content_giveaways(
     db: Session = Depends(get_content_db),
-) -> list[ContentGiveaway]:
-    return (
+) -> list[ContentGiveawayPublicRead]:
+    giveaways = (
         db.execute(
             select(ContentGiveaway)
+            .options(selectinload(ContentGiveaway.items))
             .where(ContentGiveaway.is_active.is_(True))
             .order_by(ContentGiveaway.sort_order, ContentGiveaway.id)
         )
         .scalars()
         .all()
     )
+    return [_giveaway_to_public_read(giveaway) for giveaway in giveaways]
 
 
 @router.get("/banners", response_model=list[ContentBannerRead])
@@ -555,9 +574,7 @@ def admin_create_content_offer(
     partner_id: int, payload: ContentOfferCreate, db: Session = Depends(get_content_db)
 ) -> ContentOffer:
     _get_or_404(db, ContentPartner, partner_id, "Content partner not found")
-    offer = ContentOffer(
-        partner_id=partner_id, **_offer_payload_to_db_data(payload)
-    )
+    offer = ContentOffer(partner_id=partner_id, **_offer_payload_to_db_data(payload))
     db.add(offer)
     _commit_or_400(db, "Content offer could not be created")
     db.refresh(offer)
@@ -742,6 +759,67 @@ def admin_update_content_giveaway(
     _commit_or_400(db, "Content giveaway could not be updated")
     db.refresh(giveaway)
     return giveaway
+
+
+@admin_router.get(
+    "/giveaways/{giveaway_id}/items", response_model=list[ContentGiveawayItemRead]
+)
+def admin_list_content_giveaway_items(
+    giveaway_id: int, db: Session = Depends(get_content_db)
+) -> list[ContentGiveawayItem]:
+    _get_or_404(db, ContentGiveaway, giveaway_id, "Content giveaway not found")
+    return (
+        db.execute(
+            select(ContentGiveawayItem)
+            .where(ContentGiveawayItem.giveaway_id == giveaway_id)
+            .order_by(ContentGiveawayItem.sort_order, ContentGiveawayItem.id)
+        )
+        .scalars()
+        .all()
+    )
+
+
+@admin_router.post(
+    "/giveaways/{giveaway_id}/items",
+    response_model=ContentGiveawayItemRead,
+    status_code=status.HTTP_201_CREATED,
+)
+def admin_create_content_giveaway_item(
+    giveaway_id: int,
+    payload: ContentGiveawayItemCreate,
+    db: Session = Depends(get_content_db),
+) -> ContentGiveawayItem:
+    _get_or_404(db, ContentGiveaway, giveaway_id, "Content giveaway not found")
+    item = ContentGiveawayItem(giveaway_id=giveaway_id, **payload.model_dump())
+    db.add(item)
+    _commit_or_400(db, "Content giveaway item could not be created")
+    db.refresh(item)
+    return item
+
+
+@admin_router.get("/giveaway-items/{item_id}", response_model=ContentGiveawayItemRead)
+def admin_read_content_giveaway_item(
+    item_id: int, db: Session = Depends(get_content_db)
+) -> ContentGiveawayItem:
+    return _get_or_404(
+        db, ContentGiveawayItem, item_id, "Content giveaway item not found"
+    )
+
+
+@admin_router.patch("/giveaway-items/{item_id}", response_model=ContentGiveawayItemRead)
+def admin_update_content_giveaway_item(
+    item_id: int,
+    payload: ContentGiveawayItemUpdate,
+    db: Session = Depends(get_content_db),
+) -> ContentGiveawayItem:
+    item = _get_or_404(
+        db, ContentGiveawayItem, item_id, "Content giveaway item not found"
+    )
+    _apply_update(item, payload)
+    db.add(item)
+    _commit_or_400(db, "Content giveaway item could not be updated")
+    db.refresh(item)
+    return item
 
 
 @admin_router.get("/banners", response_model=list[ContentBannerRead])
