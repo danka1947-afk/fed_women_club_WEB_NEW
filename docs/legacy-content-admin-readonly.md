@@ -151,7 +151,17 @@ python scripts/check_legacy_content_readonly.py --include-write-checks
 4. Повторить smoke-check legacy WEB content write на staging перед production rollback, чтобы убедиться, что write controls снова активны.
 5. Оставить `TELEGRAM_ADMIN_API_TOKEN` без изменений, если проблема только в legacy WEB read-only режиме.
 
-## H. Production rollout checklist
+## H. Staging release checklist
+
+- [ ] Установить `WEB_ADMIN_LEGACY_CONTENT_WRITE_ENABLED=false` только в staging окружении WEB backend.
+- [ ] Перезапустить WEB backend/frontend/static service по стандартному staging deploy runbook.
+- [ ] Выполнить safe script checks без write-проверок: `python scripts/check_legacy_content_readonly.py`.
+- [ ] Выполнить explicit blocked write check: `python scripts/check_legacy_content_readonly.py --include-write-checks`.
+- [ ] Проверить WEB admin UI: read-only notice виден в content-разделах; content write controls disabled; users/payments/subscriptions доступны.
+- [ ] Проверить Telegram Admin Bot на тестовых staging entities и убедиться, что Content Admin API продолжает писать контент.
+- [ ] Если любой smoke-check failed, откатить staging env на `WEB_ADMIN_LEGACY_CONTENT_WRITE_ENABLED=true` и не переносить изменение в production.
+
+## I. Production rollout checklist
 
 ### До изменения production env
 
