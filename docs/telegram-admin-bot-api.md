@@ -314,7 +314,60 @@ Payload:
 }
 ```
 
-Ограничение Stage 1: отдельного CRUD для `content_giveaway_items` в Content Admin API пока нет. Если боту потребуется управлять несколькими призами/элементами внутри одного розыгрыша, нужен отдельный небольшой endpoint.
+### Giveaway items / prizes
+
+Telegram Admin Bot должен использовать эти endpoints для управления призами внутри розыгрыша (`content_giveaway_items`). Auth такой же, как у остальных Content Admin endpoints: `Authorization: Bearer <TELEGRAM_ADMIN_API_TOKEN>` или совместимый заголовок `X-Telegram-Admin-Token: <TELEGRAM_ADMIN_API_TOKEN>`.
+
+```http
+GET /api/content/admin/giveaways/{giveaway_id}/items
+POST /api/content/admin/giveaways/{giveaway_id}/items
+GET /api/content/admin/giveaway-items/{item_id}
+PATCH /api/content/admin/giveaway-items/{item_id}
+```
+
+Create payload:
+
+```json
+{
+  "title": "Сертификат Bloom Spa",
+  "description": "Главный приз розыгрыша",
+  "image_url": "/uploads/content/prize.webp",
+  "sort_order": 10,
+  "is_active": true
+}
+```
+
+Create/read response:
+
+```json
+{
+  "id": 15,
+  "giveaway_id": 3,
+  "title": "Сертификат Bloom Spa",
+  "description": "Главный приз розыгрыша",
+  "image_url": "/uploads/content/prize.webp",
+  "is_active": true,
+  "sort_order": 10,
+  "created_at": "2026-06-22T00:00:00Z",
+  "updated_at": "2026-06-22T00:00:00Z"
+}
+```
+
+Update payload меняет только переданные поля:
+
+```json
+{"title":"Обновлённый приз","is_active":false}
+```
+
+List response сортируется по `sort_order`, затем `id`:
+
+```json
+[
+  {"id":15,"giveaway_id":3,"title":"Сертификат Bloom Spa","description":"Главный приз розыгрыша","image_url":"/uploads/content/prize.webp","is_active":true,"sort_order":10,"created_at":"2026-06-22T00:00:00Z","updated_at":"2026-06-22T00:00:00Z"}
+]
+```
+
+Если розыгрыш или приз не найден, API возвращает `404`. Физическое удаление не добавлено; для скрытия приза используйте `PATCH /api/content/admin/giveaway-items/{item_id}` с `{"is_active": false}`. Публичный `GET /api/content/giveaways` отдаёт только активные items, отсортированные по `sort_order`, затем `id`.
 
 ## Home / content blocks
 
@@ -350,7 +403,6 @@ GET /api/content/banners
 
 ## Endpoints, которых пока не хватает для полного бота
 
-- CRUD для элементов розыгрышей `content_giveaway_items`.
 - Явное поле `is_main` для фото партнёра/услуги, если бизнес-логика потребует не только сортировку.
 - Полноценные admin `GET` endpoints для просмотра content blocks по ключу/списком перед редактированием; сейчас есть публичный список активных блоков, `POST` и upsert через `PATCH`.
 - Hard delete намеренно не добавлен. Для Stage 1 используйте `PATCH is_active=false`.
