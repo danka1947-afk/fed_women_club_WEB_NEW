@@ -18,6 +18,7 @@ class AdminUserRead(BaseModel):
     id: int
     email: str
     role: str
+    legacy_content_write_enabled: bool = True
 
     model_config = {"from_attributes": True}
 

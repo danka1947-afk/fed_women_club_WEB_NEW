@@ -266,4 +266,86 @@ def test_admin_me_still_works_with_admin_token(admin_client: TestClient, admin_t
     response = admin_client.get("/api/v1/admin/me", headers=_auth_headers(admin_token))
 
     assert response.status_code == 200
-    assert response.json() == {"id": 1, "email": "admin@example.com", "role": "admin"}
+    assert response.json() == {"id": 1, "email": "admin@example.com", "role": "admin", "legacy_content_write_enabled": True}
+
+
+def _set_legacy_content_flag(value: bool) -> bool:
+    from app.core.config import settings
+
+    previous = settings.WEB_ADMIN_LEGACY_CONTENT_WRITE_ENABLED
+    object.__setattr__(settings, "WEB_ADMIN_LEGACY_CONTENT_WRITE_ENABLED", value)
+    return previous
+
+
+def _restore_legacy_content_flag(previous: bool) -> None:
+    from app.core.config import settings
+
+    object.__setattr__(settings, "WEB_ADMIN_LEGACY_CONTENT_WRITE_ENABLED", previous)
+
+
+def test_admin_me_exposes_legacy_content_write_flag(admin_client: TestClient, admin_token: str) -> None:
+    previous = _set_legacy_content_flag(False)
+    try:
+        response = admin_client.get("/api/v1/admin/me", headers=_auth_headers(admin_token))
+    finally:
+        _restore_legacy_content_flag(previous)
+
+    assert response.status_code == 200
+    assert response.json()["legacy_content_write_enabled"] is False
+
+
+def test_legacy_content_write_flag_defaults_true() -> None:
+    from app.core.config import Settings
+
+    assert Settings().WEB_ADMIN_LEGACY_CONTENT_WRITE_ENABLED is True
+
+
+def test_admin_legacy_content_write_returns_403_when_flag_disabled(
+    admin_client: TestClient, admin_token: str
+) -> None:
+    previous = _set_legacy_content_flag(False)
+    try:
+        response = admin_client.post(
+            "/api/v1/admin/cities",
+            headers=_auth_headers(admin_token),
+            json={"name": "Тест", "slug": "test-city", "is_active": True, "sort_order": 30},
+        )
+    finally:
+        _restore_legacy_content_flag(previous)
+
+    assert response.status_code == 403
+    assert "Legacy WEB content editing is disabled" in response.json()["detail"]
+
+
+def test_admin_legacy_content_write_works_when_flag_enabled(
+    admin_client: TestClient, admin_token: str
+) -> None:
+    previous = _set_legacy_content_flag(True)
+    try:
+        response = admin_client.post(
+            "/api/v1/admin/cities",
+            headers=_auth_headers(admin_token),
+            json={"name": "Тест", "slug": "test-city", "is_active": True, "sort_order": 30},
+        )
+    finally:
+        _restore_legacy_content_flag(previous)
+
+    assert response.status_code == 200
+    assert response.json()["slug"] == "test-city"
+
+
+def test_admin_users_are_not_blocked_by_legacy_content_flag(
+    admin_client: TestClient, admin_token: str
+) -> None:
+    previous = _set_legacy_content_flag(False)
+    try:
+        response = admin_client.post(
+            "/api/v1/admin/users",
+            headers=_auth_headers(admin_token),
+            json={"email": "client@example.com", "password": "StrongPassword123", "role": "client", "is_active": True},
+        )
+    finally:
+        _restore_legacy_content_flag(previous)
+
+    assert response.status_code == 200
+    assert response.json()["email"] == "client@example.com"

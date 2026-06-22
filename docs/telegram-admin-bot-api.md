@@ -39,6 +39,18 @@ X-Telegram-Admin-Token: <TELEGRAM_ADMIN_API_TOKEN>
 
 Content Admin API остаётся основной поверхностью редактирования контента для Telegram Admin Bot. Для безопасного отключения старого редактирования контента в WEB admin добавлен feature flag `WEB_ADMIN_LEGACY_CONTENT_WRITE_ENABLED`: по умолчанию старые write endpoints работают, но при значении `false` legacy WEB admin больше не может изменять партнёров, услуги, фото, города, категории и landing settings; чтение и новый `/api/content/admin/*` остаются доступными.
 
+При `WEB_ADMIN_LEGACY_CONTENT_WRITE_ENABLED=false` legacy WEB admin показывает read-only notice для content-разделов: редактирование контента перенесено в Telegram Admin Bot, списки и карточки остаются доступными для просмотра, а создание/редактирование/загрузка/активация legacy content отключены. Флаг отдается в `GET /api/v1/admin/me` только как безопасный boolean `legacy_content_write_enabled`; секреты и токены не раскрываются.
+
+Основная поверхность редактирования контента — Content Admin API `/api/content/admin/*`, которым пользуется Telegram Admin Bot для cities/categories/partners/offers/photos/giveaways/banners/blocks. Legacy WEB admin write endpoints `/api/v1/admin/landing-settings`, `/api/v1/admin/cities`, `/api/v1/admin/categories`, `/api/v1/admin/partners`, `/api/v1/admin/partners/{id}/images`, `/api/v1/admin/partners/{id}/photos`, `/api/v1/admin/partner-photos/{id}`, `/api/v1/admin/partners/{id}/offers` и `/api/v1/admin/offers/{id}`/`/image` должны возвращать 403 при выключенном флаге.
+
+Проверка на staging:
+
+1. Установить `WEB_ADMIN_LEGACY_CONTENT_WRITE_ENABLED=false` и перезапустить WEB backend/frontend.
+2. Войти в WEB admin и открыть «Города», «Категории», «Партнёры», «Предложения», «На проверке» и настройки главной: должен быть notice о переносе редактирования в Telegram Admin Bot, данные должны читаться, write-кнопки и upload-контролы должны быть недоступны.
+3. Проверить `GET /api/v1/admin/me`: поле `legacy_content_write_enabled` должно быть `false`.
+4. Проверить, что users/payments/subscriptions/support/admin-сценарии не заблокированы флагом: «Пользователи», «Оплаты», «Подтверждения», «QR / лиды» остаются рабочими в части не-content операций.
+5. Проверить Telegram Admin Bot через `/api/content/admin/*`: `TELEGRAM_ADMIN_API_TOKEN` auth и content writes должны работать независимо от legacy WEB флага.
+
 ## Health
 
 Публичный endpoint, без admin token:

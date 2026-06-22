@@ -145,8 +145,13 @@ def update_admin_landing_settings(
 
 
 @router.get("/me", response_model=AdminUserRead)
-def read_admin_me(admin: AdminUser = Depends(require_admin)) -> AdminUser:
-    return admin
+def read_admin_me(admin: AdminUser = Depends(require_admin)) -> dict[str, object]:
+    return {
+        "id": admin.id,
+        "email": admin.email,
+        "role": admin.role,
+        "legacy_content_write_enabled": settings.WEB_ADMIN_LEGACY_CONTENT_WRITE_ENABLED,
+    }
 
 
 @router.get("/activity", response_model=ActivityFeedRead)
