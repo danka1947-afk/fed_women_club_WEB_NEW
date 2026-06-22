@@ -68,3 +68,7 @@ curl -fsS https://<production-host>/health/db
 ```
 
 See `docs/production-stability.md` for outage diagnostics, systemd checks, nginx checks, and PostgreSQL resource checks. Also smoke-test `/r/p/{slug}` with a known active partner QR slug before announcing the release.
+
+## 8. Legacy WEB content admin read-only rollout
+
+Before setting `WEB_ADMIN_LEGACY_CONTENT_WRITE_ENABLED=false` on staging or production, follow `docs/legacy-content-admin-readonly.md`. The short version is: verify `/api/content/health`, confirm `/api/v1/admin/me` returns `legacy_content_write_enabled=false`, confirm a legacy WEB content write returns `403`, and confirm `/api/content/admin/cities` returns `200` with `TELEGRAM_ADMIN_API_TOKEN`, `401` without a token, and `403` with a wrong token.
