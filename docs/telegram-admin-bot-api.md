@@ -34,6 +34,11 @@ X-Telegram-Admin-Token: <TELEGRAM_ADMIN_API_TOKEN>
 {"detail":"Admin role required"}
 ```
 
+
+## Разделение с legacy WEB admin
+
+Content Admin API остаётся основной поверхностью редактирования контента для Telegram Admin Bot. Для безопасного отключения старого редактирования контента в WEB admin добавлен feature flag `WEB_ADMIN_LEGACY_CONTENT_WRITE_ENABLED`: по умолчанию старые write endpoints работают, но при значении `false` legacy WEB admin больше не может изменять партнёров, услуги, фото, города, категории и landing settings; чтение и новый `/api/content/admin/*` остаются доступными.
+
 ## Health
 
 Публичный endpoint, без admin token:

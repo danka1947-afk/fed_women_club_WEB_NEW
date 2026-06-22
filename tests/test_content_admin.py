@@ -622,3 +622,61 @@ def test_content_upload_accepts_valid_images_and_creates_file(
     saved_file = content_upload_settings / "content" / data["filename"]
     assert saved_file.exists()
     assert saved_file.read_bytes() == content
+
+
+def test_content_admin_token_auth_status_codes(
+    content_admin_client: tuple[TestClient, str],
+) -> None:
+    client, _token = content_admin_client
+    original_token = settings.TELEGRAM_ADMIN_API_TOKEN
+    object.__setattr__(settings, "TELEGRAM_ADMIN_API_TOKEN", "telegram-admin-test-token")
+    try:
+        missing = client.get("/api/content/admin/cities")
+        assert missing.status_code == 401
+
+        wrong_bearer = client.get(
+            "/api/content/admin/cities",
+            headers={"Authorization": "Bearer wrong-telegram-token"},
+        )
+        assert wrong_bearer.status_code == 403
+
+        wrong_header = client.get(
+            "/api/content/admin/cities",
+            headers={"X-Telegram-Admin-Token": "wrong-telegram-token"},
+        )
+        assert wrong_header.status_code == 403
+
+        bearer_ok = client.get(
+            "/api/content/admin/cities",
+            headers={"Authorization": "Bearer telegram-admin-test-token"},
+        )
+        assert bearer_ok.status_code == 200
+
+        header_ok = client.get(
+            "/api/content/admin/cities",
+            headers={"X-Telegram-Admin-Token": "telegram-admin-test-token"},
+        )
+        assert header_ok.status_code == 200
+    finally:
+        object.__setattr__(settings, "TELEGRAM_ADMIN_API_TOKEN", original_token)
+
+
+def test_legacy_web_admin_content_write_flag_blocks_old_content_editing(
+    content_admin_client: tuple[TestClient, str],
+) -> None:
+    client, token = content_admin_client
+    original_flag = settings.WEB_ADMIN_LEGACY_CONTENT_WRITE_ENABLED
+    object.__setattr__(settings, "WEB_ADMIN_LEGACY_CONTENT_WRITE_ENABLED", False)
+    try:
+        response = client.post(
+            "/api/v1/admin/cities",
+            headers=_auth_headers(token),
+            json={"name": "Legacy City", "slug": "legacy-city"},
+        )
+        assert response.status_code == 403
+        assert response.json()["detail"] == "Legacy WEB content editing is disabled; use Content Admin API"
+
+        read_response = client.get("/api/v1/admin/cities", headers=_auth_headers(token))
+        assert read_response.status_code == 200
+    finally:
+        object.__setattr__(settings, "WEB_ADMIN_LEGACY_CONTENT_WRITE_ENABLED", original_flag)

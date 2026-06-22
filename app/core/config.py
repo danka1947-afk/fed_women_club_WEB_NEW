@@ -35,6 +35,7 @@ class Settings:
     WEB_PUBLIC_URL: str = os.getenv("WEB_PUBLIC_URL", "https://women-club.example")
     UPLOAD_DIR: str = os.getenv("UPLOAD_DIR", "uploads")
     PUBLIC_UPLOADS_PATH: str = os.getenv("PUBLIC_UPLOADS_PATH", "/uploads")
+    WEB_ADMIN_LEGACY_CONTENT_WRITE_ENABLED: bool = os.getenv("WEB_ADMIN_LEGACY_CONTENT_WRITE_ENABLED", "true").lower() in {"1", "true", "yes", "on"}
 
     @property
     def backend_cors_origins_list(self) -> list[str]:
