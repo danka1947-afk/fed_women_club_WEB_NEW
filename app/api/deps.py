@@ -104,12 +104,16 @@ def require_content_admin(
             return None
 
     if bearer_token is None:
+        if configured_token and x_telegram_admin_token:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid content admin token")
         raise unauthorized
 
     try:
         payload = decode_access_token(bearer_token)
         admin_id = int(payload.get("sub", ""))
     except (TypeError, ValueError):
+        if configured_token:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid content admin token") from None
         raise unauthorized from None
 
     result = db.execute(select(AdminUser).where(AdminUser.id == admin_id))

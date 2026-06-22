@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.api.deps import require_admin
 from app.core.categories import WOMEN_CLUB_CATEGORY_SLUGS
+from app.core.config import settings
 from app.core.security import hash_password
 from app.db.session import get_db
 from app.models.category import Category
@@ -97,6 +98,14 @@ PARTNER_TEXT_FIELDS = (
 PARTNER_OFFER_TEXT_FIELDS = ("description", "benefit_text", "conditions", "image_url")
 
 
+def require_legacy_content_write_enabled() -> None:
+    if not settings.WEB_ADMIN_LEGACY_CONTENT_WRITE_ENABLED:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Legacy WEB content editing is disabled; use Content Admin API",
+        )
+
+
 @router.get("/landing-settings", response_model=LandingSettingsRead)
 def read_admin_landing_settings(
     admin: AdminUser = Depends(require_admin),
@@ -110,9 +119,11 @@ def read_admin_landing_settings(
 def update_admin_landing_settings(
     payload: LandingSettingsUpdate,
     admin: AdminUser = Depends(require_admin),
+    legacy_content_write: None = Depends(require_legacy_content_write_enabled),
     db: Session = Depends(get_db),
 ) -> LandingSettingsRead:
     _ = admin
+    _ = legacy_content_write
     settings = get_or_create_landing_settings(db)
     update_data = payload.model_dump(exclude_unset=True)
     if update_data.get("partners_count_base") is not None and update_data.get("partners_count_display") is None:
@@ -568,9 +579,11 @@ def list_admin_cities(
 def create_admin_city(
     payload: CityCreate,
     admin: AdminUser = Depends(require_admin),
+    legacy_content_write: None = Depends(require_legacy_content_write_enabled),
     db: Session = Depends(get_db),
 ) -> City:
     _ = admin
+    _ = legacy_content_write
     name = _strip_required(payload.name, "name")
     slug = _strip_required(payload.slug, "slug")
     _ensure_unique_city_identity(db, name=name, slug=slug)
@@ -591,9 +604,11 @@ def update_admin_city(
     city_id: int,
     payload: CityUpdate,
     admin: AdminUser = Depends(require_admin),
+    legacy_content_write: None = Depends(require_legacy_content_write_enabled),
     db: Session = Depends(get_db),
 ) -> City:
     _ = admin
+    _ = legacy_content_write
     city = db.get(City, city_id)
     if city is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="City not found")
@@ -636,9 +651,11 @@ def list_admin_categories(
 def create_admin_category(
     payload: CategoryCreate,
     admin: AdminUser = Depends(require_admin),
+    legacy_content_write: None = Depends(require_legacy_content_write_enabled),
     db: Session = Depends(get_db),
 ) -> Category:
     _ = admin
+    _ = legacy_content_write
     name = _strip_category_required(payload.name, "name")
     slug = _strip_category_required(payload.slug, "slug")
     _ensure_unique_category_slug(db, slug=slug)
@@ -664,9 +681,11 @@ def update_admin_category(
     category_id: int,
     payload: CategoryUpdate,
     admin: AdminUser = Depends(require_admin),
+    legacy_content_write: None = Depends(require_legacy_content_write_enabled),
     db: Session = Depends(get_db),
 ) -> Category:
     _ = admin
+    _ = legacy_content_write
     category = db.get(Category, category_id)
     if category is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Category not found")
@@ -740,9 +759,11 @@ def list_admin_partners(
 def create_admin_partner(
     payload: PartnerCreate,
     admin: AdminUser = Depends(require_admin),
+    legacy_content_write: None = Depends(require_legacy_content_write_enabled),
     db: Session = Depends(get_db),
 ) -> PartnerRead:
     _ = admin
+    _ = legacy_content_write
     _ensure_city_exists(db, payload.city_id)
     if payload.owner_user_id is not None:
         _get_partner_owner(db, payload.owner_user_id)
@@ -795,9 +816,11 @@ def update_admin_partner(
     partner_id: int,
     payload: PartnerUpdate,
     admin: AdminUser = Depends(require_admin),
+    legacy_content_write: None = Depends(require_legacy_content_write_enabled),
     db: Session = Depends(get_db),
 ) -> PartnerRead:
     _ = admin
+    _ = legacy_content_write
     partner = db.get(Partner, partner_id)
     if partner is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Partner not found")
@@ -840,9 +863,11 @@ async def upload_admin_partner_image(
     kind: str,
     file: UploadFile = File(...),
     admin: AdminUser = Depends(require_admin),
+    legacy_content_write: None = Depends(require_legacy_content_write_enabled),
     db: Session = Depends(get_db),
 ) -> dict[str, str]:
     _ = admin
+    _ = legacy_content_write
     partner = _ensure_partner_exists(db, partner_id)
     normalized_kind = validate_image_kind(kind)
     image_url = await save_partner_image_upload(partner.id, normalized_kind, file)
@@ -858,9 +883,11 @@ async def upload_admin_partner_photo(
     alt_text: str | None = Form(default=None),
     sort_order: int = Form(default=0),
     admin: AdminUser = Depends(require_admin),
+    legacy_content_write: None = Depends(require_legacy_content_write_enabled),
     db: Session = Depends(get_db),
 ) -> PartnerPhoto:
     _ = admin
+    _ = legacy_content_write
     partner = _ensure_partner_exists(db, partner_id)
     photo_url = await save_partner_photo_image_upload(partner.id, file)
     photo = PartnerPhoto(
@@ -898,9 +925,11 @@ def update_admin_partner_photo(
     photo_id: int,
     payload: PartnerPhotoUpdate,
     admin: AdminUser = Depends(require_admin),
+    legacy_content_write: None = Depends(require_legacy_content_write_enabled),
     db: Session = Depends(get_db),
 ) -> PartnerPhoto:
     _ = admin
+    _ = legacy_content_write
     photo = db.get(PartnerPhoto, photo_id)
     if photo is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Partner photo not found")
@@ -1051,9 +1080,11 @@ def create_admin_partner_offer(
     partner_id: int,
     payload: PartnerOfferCreate,
     admin: AdminUser = Depends(require_admin),
+    legacy_content_write: None = Depends(require_legacy_content_write_enabled),
     db: Session = Depends(get_db),
 ) -> PartnerOfferRead:
     _ = admin
+    _ = legacy_content_write
     partner = _ensure_partner_exists(db, partner_id)
     _validate_offer_amounts(payload.base_price, payload.discount_percent)
 
@@ -1089,9 +1120,11 @@ async def upload_admin_partner_offer_image(
     offer_id: int,
     file: UploadFile = File(...),
     admin: AdminUser = Depends(require_admin),
+    legacy_content_write: None = Depends(require_legacy_content_write_enabled),
     db: Session = Depends(get_db),
 ) -> dict[str, str]:
     _ = admin
+    _ = legacy_content_write
     offer = db.get(PartnerOffer, offer_id)
     if offer is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Offer not found")
@@ -1107,9 +1140,11 @@ def update_admin_partner_offer(
     offer_id: int,
     payload: PartnerOfferUpdate,
     admin: AdminUser = Depends(require_admin),
+    legacy_content_write: None = Depends(require_legacy_content_write_enabled),
     db: Session = Depends(get_db),
 ) -> PartnerOfferRead:
     _ = admin
+    _ = legacy_content_write
     offer = db.get(PartnerOffer, offer_id)
     if offer is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Offer not found")
