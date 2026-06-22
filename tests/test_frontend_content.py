@@ -2504,3 +2504,16 @@ def test_admin_partner_reopening_drawer_uses_updated_partner_category_ids() -> N
     assert "const selectedCategoryIds = getAdminPartnerSelectedCategoryIds(isEditMode ? partner : null, activeCategories);" in source
     assert "return new Set(partner ? getPartnerCategoryIdStrings(partner, activeCategories) : []);" in source
     assert "resetAdminPartnerCategoryDraft(partnerId);" in source
+
+
+def test_admin_legacy_content_readonly_notice_and_flag_handling_present() -> None:
+    source = _frontend_main()
+    styles = FRONTEND_STYLES.read_text(encoding="utf-8")
+
+    assert "legacy_content_write_enabled" in source
+    assert "legacyContentWriteEnabled" in source
+    assert "Редактирование контента перенесено в Telegram Admin Bot" in source
+    assert "renderLegacyContentNotice" in source
+    assert "guardLegacyContentWrite" in source
+    assert "data-legacy-content-form" in source
+    assert "admin-readonly-notice" in styles

@@ -481,6 +481,7 @@ const adminTabs = [
 const adminState = {
   activeTab: 'overview',
   user: null,
+  legacyContentWriteEnabled: true,
   users: [],
   cities: [],
   categories: [],
@@ -1881,7 +1882,7 @@ const renderPartnerGallery = (partner, photos = [], scope = 'partner') => {
                   <label class="partner-gallery-order">Порядок<input name="sort_order" type="number" value="${escapeHtml(photo.sort_order || 0)}" /></label>
                   <input name="is_active" type="hidden" value="${photo.is_active ? 'true' : 'false'}" />
                   <div class="admin-form-actions">
-                    <button class="admin-inline-action ui-button ui-button--primary admin-inline-action--primary" type="submit">Сохранить</button>
+                    <button class="admin-inline-action ui-button ui-button--primary admin-inline-action--primary" type="submit"${isAdmin ? legacyContentDisabledAttr() : ''}>Сохранить</button>
                     <button class="admin-inline-action ui-button ui-button--secondary admin-inline-action--secondary" type="button" data-${isAdmin ? 'admin' : 'partner'}-photo-hide="${escapeHtml(photo.id)}">${photo.is_active ? 'Скрыть фото' : 'Показать фото'}</button>
                     ${!isAdmin ? `<button class="admin-inline-action ui-button ui-button--danger admin-inline-action--danger" type="button" data-partner-photo-delete="${escapeHtml(photo.id)}">Удалить</button>` : ''}
                   </div>
@@ -3750,7 +3751,11 @@ const renderPartnerActivityTab = () => `
   ${renderActivityFeed(partnerState.activityItems, { loading: partnerState.activityLoading, error: partnerState.activityError })}
 `;
 
-const requestAdminMe = () => apiFetch('/api/v1/admin/me');
+const requestAdminMe = async () => {
+  const me = await apiFetch('/api/v1/admin/me');
+  adminState.legacyContentWriteEnabled = me?.legacy_content_write_enabled !== false;
+  return me;
+};
 
 const buildAdminPaymentRequestsPath = (status = adminState.paymentRequestsStatusFilter) => {
   const params = new URLSearchParams();
@@ -3907,6 +3912,17 @@ const loadQrLinks = async () => {
   }
 };
 
+const legacyContentReadOnlyMessage = 'Редактирование контента перенесено в Telegram Admin Bot. Этот раздел доступен только для просмотра.';
+const isLegacyContentReadOnly = () => adminState.legacyContentWriteEnabled === false;
+const legacyContentDisabledAttr = () => isLegacyContentReadOnly() ? ` disabled title="${escapeHtml(legacyContentReadOnlyMessage)}" aria-disabled="true"` : '';
+const renderLegacyContentNotice = () => isLegacyContentReadOnly() ? `<div class="admin-readonly-notice" role="status"><strong>Read-only режим</strong><span>${escapeHtml(legacyContentReadOnlyMessage)}</span></div>` : '';
+const guardLegacyContentWrite = () => {
+  if (!isLegacyContentReadOnly()) return false;
+  setPanelMessage(legacyContentReadOnlyMessage, 'info');
+  renderAdminLayout();
+  return true;
+};
+
 const ensureAdminDictionaries = async () => {
   await Promise.all([
     adminState.users.length ? Promise.resolve() : loadUsers(),
@@ -3921,8 +3937,12 @@ const renderAdminLayout = () => {
   const content = renderAdminTabContent();
   adminDashboard.innerHTML = `
     ${adminState.panelMessage}
+    ${['overview', 'cities', 'categories', 'partners', 'offers', 'contentReview'].includes(adminState.activeTab) ? renderLegacyContentNotice() : ''}
     <section class="admin-tab-panel">${content}</section>
   `;
+  if (isLegacyContentReadOnly()) {
+    adminDashboard.querySelectorAll('[data-legacy-content-form] input, [data-legacy-content-form] textarea, [data-legacy-content-form] select, [data-legacy-content-form] button[type=\"submit\"]').forEach((el) => { el.disabled = true; });
+  }
 };
 
 const renderAdminTabContent = () => {
@@ -4002,7 +4022,7 @@ const renderAdminGiveawayItems = (items = []) => {
       <label>Описание<input name="giveaway_item_description" value="${escapeHtml(item.description || '')}" placeholder="Короткое описание" /></label>
       <label>Порядок<input name="giveaway_item_sort_order" type="number" value="${escapeHtml(item.sort_order ?? index)}" /></label>
       <label class="checkbox-row"><input name="giveaway_item_is_active_${index}" type="checkbox" ${item.is_active === false ? '' : 'checked'} /> Активен</label>
-      <button class="admin-inline-action ui-button ui-button--danger" type="button" data-admin-giveaway-remove-prize>Удалить</button>
+      <button class="admin-inline-action ui-button ui-button--danger" type="button" data-admin-giveaway-remove-prize${legacyContentDisabledAttr()}>Удалить</button>
     </article>
   `).join('');
 };
@@ -4019,13 +4039,13 @@ const renderLandingSettingsCard = () => {
         <h4 id="landing-settings-title">Настройки главной</h4>
         <p>Управляйте публичными показателями hero mini-cards и розыгрышем месяца.</p>
       </div>
-      <form class="admin-form admin-form--inline" data-admin-form="landingSettings">
+      <form class="admin-form admin-form--inline" data-admin-form="landingSettings" data-legacy-content-form>
         <label>Базовое число девушек<input name="members_count_base" type="number" min="0" value="${escapeHtml(settings.members_count_base)}" required /></label>
         <label>Базовое число партнёров<input name="partners_count_display" type="number" min="0" value="${escapeHtml(partnersCountBase)}" required /></label>
         <label>Базовая сумма экономии<input name="savings_total" type="number" min="0" value="${escapeHtml(savingsTotalBase)}" required /></label>
         <div class="admin-form-actions">
-          <button class="ui-button ui-button--primary" type="submit">Сохранить показатели</button>
-          <button class="ui-button ui-button--secondary" type="button" data-admin-giveaway-open>Розыгрыш месяца</button>
+          <button class="ui-button ui-button--primary" type="submit"${legacyContentDisabledAttr()}>Сохранить показатели</button>
+          <button class="ui-button ui-button--secondary" type="button" data-admin-giveaway-open${legacyContentDisabledAttr()}>Розыгрыш месяца</button>
         </div>
         <p class="form-message" data-form-message="landingSettings">${escapeHtml(adminState.formMessages.landingSettings || '')}</p>
       </form>
@@ -4042,7 +4062,7 @@ const renderLandingSettingsCard = () => {
 
 const renderGiveawayDrawer = (settings) => `
   <aside class="admin-side-drawer admin-giveaway-drawer" aria-label="Розыгрыш месяца">
-    <form class="admin-form" data-admin-form="landingGiveaway">
+    <form class="admin-form" data-admin-form="landingGiveaway" data-legacy-content-form>
       <div class="admin-section-heading">
         <h4>Розыгрыш месяца</h4>
         <p>Первый активный приз с меньшим порядком сортировки показывается на главной.</p>
@@ -4054,9 +4074,9 @@ const renderGiveawayDrawer = (settings) => `
       <div class="giveaway-prize-list" data-admin-giveaway-prize-list>
         ${renderAdminGiveawayItems(settings.giveaway_items)}
       </div>
-      <button class="admin-inline-action ui-button ui-button--secondary" type="button" data-admin-giveaway-add-prize>Добавить приз</button>
+      <button class="admin-inline-action ui-button ui-button--secondary" type="button" data-admin-giveaway-add-prize${legacyContentDisabledAttr()}>Добавить приз</button>
       <div class="admin-form-actions">
-        <button class="ui-button ui-button--primary" type="submit">Сохранить</button>
+        <button class="ui-button ui-button--primary" type="submit"${legacyContentDisabledAttr()}>Сохранить</button>
         <button class="ui-button ui-button--ghost" type="button" data-admin-giveaway-cancel>Отмена</button>
       </div>
       <p class="form-message" data-form-message="landingGiveaway">${escapeHtml(adminState.formMessages.landingGiveaway || (adminState.landingSettingsSaving ? 'Сохранение…' : ''))}</p>
@@ -4198,20 +4218,20 @@ const renderUsersTab = () => {
 };
 
 const renderCityActionButtons = (city) => renderAdminTableActions(`
-  <button class="admin-inline-action ui-button ui-button--secondary admin-table-action" type="button" data-admin-city-edit="${escapeHtml(city.id)}">Редактировать</button>
-  <button class="admin-inline-action ui-button ui-button--secondary admin-table-action" type="button" data-admin-city-active-toggle="${escapeHtml(city.id)}">
+  <button class="admin-inline-action ui-button ui-button--secondary admin-table-action" type="button" data-admin-city-edit="${escapeHtml(city.id)}"${legacyContentDisabledAttr()}>Редактировать</button>
+  <button class="admin-inline-action ui-button ui-button--secondary admin-table-action" type="button" data-admin-city-active-toggle="${escapeHtml(city.id)}"${legacyContentDisabledAttr()}>
     ${city.is_active ? 'Деактивировать' : 'Активировать'}
   </button>
 `);
 
 const renderCityCreateForm = () => `
-  <form class="admin-form" data-admin-form="city">
+  <form class="admin-form" data-admin-form="city" data-legacy-content-form>
     <h4>Новый город</h4>
     <label>Название города<input name="name" required /></label>
     <label>Слаг / код города<input name="slug" required /></label>
     <label>Порядок сортировки<input name="sort_order" type="number" value="0" /></label>
     <label class="checkbox-row"><input name="is_active" type="checkbox" checked /> Активен</label>
-    <button type="submit">Создать город</button>
+    <button type="submit"${legacyContentDisabledAttr()}>Создать город</button>
     <p class="form-message" data-form-message="city">${escapeHtml(adminState.formMessages.city || '')}</p>
   </form>
 `;
@@ -4223,7 +4243,7 @@ const renderCityEditForm = () => {
   }
 
   return `
-    <form class="admin-form" data-admin-form="cityEdit" data-city-id="${escapeHtml(city.id)}">
+    <form class="admin-form" data-admin-form="cityEdit" data-legacy-content-form data-city-id="${escapeHtml(city.id)}">
       <h4>Редактировать город</h4>
       <label>Название<input name="name" value="${escapeHtml(city.name || '')}" required /></label>
       <label>Slug<input name="slug" value="${escapeHtml(city.slug || '')}" required /></label>
@@ -4267,20 +4287,20 @@ const renderCitiesTab = () => {
 const getCategoryName = (category) => category.name || category.title || '';
 
 const renderCategoryActionButtons = (category) => renderAdminTableActions(`
-  <button class="admin-inline-action ui-button ui-button--secondary admin-table-action" type="button" data-admin-category-edit="${escapeHtml(category.id)}">Редактировать</button>
-  <button class="admin-inline-action ui-button ui-button--secondary admin-table-action" type="button" data-admin-category-active-toggle="${escapeHtml(category.id)}">
+  <button class="admin-inline-action ui-button ui-button--secondary admin-table-action" type="button" data-admin-category-edit="${escapeHtml(category.id)}"${legacyContentDisabledAttr()}>Редактировать</button>
+  <button class="admin-inline-action ui-button ui-button--secondary admin-table-action" type="button" data-admin-category-active-toggle="${escapeHtml(category.id)}"${legacyContentDisabledAttr()}>
     ${category.is_active ? 'Деактивировать' : 'Активировать'}
   </button>
 `);
 
 const renderCategoryCreateForm = () => `
-  <form class="admin-form" data-admin-form="category">
+  <form class="admin-form" data-admin-form="category" data-legacy-content-form>
     <h4>Новая категория</h4>
     <label>Название партнёра<input name="name" required /></label>
     <label>Slug<input name="slug" required /></label>
     <label>Порядок сортировки<input name="sort_order" type="number" value="0" /></label>
     <label class="checkbox-row"><input name="is_active" type="checkbox" checked /> Активна</label>
-    <button type="submit">Создать категорию</button>
+    <button type="submit"${legacyContentDisabledAttr()}>Создать категорию</button>
     <p class="form-message" data-form-message="category">${escapeHtml(adminState.formMessages.category || '')}</p>
   </form>
 `;
@@ -4292,7 +4312,7 @@ const renderCategoryEditForm = () => {
   }
 
   return `
-    <form class="admin-form" data-admin-form="categoryEdit" data-category-id="${escapeHtml(category.id)}">
+    <form class="admin-form" data-admin-form="categoryEdit" data-legacy-content-form data-category-id="${escapeHtml(category.id)}">
       <h4>Редактировать категорию</h4>
       <label>Название<input name="name" value="${escapeHtml(getCategoryName(category))}" required /></label>
       <label>Slug<input name="slug" value="${escapeHtml(category.slug || '')}" required /></label>
@@ -4334,7 +4354,7 @@ const renderCategoriesTab = () => {
 };
 
 const renderAdminPartnerAction = (partner) => renderAdminTableActions(`
-  <button class="admin-inline-action ui-button ui-button--secondary admin-table-action" type="button" data-admin-partner-edit="${escapeHtml(partner.id)}">Редактировать</button>
+  <button class="admin-inline-action ui-button ui-button--secondary admin-table-action" type="button" data-admin-partner-edit="${escapeHtml(partner.id)}"${legacyContentDisabledAttr()}>Редактировать</button>
 `);
 
 const getAdminLoadedOffersForPartner = (partner) => {
@@ -4411,7 +4431,7 @@ const renderPartnerEditForm = () => {
       <div class="admin-partner-detail-grid">
         <div class="admin-partner-detail-main">
           <section class="admin-partner-detail-section">
-            <form class="admin-form partner-profile-settings" data-admin-form="partnerEdit" data-partner-id="${escapeHtml(partner.id)}">
+            <form class="admin-form partner-profile-settings" data-admin-form="partnerEdit" data-legacy-content-form data-partner-id="${escapeHtml(partner.id)}">
               <div class="admin-section-heading text-stack"><h4 class="section-title">Основные данные</h4><p class="section-description compact-copy">Профиль, контакты и статусы для каталога.</p></div>
               <label>Город${renderSelect('city_id', adminState.cities.map((city) => [city.id, city.name]), true, partner.city_id, null, { label: 'Город', data: { adminPartnerField: 'city' } })}</label>
               <fieldset class="partner-multicategory"><legend>Категории</legend><div class="partner-category-chips">${activeCategories.map((category) => `<label class="checkbox-row"><input type="checkbox" name="category_ids" value="${escapeHtml(category.id)}" data-category-id="${escapeHtml(category.id)}" data-category-slug="${escapeHtml(category.slug || '')}" data-category-title="${escapeHtml(category.title || category.name || '')}" ${selectedCategoryIds.has(String(category.id)) ? 'checked' : ''}/> ${escapeHtml(category.title)}</label>`).join('')}</div></fieldset>
@@ -4648,7 +4668,7 @@ const renderPartnersList = (partners, totalPartners) => {
     <header class="admin-page-header"><h3>Партнёры</h3><p>Управление партнёрами клуба, категориями, статусами и витриной.</p></header>
     <div class="admin-page-toolbar">
       <div class="ui-toolbar-actions">
-        <button class="ui-button ui-button--primary" type="button" data-admin-partner-create>+ Добавить партнёра</button>
+        <button class="ui-button ui-button--primary" type="button" data-admin-partner-create${legacyContentDisabledAttr()}>+ Добавить партнёра</button>
       </div>
       ${renderAdminSearch('partners', 'Поиск по партнёрам, городам, email, телефону и категориям')}
       ${hasActivePartnerFilters() ? '<button class="ui-button ui-button--ghost" type="button" data-admin-partner-filter-clear>Сбросить</button>' : ''}
@@ -4665,7 +4685,7 @@ const renderPartnersList = (partners, totalPartners) => {
       ${activeChips.length ? `<div class="admin-filter-chips">${activeChips.map(([key, label]) => `<span class="admin-filter-chip">${escapeHtml(label)}<button class="ui-button ui-button--ghost" type="button" data-admin-partner-filter-reset="${escapeHtml(key)}">×</button></span>`).join('')}<button class="ui-button ui-button--ghost" type="button" data-admin-partner-filter-clear>Сбросить всё</button></div>` : ''}
     </div>
     <div class="admin-summary-strip">Найдено: <strong>${partners.length}</strong> из ${totalPartners.length}</div>
-    ${!hasAnyPartners ? `<div class="admin-empty-state"><p>Партнёры пока не добавлены.</p><button class="ui-button ui-button--primary" type="button" data-admin-partner-create>+ Добавить партнёра</button></div>` : ''}
+    ${!hasAnyPartners ? `<div class="admin-empty-state"><p>Партнёры пока не добавлены.</p><button class="ui-button ui-button--primary" type="button" data-admin-partner-create${legacyContentDisabledAttr()}>+ Добавить партнёра</button></div>` : ''}
     ${noResults ? `<div class="admin-empty-state"><p>По выбранным фильтрам партнёры не найдены.</p><button class="ui-button ui-button--ghost" type="button" data-admin-partner-filter-clear>Сбросить фильтры</button></div>` : ''}
     ${!noResults && hasAnyPartners ? renderTable(['Партнёр', 'Категории', 'Статус', 'Витрина', 'Услуги', 'Обновлено', 'Действия'], rows, true, 'admin-table--compact admin-table--partners admin-partners-table') : ''}
   </section>
@@ -4696,8 +4716,8 @@ const renderPartnersTab = () => {
 };
 
 const renderAdminOfferAction = (offer) => renderAdminTableActions(`
-  <button class="admin-inline-action ui-button ui-button--secondary admin-table-action" type="button" data-admin-offer-edit="${escapeHtml(offer.id)}">Редактировать</button>
-  <label class="admin-inline-action ui-button ui-button--secondary admin-table-action">Загрузить фото<input type="file" accept="image/jpeg,image/png,image/webp" data-admin-offer-image-upload data-offer-id="${escapeHtml(offer.id)}" /></label>
+  <button class="admin-inline-action ui-button ui-button--secondary admin-table-action" type="button" data-admin-offer-edit="${escapeHtml(offer.id)}"${legacyContentDisabledAttr()}>Редактировать</button>
+  <label class="admin-inline-action ui-button ui-button--secondary admin-table-action">Загрузить фото<input type="file" accept="image/jpeg,image/png,image/webp" data-admin-offer-image-upload data-offer-id="${escapeHtml(offer.id)}" ${legacyContentDisabledAttr()} /></label>
 `);
 
 const renderOfferEditForm = () => {
@@ -4707,7 +4727,7 @@ const renderOfferEditForm = () => {
   }
 
   return `
-    <form class="admin-form admin-form--inline admin-offer-form" data-admin-form="offerEdit" data-offer-id="${escapeHtml(offer.id)}">
+    <form class="admin-form admin-form--inline admin-offer-form" data-admin-form="offerEdit" data-legacy-content-form data-offer-id="${escapeHtml(offer.id)}">
       <h4>Редактировать предложение</h4>
       <label>Название<input name="title" required value="${escapeHtml(offer.title || '')}" /></label>
       <label>Скидка / выгода<input name="benefit_text" value="${escapeHtml(offer.benefit_text || '')}" /></label>
@@ -4733,7 +4753,7 @@ const renderOfferEditForm = () => {
 };
 
 const renderOfferCreateForm = () => `
-  <form class="admin-form admin-form--inline admin-offer-form" data-admin-form="offer">
+  <form class="admin-form admin-form--inline admin-offer-form" data-admin-form="offer" data-legacy-content-form>
     <h4>Новое предложение</h4>
     <label>Название предложения<input name="title" required /></label>
     <label>Краткая выгода<input name="benefit_text" /></label>
@@ -4808,7 +4828,7 @@ const renderContentReviewOfferCard = (offer) => renderOfferMarketplaceCard(
   {
     note: `Партнёр: ${offer.partner_name || '—'}`,
     actionHtml: `
-      <button class="ui-button ui-button--success" type="button" data-content-review-offer-activate="${escapeHtml(offer.id)}">Активировать</button>
+      <button class="ui-button ui-button--success" type="button" data-content-review-offer-activate="${escapeHtml(offer.id)}"${legacyContentDisabledAttr()}>Активировать</button>
       <button class="admin-inline-action ui-button ui-button--secondary" type="button" data-content-review-partner-open="${escapeHtml(offer.partner_id)}">Открыть партнёра</button>
     `,
   },
@@ -4830,7 +4850,7 @@ const renderContentReviewPhotoCard = (photo) => {
           <div><dt>Создано</dt><dd>${formatValue(formatDate(photo.created_at))}</dd></div>
         </dl>
         <div class="content-review-actions ui-card-actions ui-action-row ui-action-row--stack-mobile">
-          <button class="ui-button ui-button--success" type="button" data-content-review-photo-activate="${escapeHtml(photo.id)}">Активировать</button>
+          <button class="ui-button ui-button--success" type="button" data-content-review-photo-activate="${escapeHtml(photo.id)}"${legacyContentDisabledAttr()}>Активировать</button>
           <button class="admin-inline-action ui-button ui-button--secondary" type="button" data-content-review-partner-open="${escapeHtml(photo.partner_id)}">Открыть партнёра</button>
         </div>
       </div>
@@ -5538,6 +5558,7 @@ const buildCategoryPayload = (formData) => ({
 });
 
 const submitCity = async (form) => {
+  if (guardLegacyContentWrite()) return;
   const formData = new FormData(form);
   await postJson('/api/v1/admin/cities', buildCityPayload(formData));
   form.reset();
@@ -5545,6 +5566,7 @@ const submitCity = async (form) => {
 };
 
 const submitCityEdit = async (form) => {
+  if (guardLegacyContentWrite()) return;
   const cityId = form.dataset.cityId;
   const formData = new FormData(form);
   await patchJson(`/api/v1/admin/cities/${cityId}`, buildCityPayload(formData));
@@ -5552,6 +5574,7 @@ const submitCityEdit = async (form) => {
 };
 
 const submitCategory = async (form) => {
+  if (guardLegacyContentWrite()) return;
   const formData = new FormData(form);
   await postJson('/api/v1/admin/categories', buildCategoryPayload(formData));
   form.reset();
@@ -5559,6 +5582,7 @@ const submitCategory = async (form) => {
 };
 
 const submitCategoryEdit = async (form) => {
+  if (guardLegacyContentWrite()) return;
   const categoryId = form.dataset.categoryId;
   const formData = new FormData(form);
   await patchJson(`/api/v1/admin/categories/${categoryId}`, buildCategoryPayload(formData));
@@ -5566,6 +5590,7 @@ const submitCategoryEdit = async (form) => {
 };
 
 const toggleCategoryActive = async (categoryId) => {
+  if (guardLegacyContentWrite()) return;
   const category = adminState.categories.find((item) => String(item.id) === String(categoryId));
   if (!category) {
     return;
@@ -5588,6 +5613,7 @@ const toggleCategoryActive = async (categoryId) => {
 };
 
 const toggleCityActive = async (cityId) => {
+  if (guardLegacyContentWrite()) return;
   const city = adminState.cities.find((item) => String(item.id) === String(cityId));
   if (!city) {
     return;
@@ -5686,6 +5712,7 @@ const buildAdminPartnerPayload = (formData, selectedCategoryIds = null) => ({
 });
 
 const submitPartner = async (form) => {
+  if (guardLegacyContentWrite()) return;
   const selectedCategoryIds = captureAdminPartnerCategoryDraft(form);
   const formData = new FormData(form);
   const createdPartner = await postJson('/api/v1/admin/partners', buildAdminPartnerPayload(formData, selectedCategoryIds));
@@ -5695,6 +5722,7 @@ const submitPartner = async (form) => {
 };
 
 const submitPartnerEdit = async (form) => {
+  if (guardLegacyContentWrite()) return;
   const partnerId = form.dataset.partnerId;
   const selectedCategoryIds = captureAdminPartnerCategoryDraft(form);
   const formData = new FormData(form);
@@ -5722,6 +5750,7 @@ const buildOfferTextPayload = (formData) => ({
 });
 
 const submitOffer = async (form) => {
+  if (guardLegacyContentWrite()) return;
   const formData = new FormData(form);
   await postJson(`/api/v1/admin/partners/${adminState.selectedPartnerIdForOffers}/offers`, buildOfferTextPayload(formData));
   form.reset();
@@ -5729,6 +5758,7 @@ const submitOffer = async (form) => {
 };
 
 const submitOfferEdit = async (form) => {
+  if (guardLegacyContentWrite()) return;
   const offerId = form.dataset.offerId;
   const formData = new FormData(form);
   await patchJson(`/api/v1/admin/offers/${offerId}`, buildOfferTextPayload(formData));
@@ -5759,6 +5789,7 @@ const submitQrEdit = async (form) => {
 };
 
 const uploadAdminPartnerPhoto = async (partnerId, file) => {
+  if (guardLegacyContentWrite()) return;
   const body = new FormData();
   body.append('file', file);
   const response = await apiFetch(`/api/v1/admin/partners/${partnerId}/photos`, { method: 'POST', body });
@@ -5781,6 +5812,7 @@ const buildPartnerPhotoPayload = (formData) => ({
 });
 
 const submitAdminPartnerPhoto = async (form) => {
+  if (guardLegacyContentWrite()) return;
   await patchJson(`/api/v1/admin/partner-photos/${form.dataset.photoId}`, buildPartnerPhotoPayload(new FormData(form)));
   await loadAdminPartnerPhotos(adminState.selectedPartnerIdForEdit);
 };
@@ -5791,6 +5823,7 @@ const submitPartnerPhoto = async (form) => {
 };
 
 const hideAdminPartnerPhoto = async (photoId) => {
+  if (guardLegacyContentWrite()) return;
   await patchJson(`/api/v1/admin/partner-photos/${photoId}`, { is_active: false });
   await loadAdminPartnerPhotos(adminState.selectedPartnerIdForEdit);
 };
@@ -5838,6 +5871,7 @@ const clearPartnerOfferImage = async (offerId) => {
 
 
 const activateContentReviewOffer = async (offerId) => {
+  if (guardLegacyContentWrite()) return;
   await patchJson(`/api/v1/admin/offers/${offerId}`, { is_active: true });
   await loadContentReview();
   if (adminState.selectedPartnerIdForOffers) {
@@ -5846,6 +5880,7 @@ const activateContentReviewOffer = async (offerId) => {
 };
 
 const activateContentReviewPhoto = async (photoId) => {
+  if (guardLegacyContentWrite()) return;
   await patchJson(`/api/v1/admin/partner-photos/${photoId}`, { is_active: true });
   await loadContentReview();
   if (adminState.selectedPartnerIdForEdit) {
@@ -5854,6 +5889,7 @@ const activateContentReviewPhoto = async (photoId) => {
 };
 
 const uploadAdminPartnerImage = async (partnerId, kind, file) => {
+  if (guardLegacyContentWrite()) return;
   const body = new FormData();
   body.append('file', file);
   const response = await apiFetch(`/api/v1/admin/partners/${partnerId}/images?kind=${kind}`, {
@@ -5882,6 +5918,7 @@ const uploadPartnerProfileImage = async (kind, file) => {
   return response;
 };
 const uploadAdminOfferImage = async (offerId, file) => {
+  if (guardLegacyContentWrite()) return;
   const body = new FormData();
   body.append('file', file);
   const response = await apiFetch(`/api/v1/admin/offers/${offerId}/image`, {

@@ -7330,3 +7330,25 @@ body.client-partner-modal-open {
     grid-template-columns: 1fr;
   }
 }
+
+.admin-readonly-notice {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 14px 16px;
+  margin: 0 0 16px;
+  border: 1px solid rgba(143, 81, 75, 0.24);
+  border-radius: 18px;
+  background: rgba(255, 247, 242, 0.92);
+  color: #6f3f3a;
+  box-shadow: 0 12px 28px rgba(80, 45, 40, 0.08);
+}
+
+.admin-readonly-notice strong {
+  flex: 0 0 auto;
+  color: #8f514b;
+}
+
+.admin-readonly-notice span {
+  line-height: 1.45;
+}
