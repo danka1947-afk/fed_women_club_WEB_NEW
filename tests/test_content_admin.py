@@ -842,3 +842,94 @@ def test_content_admin_giveaway_items_not_found_and_auth(
     assert wrong_response.status_code == 403
     assert bearer_response.status_code == 201
     assert header_response.status_code == 201
+
+
+def test_content_admin_delete_partner_hard_deletes_related_records(
+    content_admin_client: tuple[TestClient, str],
+) -> None:
+    client, token = content_admin_client
+    headers = _auth_headers(token)
+
+    city_id = client.post(
+        "/api/content/admin/cities",
+        headers=headers,
+        json={"name": "Казань", "slug": "kazan"},
+    ).json()["id"]
+    category_id = client.post(
+        "/api/content/admin/categories",
+        headers=headers,
+        json={"name": "Фитнес", "slug": "fitness"},
+    ).json()["id"]
+    partner_id = client.post(
+        "/api/content/admin/partners",
+        headers=headers,
+        json={
+            "city_id": city_id,
+            "category_slug": "fitness",
+            "category_ids": [category_id],
+            "name": "Hard Delete Partner",
+        },
+    ).json()["id"]
+    offer_id = client.post(
+        f"/api/content/admin/partners/{partner_id}/offers",
+        headers=headers,
+        json={"title": "Trial", "benefit_text": "-10%"},
+    ).json()["id"]
+    partner_photo_id = client.post(
+        f"/api/content/admin/partners/{partner_id}/photos",
+        headers=headers,
+        json={"url": "https://example.com/partner-hard-delete.jpg"},
+    ).json()["id"]
+    offer_photo_id = client.post(
+        f"/api/content/admin/offers/{offer_id}/photos",
+        headers=headers,
+        json={"url": "https://example.com/offer-hard-delete.jpg"},
+    ).json()["id"]
+
+    delete_response = client.delete(
+        f"/api/content/admin/partners/{partner_id}", headers=headers
+    )
+
+    assert delete_response.status_code == 204
+    assert (
+        client.get(f"/api/content/admin/partners/{partner_id}", headers=headers).status_code
+        == 404
+    )
+    assert (
+        client.get(
+            f"/api/content/admin/partners/{partner_id}/photos", headers=headers
+        ).status_code
+        == 404
+    )
+    assert (
+        client.get(
+            f"/api/content/admin/partners/{partner_id}/offers", headers=headers
+        ).status_code
+        == 404
+    )
+    assert (
+        client.get(f"/api/content/admin/offers/{offer_id}", headers=headers).status_code
+        == 404
+    )
+    assert (
+        client.get(
+            f"/api/content/admin/offers/{offer_id}/photos", headers=headers
+        ).status_code
+        == 404
+    )
+    assert client.patch(
+        f"/api/content/admin/partner-photos/{partner_photo_id}",
+        headers=headers,
+        json={"alt_text": "gone"},
+    ).status_code == 404
+    assert client.patch(
+        f"/api/content/admin/offer-photos/{offer_photo_id}",
+        headers=headers,
+        json={"alt_text": "gone"},
+    ).status_code == 404
+    assert (
+        client.delete(f"/api/content/admin/partners/{partner_id}", headers=headers).status_code
+        == 404
+    )
+    partners = client.get("/api/content/admin/partners", headers=headers).json()
+    assert partner_id not in {partner["id"] for partner in partners}

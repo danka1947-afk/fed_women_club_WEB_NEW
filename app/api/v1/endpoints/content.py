@@ -547,6 +547,27 @@ def admin_update_content_partner(
     return _partner_to_read(partner)
 
 
+@admin_router.delete("/partners/{partner_id}", status_code=status.HTTP_204_NO_CONTENT)
+def admin_delete_content_partner(
+    partner_id: int, db: Session = Depends(get_content_db)
+) -> None:
+    partner = db.execute(
+        select(ContentPartner)
+        .options(
+            selectinload(ContentPartner.category_links),
+            selectinload(ContentPartner.photos),
+            selectinload(ContentPartner.offers).selectinload(ContentOffer.photos),
+        )
+        .where(ContentPartner.id == partner_id)
+    ).scalar_one_or_none()
+    if partner is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Content partner not found"
+        )
+    db.delete(partner)
+    _commit_or_400(db, "Content partner could not be deleted")
+
+
 @admin_router.get(
     "/partners/{partner_id}/offers", response_model=list[ContentOfferRead]
 )

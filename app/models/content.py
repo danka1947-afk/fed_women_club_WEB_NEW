@@ -80,20 +80,24 @@ class ContentPartner(ContentBase):
 
     city: Mapped["ContentCity"] = relationship("ContentCity", back_populates="partners")
     category_links: Mapped[list["ContentPartnerCategory"]] = relationship(
-        "ContentPartnerCategory", back_populates="partner"
+        "ContentPartnerCategory", back_populates="partner", cascade="all, delete-orphan"
     )
     categories: Mapped[list["ContentCategory"]] = relationship(
         "ContentCategory", secondary="content_partner_categories", back_populates="partners", viewonly=True
     )
-    photos: Mapped[list["ContentPartnerPhoto"]] = relationship("ContentPartnerPhoto", back_populates="partner")
-    offers: Mapped[list["ContentOffer"]] = relationship("ContentOffer", back_populates="partner")
+    photos: Mapped[list["ContentPartnerPhoto"]] = relationship(
+        "ContentPartnerPhoto", back_populates="partner", cascade="all, delete-orphan"
+    )
+    offers: Mapped[list["ContentOffer"]] = relationship(
+        "ContentOffer", back_populates="partner", cascade="all, delete-orphan"
+    )
 
 
 class ContentPartnerCategory(ContentBase):
     __tablename__ = "content_partner_categories"
     __table_args__ = (UniqueConstraint("partner_id", "category_id", name="uq_content_partner_categories_pair"),)
 
-    partner_id: Mapped[int] = mapped_column(ForeignKey("content_partners.id"), primary_key=True)
+    partner_id: Mapped[int] = mapped_column(ForeignKey("content_partners.id", ondelete="CASCADE"), primary_key=True)
     category_id: Mapped[int] = mapped_column(ForeignKey("content_categories.id"), primary_key=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
@@ -105,7 +109,7 @@ class ContentPartnerPhoto(ContentBase):
     __tablename__ = "content_partner_photos"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    partner_id: Mapped[int] = mapped_column(ForeignKey("content_partners.id"), nullable=False, index=True)
+    partner_id: Mapped[int] = mapped_column(ForeignKey("content_partners.id", ondelete="CASCADE"), nullable=False, index=True)
     url: Mapped[str] = mapped_column(String(512), nullable=False)
     alt_text: Mapped[str | None] = mapped_column(String(255), nullable=True)
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
@@ -122,7 +126,7 @@ class ContentOffer(ContentBase):
     __tablename__ = "content_offers"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    partner_id: Mapped[int] = mapped_column(ForeignKey("content_partners.id"), nullable=False, index=True)
+    partner_id: Mapped[int] = mapped_column(ForeignKey("content_partners.id", ondelete="CASCADE"), nullable=False, index=True)
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     benefit_text: Mapped[str | None] = mapped_column(String(255), nullable=True)
@@ -166,14 +170,16 @@ class ContentOffer(ContentBase):
         return self.conditions
 
     partner: Mapped["ContentPartner"] = relationship("ContentPartner", back_populates="offers")
-    photos: Mapped[list["ContentOfferPhoto"]] = relationship("ContentOfferPhoto", back_populates="offer")
+    photos: Mapped[list["ContentOfferPhoto"]] = relationship(
+        "ContentOfferPhoto", back_populates="offer", cascade="all, delete-orphan"
+    )
 
 
 class ContentOfferPhoto(ContentBase):
     __tablename__ = "content_offer_photos"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    offer_id: Mapped[int] = mapped_column(ForeignKey("content_offers.id"), nullable=False, index=True)
+    offer_id: Mapped[int] = mapped_column(ForeignKey("content_offers.id", ondelete="CASCADE"), nullable=False, index=True)
     url: Mapped[str] = mapped_column(String(512), nullable=False)
     alt_text: Mapped[str | None] = mapped_column(String(255), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
