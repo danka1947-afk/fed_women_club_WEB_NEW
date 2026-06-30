@@ -22,6 +22,7 @@ from app.models.client import ClientProfile
 from app.models.payment import Subscription, SubscriptionStatus
 from app.models.user import AdminUser, User, UserRole
 from app.services.site_credentials import ensure_vk_site_credentials
+from app.services.referrals import apply_referral_on_new_client, ensure_referral_code
 from app.schemas.auth import (
     LoginRequest,
     LoginResponse,
@@ -161,6 +162,7 @@ def _get_or_create_vk_client_profile(
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Client user is inactive or invalid")
         generated_credentials, _ = ensure_vk_site_credentials(db, profile.user, vk_user_id)
         if generated_credentials:
+            ensure_referral_code(db, profile)
             db.commit()
             db.refresh(profile)
         return profile, False, generated_credentials
@@ -177,6 +179,8 @@ def _get_or_create_vk_client_profile(
         is_active=True,
     )
     db.add(profile)
+    db.flush()
+    ensure_referral_code(db, profile)
     generated_credentials, _ = ensure_vk_site_credentials(db, user, vk_user_id)
     db.commit()
     db.refresh(profile)
@@ -219,6 +223,7 @@ def _sync_telegram_profile_fields(profile: ClientProfile, telegram_user: Telegra
 def _get_or_create_telegram_client_profile(
     db: Session,
     telegram_user: TelegramMiniAppUser,
+    referral_code: str | None = None,
 ) -> tuple[ClientProfile, bool]:
     profile = db.execute(
         select(ClientProfile)
@@ -229,7 +234,8 @@ def _get_or_create_telegram_client_profile(
         if profile.user is None:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Client user is inactive or invalid")
         changed = _sync_telegram_profile_fields(profile, telegram_user)
-        if changed:
+        ensure_referral_code(db, profile)
+        if changed or not profile.referral_code:
             db.commit()
             db.refresh(profile)
         return profile, False
@@ -250,6 +256,9 @@ def _get_or_create_telegram_client_profile(
         is_active=True,
     )
     db.add(profile)
+    db.flush()
+    ensure_referral_code(db, profile)
+    apply_referral_on_new_client(db, profile, referral_code)
     db.commit()
     db.refresh(profile)
     return profile, True
@@ -296,7 +305,12 @@ def telegram_miniapp_login(
 
     params = verify_telegram_init_data(init_data)
     telegram_user = extract_telegram_user(params)
-    profile, _ = _get_or_create_telegram_client_profile(db, telegram_user)
+    referral_code = None
+    if isinstance(payload, dict):
+        referral_code = payload.get("referral_code") or payload.get("start_param") or payload.get("startapp")
+    if referral_code is None:
+        referral_code = params.get("start_param") or params.get("startapp")
+    profile, _ = _get_or_create_telegram_client_profile(db, telegram_user, referral_code=referral_code)
     user = profile.user
     if user is None or not user.is_active or user.role != UserRole.CLIENT.value:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Client user is inactive or invalid")

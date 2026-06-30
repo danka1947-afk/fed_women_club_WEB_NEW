@@ -33,6 +33,8 @@ class ClientProfile(Base):
     telegram_photo_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
     source: Mapped[str | None] = mapped_column(String(64), nullable=True)
     trial_subscription_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    referral_code: Mapped[str | None] = mapped_column(String(32), nullable=True, unique=True, index=True)
+    referred_by_referral_id: Mapped[int | None] = mapped_column(ForeignKey("client_referrals.id"), nullable=True, unique=True)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -49,6 +51,9 @@ class ClientProfile(Base):
         back_populates="client",
     )
     vk_link_codes: Mapped[list["VkLinkCode"]] = relationship("VkLinkCode", back_populates="client")
+    referrals_made: Mapped[list["ClientReferral"]] = relationship("ClientReferral", foreign_keys="ClientReferral.referrer_client_id", back_populates="referrer")
+    referral_joined: Mapped["ClientReferral | None"] = relationship("ClientReferral", foreign_keys=[referred_by_referral_id], post_update=True)
+    giveaway_entries: Mapped[list["GiveawayEntry"]] = relationship("GiveawayEntry", back_populates="client")
     identity_links: Mapped[list["ClientIdentityLink"]] = relationship(
         "ClientIdentityLink",
         back_populates="client_profile",
@@ -157,3 +162,37 @@ class ClientPasswordSetupToken(Base):
     vk_user_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     user: Mapped["User"] = relationship("User", back_populates="password_setup_tokens")
+
+
+class ClientReferral(Base):
+    __tablename__ = "client_referrals"
+    __table_args__ = (
+        UniqueConstraint("referred_client_id", name="uq_client_referrals_referred_client_id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    referrer_client_id: Mapped[int] = mapped_column(ForeignKey("client_profiles.id"), nullable=False, index=True)
+    referred_client_id: Mapped[int] = mapped_column(ForeignKey("client_profiles.id"), nullable=False, unique=True, index=True)
+    referral_code: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    reward_entries_count: Mapped[int] = mapped_column(Integer, nullable=False, default=5)
+    reward_granted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+    referrer: Mapped["ClientProfile"] = relationship("ClientProfile", foreign_keys=[referrer_client_id], back_populates="referrals_made")
+    referred: Mapped["ClientProfile"] = relationship("ClientProfile", foreign_keys=[referred_client_id])
+    giveaway_entry: Mapped["GiveawayEntry | None"] = relationship("GiveawayEntry", back_populates="related_referral", uselist=False)
+
+
+class GiveawayEntry(Base):
+    __tablename__ = "giveaway_entries"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    client_id: Mapped[int] = mapped_column(ForeignKey("client_profiles.id"), nullable=False, index=True)
+    giveaway_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+    source: Mapped[str] = mapped_column(String(32), nullable=False, default="other", index=True)
+    entries_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    related_referral_id: Mapped[int | None] = mapped_column(ForeignKey("client_referrals.id"), nullable=True, unique=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+    client: Mapped["ClientProfile"] = relationship("ClientProfile", back_populates="giveaway_entries")
+    related_referral: Mapped["ClientReferral | None"] = relationship("ClientReferral", back_populates="giveaway_entry")

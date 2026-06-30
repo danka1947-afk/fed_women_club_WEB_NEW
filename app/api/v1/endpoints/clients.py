@@ -18,7 +18,7 @@ from app.core.security import create_access_token
 from app.db.session import get_db
 from app.models.city import City
 from app.models.category import Category
-from app.models.client import AccountLinkingChallenge, ClientIdentityLink, ClientProfile, VkLinkCode, VkLinkCodeStatus
+from app.models.client import AccountLinkingChallenge, ClientIdentityLink, ClientProfile, ClientReferral, GiveawayEntry, VkLinkCode, VkLinkCodeStatus
 from app.models.partner import OfferPhoto, Partner, PartnerOffer, PartnerPhoto
 from app.models.payment import PaymentReceipt, PaymentRequest, PaymentRequestStatus, Subscription, SubscriptionStatus
 from app.models.verification import PrivilegeVerificationSession, PrivilegeVerificationStatus
@@ -38,6 +38,8 @@ from app.schemas.client import (
     ClientPartnerOfferRead,
     ClientPartnerPhotoRead,
     ClientProfileRead,
+    ClientReferralSummaryItem,
+    ClientReferralSummaryRead,
     ClientProfileUpdate,
     ClientSavingsItemRead,
     ClientSavingsPeriodRead,
@@ -54,6 +56,7 @@ from app.schemas.payment import (
 )
 from app.schemas.vk import VkLinkCodeRead
 from app.services.activity_feed import build_client_activity_feed
+from app.services.referrals import REWARD_ENTRIES_PER_REFERRAL, ensure_referral_code, referral_counts, referral_link
 from app.services.offer_savings import calculate_offer_saving_snapshot
 from app.services.site_credentials import (
     decrypt_site_password,
@@ -80,7 +83,6 @@ VK_LINK_CODE_TTL_SECONDS = 10 * 60
 VK_LINK_CODE_LENGTH = 8
 VK_LINK_CODE_ALPHABET = string.ascii_uppercase + string.digits
 TRIAL_SUBSCRIPTION_DAYS = 15
-TRIAL_PROMO_DEADLINE = date(2026, 6, 15)
 TRIAL_SOURCE = "trial"
 PAID_SOURCE = "paid"
 LINKING_CHALLENGE_TTL_SECONDS = 600
@@ -251,6 +253,29 @@ def read_client_me(
     return _client_profile_to_read(db, profile, current_user)
 
 
+@router.get("/me/referral", response_model=ClientReferralSummaryRead)
+def read_client_referral(
+    current_user: User = Depends(require_client),
+    db: Session = Depends(get_db),
+) -> ClientReferralSummaryRead:
+    profile = _get_or_create_client_profile(db, current_user.id)
+    code = ensure_referral_code(db, profile)
+    db.commit()
+    referrals_count, earned_entries_count = referral_counts(db, profile.id)
+    rows = db.execute(
+        select(ClientReferral, ClientProfile)
+        .join(ClientProfile, ClientProfile.id == ClientReferral.referred_client_id)
+        .where(ClientReferral.referrer_client_id == profile.id)
+        .order_by(ClientReferral.created_at.desc(), ClientReferral.id.desc())
+    ).all()
+    return ClientReferralSummaryRead(
+        referral_code=code,
+        referral_link=referral_link(code) or "",
+        referrals_count=referrals_count,
+        earned_entries_count=earned_entries_count,
+        reward_entries_per_referral=REWARD_ENTRIES_PER_REFERRAL,
+        referrals=[ClientReferralSummaryItem(id=r.id, referred_client_id=r.referred_client_id, first_name=c.telegram_first_name, username=c.telegram_username, created_at=r.created_at, reward_entries_count=r.reward_entries_count) for r, c in rows],
+    )
 
 
 @router.get("/me/site-credentials", response_model=ClientSiteCredentialsRead)
@@ -398,11 +423,6 @@ def activate_client_trial_subscription(
     profile = _get_or_create_client_profile(db, current_user.id)
     now = datetime.now(timezone.utc)
 
-    if not _is_trial_promo_available(now):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Trial subscription promo is no longer available",
-        )
     if profile.trial_subscription_used_at is not None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -833,6 +853,8 @@ def _get_or_create_client_profile(db: Session, user_id: int) -> ClientProfile:
 
     profile = ClientProfile(user_id=user_id, is_active=True, source="web")
     db.add(profile)
+    db.flush()
+    ensure_referral_code(db, profile)
     db.commit()
     db.refresh(profile)
     return profile
@@ -848,6 +870,9 @@ def _client_profile_to_read(db: Session, profile: ClientProfile, user: User) -> 
     if profile.selected_city_id is not None:
         selected_city_name = db.execute(select(City.name).where(City.id == profile.selected_city_id)).scalar_one_or_none()
     city_name = profile.custom_city or selected_city_name
+    ensure_referral_code(db, profile)
+    now = datetime.now(timezone.utc)
+    active_subscription = _get_current_active_subscription(db, profile.id, now)
     return ClientProfileRead.model_validate(
         {
             "id": profile.id,
@@ -862,6 +887,14 @@ def _client_profile_to_read(db: Session, profile: ClientProfile, user: User) -> 
             "custom_city": profile.custom_city,
             "city_name": city_name,
             "vk_user_id": profile.vk_user_id,
+            "telegram_user_id": profile.telegram_user_id,
+            "telegram_username": profile.telegram_username,
+            "telegram_first_name": profile.telegram_first_name,
+            "telegram_last_name": profile.telegram_last_name,
+            "trial_used": profile.trial_subscription_used_at is not None,
+            "trial_available": profile.trial_subscription_used_at is None and active_subscription is None,
+            "referral_code": profile.referral_code,
+            "referral_link": referral_link(profile.referral_code),
             "site_login": user.site_login,
             "site_password_masked": "*****" if user.encrypted_site_password else None,
             "site_password_available": bool(user.encrypted_site_password),
@@ -937,7 +970,8 @@ def _subscription_source(subscription: Subscription | None) -> str | None:
 
 
 def _is_trial_promo_available(now: datetime) -> bool:
-    return as_aware_utc(now).date() <= TRIAL_PROMO_DEADLINE
+    _ = now
+    return True
 
 
 def _subscription_to_read(
@@ -946,7 +980,7 @@ def _subscription_to_read(
     now: datetime,
 ) -> SubscriptionRead:
     trial_used = profile.trial_subscription_used_at is not None
-    trial_available = not trial_used and _is_trial_promo_available(now)
+    trial_available = not trial_used and subscription is None and _is_trial_promo_available(now)
     if subscription is None:
         return SubscriptionRead(
             status="inactive",

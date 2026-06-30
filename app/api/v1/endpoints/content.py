@@ -881,4 +881,81 @@ def admin_update_content_banner(
     return banner
 
 
+
+# WEB backend client admin endpoints consumed by content/admin tools.
+from datetime import datetime, timezone
+from sqlalchemy import func
+from app.db.session import get_db as get_main_db
+from app.models.client import ClientProfile, ClientReferral, GiveawayEntry
+from app.models.payment import Subscription, SubscriptionStatus
+from app.models.user import User
+from app.services.referrals import ensure_referral_code, referral_counts, referral_link
+
+
+def _active_client_subscription(db: Session, client_id: int) -> Subscription | None:
+    now = datetime.now(timezone.utc)
+    return db.execute(
+        select(Subscription)
+        .where(Subscription.client_id == client_id, Subscription.status == SubscriptionStatus.active.value, Subscription.starts_at <= now, Subscription.ends_at > now)
+        .order_by(Subscription.ends_at.desc(), Subscription.id.desc())
+        .limit(1)
+    ).scalar_one_or_none()
+
+
+def _admin_client_payload(db: Session, client: ClientProfile) -> dict[str, object]:
+    ensure_referral_code(db, client)
+    subscription = _active_client_subscription(db, client.id)
+    referrals_count, entries_count = referral_counts(db, client.id)
+    user = client.user
+    return {
+        "id": client.id,
+        "user_id": client.user_id,
+        "telegram_user_id": client.telegram_user_id,
+        "first_name": client.telegram_first_name,
+        "last_name": client.telegram_last_name,
+        "username": client.telegram_username,
+        "phone": user.phone if user else None,
+        "created_at": client.created_at,
+        "updated_at": None,
+        "subscription_status": subscription.status if subscription else "inactive",
+        "subscription_until": subscription.ends_at if subscription else None,
+        "trial_used": client.trial_subscription_used_at is not None,
+        "trial_available": client.trial_subscription_used_at is None and subscription is None,
+        "referral_code": client.referral_code,
+        "referral_link": referral_link(client.referral_code),
+        "referrals_count": referrals_count,
+        "earned_giveaway_entries_count": entries_count,
+    }
+
+
+@admin_router.get("/clients")
+def list_content_admin_clients(db: Session = Depends(get_main_db)) -> list[dict[str, object]]:
+    clients = db.execute(select(ClientProfile).options(selectinload(ClientProfile.user)).order_by(ClientProfile.id.asc())).scalars().all()
+    payload = [_admin_client_payload(db, client) for client in clients]
+    db.commit()
+    return payload
+
+
+@admin_router.get("/clients/{client_id}")
+def get_content_admin_client(client_id: int, db: Session = Depends(get_main_db)) -> dict[str, object]:
+    client = db.execute(select(ClientProfile).options(selectinload(ClientProfile.user)).where(ClientProfile.id == client_id)).scalar_one_or_none()
+    if client is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Client not found")
+    payload = _admin_client_payload(db, client)
+    payload["referrals"] = [
+        {"id": r.id, "referred_client_id": r.referred_client_id, "reward_entries_count": r.reward_entries_count, "reward_granted_at": r.reward_granted_at, "created_at": r.created_at}
+        for r in db.execute(select(ClientReferral).where(ClientReferral.referrer_client_id == client.id).order_by(ClientReferral.created_at.desc())).scalars().all()
+    ]
+    payload["giveaway_entries"] = [
+        {"id": e.id, "client_id": e.client_id, "giveaway_id": e.giveaway_id, "source": e.source, "entries_count": e.entries_count, "related_referral_id": e.related_referral_id, "created_at": e.created_at}
+        for e in db.execute(select(GiveawayEntry).where(GiveawayEntry.client_id == client.id).order_by(GiveawayEntry.created_at.desc())).scalars().all()
+    ]
+    payload["subscriptions"] = [
+        {"id": s.id, "status": s.status, "starts_at": s.starts_at, "ends_at": s.ends_at, "source": s.source, "source_payment_request_id": s.source_payment_request_id, "created_at": s.created_at}
+        for s in db.execute(select(Subscription).where(Subscription.client_id == client.id).order_by(Subscription.created_at.desc(), Subscription.id.desc())).scalars().all()
+    ]
+    db.commit()
+    return payload
+
+
 router.include_router(admin_router)
