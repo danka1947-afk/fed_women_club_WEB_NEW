@@ -12,7 +12,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError, OperationalError, SQLAlchemyError, TimeoutError as SQLAlchemyTimeoutError
 
-from app.api.v1.endpoints.auth import router as root_auth_router
+from app.api.v1.endpoints.auth import router as root_auth_router, telegram_miniapp_login, vk_miniapp_login
 from app.api.v1.endpoints.content import router as content_router
 from app.api.v1.endpoints.public import router as public_router
 from app.api.v1.router import api_router
@@ -151,6 +151,11 @@ app.include_router(public_router)
 app.include_router(content_router)
 app.include_router(api_router)
 app.include_router(root_auth_router)
+
+# Keep auth contract routes visible to route-introspection tests and legacy clients.
+app.add_api_route("/api/v1/auth/vk-miniapp-login", vk_miniapp_login, methods=["POST"], response_model=None, include_in_schema=False)
+app.add_api_route("/auth/vk-miniapp-login", vk_miniapp_login, methods=["POST"], response_model=None, include_in_schema=False)
+app.add_api_route("/api/v1/auth/telegram-miniapp-login", telegram_miniapp_login, methods=["POST"], response_model=None, include_in_schema=False)
 
 
 @app.middleware("http")

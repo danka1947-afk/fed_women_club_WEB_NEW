@@ -638,7 +638,7 @@ def test_client_trial_subscription_makes_expired_subscription_active(client_cabi
     assert _parse_api_datetime(data["expires_at"]) > now
 
 
-def test_client_trial_subscription_unavailable_after_promo_deadline(
+def test_client_trial_subscription_available_after_old_promo_deadline(
     client_cabinet_client: TestClient,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -653,8 +653,8 @@ def test_client_trial_subscription_unavailable_after_promo_deadline(
 
     response = client_cabinet_client.post("/api/v1/clients/me/trial-subscription", headers=_auth_headers(token))
 
-    assert response.status_code == 400
-    assert response.json()["detail"] == "Trial subscription promo is no longer available"
+    assert response.status_code == 200
+    assert response.json()["trial_used"] is True
 
 
 def test_client_trial_subscription_without_token_returns_401(client_cabinet_client: TestClient) -> None:

@@ -24,6 +24,14 @@ class ClientProfileRead(BaseModel):
     site_password_available: bool = False
     source: str | None
     is_active: bool
+    telegram_user_id: str | None = None
+    telegram_username: str | None = None
+    telegram_first_name: str | None = None
+    telegram_last_name: str | None = None
+    trial_used: bool = False
+    trial_available: bool = False
+    referral_code: str | None = None
+    referral_link: str | None = None
 
     model_config = {"from_attributes": True}
 
@@ -237,3 +245,21 @@ class ClientSavingsRead(BaseModel):
     currency: str = "RUB"
     period: ClientSavingsPeriodRead
     items: list[ClientSavingsItemRead]
+
+
+class ClientReferralSummaryItem(BaseModel):
+    id: int
+    referred_client_id: int
+    first_name: str | None = None
+    username: str | None = None
+    created_at: datetime
+    reward_entries_count: int
+
+
+class ClientReferralSummaryRead(BaseModel):
+    referral_code: str
+    referral_link: str
+    referrals_count: int
+    earned_entries_count: int
+    reward_entries_per_referral: int = 5
+    referrals: list[ClientReferralSummaryItem] = Field(default_factory=list)
